@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: HarvestMan
+Version: 1.4 final 
+Summary: HarvestMan - Multithreaded Offline Browser/Web Crawler
+Home-page: http://harvestman.freezope.org
+Author: Anand B Pillai
+Author-email: anandpillai@letterboxes.org
+License: GNU General Public License 
+Description: Tools, Webbot, Web-Robot, Web-Crawler, Web-spider, Offline browser, Python modules.
+Platform: All

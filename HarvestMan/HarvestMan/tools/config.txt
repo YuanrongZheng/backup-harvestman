@@ -1,0 +1,69 @@
+;;HarvestMan Configuration File version 2.0
+
+;;project related variables
+project.url                        www.python.org/doc/current/tut/tut.html
+project.name                       pytut
+project.basedir                    ~/websites
+project.verbosity                  2
+project.timeout                    300.0
+
+;;network related variables
+network.urlserver                  0
+network.urlport                    3081
+
+;;url related variables
+
+;;download related variables
+download.html                      1
+download.images                    1
+download.javascript                1
+download.javaapplet                1
+download.forms                     1
+download.cookies                   1
+download.cache                     1
+download.datacache                 1
+download.retries                   1
+download.tidyhtml                  0
+
+;;download control variables
+control.imagelinks                 1
+control.stylesheetlinks            1
+control.fetchlevel                 0
+control.extserverlinks             0
+control.extpagelinks               1
+control.depth                      10
+control.extdepth                   0
+control.subdomain                  0
+control.maxextservers              0
+control.maxextdirs                 0
+control.maxfiles                   5000
+control.maxfilesize                1048576
+control.connections                5
+control.requests                   5
+control.timelimit                  -1
+control.robots                     1
+control.urlpriority                
+control.serverpriority             
+control.urlfilter                  
+control.serverfilter               
+control.wordfilter                 
+control.junkfilter                 1
+
+;;system related variables
+system.workers                     1
+system.threadtimeout               200.0
+system.threadpoolsize              10
+system.trackers                    4
+system.locale                      american
+system.fastmode                    1
+
+;;indexer related variables
+indexer.localise                   2
+
+;;files related variables
+files.urlslistfile                 
+files.urltreefile                  
+
+;;display related variables
+display.browsepage                 1
+
