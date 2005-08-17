@@ -1,0 +1,16 @@
+1. Localization still has problems. Some downloaded files
+are still not localized correctly.
+2. The code which reads back a project file and runs it
+fails with a KeyError - Fixed.
+3. While localizing, the program still shows many running threads.
+It should be only one. Need to check this.
+4. Not shutting down threads after a successful download.
+Need to check.
+5. Problem with cache checking. Even if no cache was there,
+we still see messages like "5 files were uptodate in the project cache...".
+Need to fix this.
+
+5. memory consumption problem!
+
+
+Fix 1-5 for 1.4.5 final.

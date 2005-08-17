@@ -764,6 +764,8 @@ class harvestManDataManager(object):
                     continue
                 
                 fullfilename = os.path.abspath( url_object.get_full_filename() )
+                #extrainfo('Url=>',url_object.get_full_url())
+                #extrainfo('Full filename=>',fullfilename)
                 urlfilename=''
 
                 # Modification: localisation w.r.t relative pathnames
@@ -823,7 +825,7 @@ class harvestManDataManager(object):
                 try:
                     if oldurl != newurl:
                         # extrainfo('Replacing %s with %s' % (oldurl, newurl))
-                        data = re.sub(oldurlre, newurl, data)
+                        data = re.sub(oldurlre, newurl, data,1)
                 except Exception, e:
                     debug(str(e))
                     continue
@@ -842,7 +844,7 @@ class harvestManDataManager(object):
                     try:
                         oldurl = "".join((item, "=\"", v, "\""))
                         if oldurl != newurl:
-                            data = re.sub(oldurlre, newurl, data)
+                            data = re.sub(oldurlre, newurl, data,1)
                     except:
                         pass
 

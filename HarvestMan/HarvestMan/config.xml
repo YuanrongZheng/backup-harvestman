@@ -6,10 +6,10 @@
     <projects combine="0">
       
       <project skip="0">
-        <url>http://www.python.org/doc/current/tut/tut.html</url>
-        <name>pytut</name>
+        <url>http://www.oligopolywatch.com</url>
+        <name>oligo</name>
         <basedir>C:/websites</basedir>
-        <verbosity value="2"/>
+        <verbosity value="3"/>
       </project>
       
     </projects>
@@ -21,7 +21,7 @@
         <proxypasswd></proxypasswd>
         <proxyport value="8080"/>
       </proxy>
-      <urlserver status="1">
+      <urlserver status="0">
         <urlhost>localhost</urlhost>
         <urlport value="3081"/>
       </urlserver>

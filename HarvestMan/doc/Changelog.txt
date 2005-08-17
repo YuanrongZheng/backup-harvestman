@@ -1,0 +1,54 @@
+*==========================================================*
+|            -Changelog.txt file for HarvestMan-           |
+|                                                          |
+|           URL: http://harvestman.freezope.org            |
+*==========================================================*
+Version 1.4.5 b1 (beta 1)
+Release Date: -------
+
+Improvements
+============
+1. There is only one improvement in this release, the new
+command line options. The new release has a complete set
+of new command line options written from scratch. It 
+replaces the previous cluttered and confusing command line.
+A notable feature is that you can use HarvestMan like wget
+for only downloading URLs with a nocrawl option. The new
+command line supports a number of useful options which
+the user is most likely to configure. It skips a number
+of advanced or obscure options that the user need not
+be bothered with, making the command line user friendly.
+For more information, go to 
+http://harvestman.freezope.org/commandline.html .
+
+Bug-fixes
+=========
+Most of these are minor, except the first two.
+
+1. Added extensions .shtm, .php4, .aspx, .cfm, .cfml,
+.cms as valid web-page extensions in urlparser.py. So
+web-pages ending in these extensions will work with
+HarvestMan. 
+2. When printing the url tree, duplicate links were not
+checked. This has been fixed by adding a check.
+3. A minor bug in setting verbosity in logger object
+was fixed.
+4. Comments will be printed for starting & stoppping
+of url server at verbosity level 3. Comments for pinging
+url server is raised to debug level 4 from 3.
+5. Program version number, when print using the -v option
+will print the release level also. For example right now
+this will be printed as 'HarvestMan 1.4.5 beta 1'. Earlier
+it used to print only the version number.
+6. The __fix method of config.py now looks at the number
+of URLs. If no URLs are found (either from config.xml or
+through command line), it exits with an error message.
+7. Asyncore thread for urlserver is now a daemon thread,
+so it will exit if the program is killed.
+8. Fixed a minor bug in set_proxy in connector.py where
+the function to set proxy was being called three times.
+Changed this to one.
+9. Fixed a bug in rules.py. Member self._robocache should
+be a list.
+
+

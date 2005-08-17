@@ -1,0 +1,56 @@
+#!/bin/bash
+# HarvestMan installation script for
+# Linux/Unix systems.
+
+currver=`python -c "import sys; v = sys.version_info; print ''.join((str(v[0]),'.',str(v[1])))"`
+
+function sym_link
+{
+sitedir=`python -c "import site; print site.sitedirs[0]"`
+exepath=$sitedir/HarvestMan/harvestman.py
+if [ ! -f $exepath ]
+then
+echo "Could not find $exepath"
+echo "Re-run the installation or install manually"
+exit 2
+fi
+
+if [ -f /usr/bin/harvestman ]
+then
+rm -rf /usr/bin/harvestman
+fi
+echo "/usr/bin/env python $exepath \$*" > /usr/bin/harvestman
+chmod +x /usr/bin/harvestman
+}
+
+if [ `whoami` != "root" ]
+then
+echo "Run this script as the local system administrator."
+exit 2
+fi
+
+case $currver in
+"2.3") echo "Python 2.3 detected...";;
+"2.2") echo "Python 2.2 detected...";;
+*) echo "Python 2.2 or 2.3 not detected";echo "Please upgrade your Python installation";exit 2;;
+esac
+
+echo "Creating build..."
+python setup.py build
+echo "Installing..."
+python setup.py install
+echo "Do you want to configure system-wide symbolic links [y/n] ?"
+read ans
+case $ans in
+"n"|"N") ;;
+"y"|"Y")echo "Creating symbolic link in /usr/bin...";sym_link;;
+esac
+
+# Clean up local build directory
+echo "Cleaning up..."
+if [ -d ./build ]
+then
+rm -rf ./build
+fi
+
+echo "Finished."
