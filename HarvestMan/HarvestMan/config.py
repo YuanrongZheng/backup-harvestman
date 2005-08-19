@@ -3,7 +3,7 @@
     for HarvestMan program and its related modules. This software is
     part of the HarvestMan program.
 
-    Author: Anand B Pillai (anandpillai at letterboxes dot org).
+    Author: Anand B Pillai.
 
     For licensing information see the file LICENSE.txt that
     is included in this distribution.
@@ -25,7 +25,6 @@
                               Performance fix - Set the default tracker
                               size to three.
     Oct 25 2004      Anand    Added config variables for urlserver.                              
-
 """
 
 PROG_HELP = """\
@@ -107,7 +106,7 @@ class HarvestManStateObject(dict):
     def _init1(self):
         
         self.version='1.4.5'
-        self.maturity="beta 1"
+        self.maturity="final"
         self.appname='HarvestMan'
         self.progname="".join((self.appname," ",self.version," ",self.maturity))
         self.url=''
@@ -180,7 +179,8 @@ class HarvestManStateObject(dict):
         self.urlprioritydict = {}
         self.serverprioritydict = {}
         self.verbosity=2
-        self.timeout=200
+        self.timeout=240
+        self.fetchertimeout=self.timeout
         self.getimagelinks=1
         self.getstylesheets=1
         self.threadpoolsize=10

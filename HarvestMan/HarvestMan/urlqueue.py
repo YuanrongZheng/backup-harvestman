@@ -68,13 +68,20 @@ class HarvestManCrawlerQueue(object):
         self._configobj = GetObject('config')
         self.url_q = PriorityQueue(4*self._configobj.maxtrackers)
         self.data_q = PriorityQueue(4*self._configobj.maxtrackers)
-       
+        # Local buffer - new in 1.4.5
+        self.buffer = []
+        
     def increment_lock_instance(self, val=1):
         self._lockedinst += val
 
     def get_locked_instances(self):
         return self._lockedinst
-    
+
+    def get_controller(self):
+        """ Return the controller thread object """
+
+        return self._controller
+        
     def configure(self):
         """ Configure this class with this config object """
 
@@ -99,7 +106,30 @@ class HarvestManCrawlerQueue(object):
             
         self._trackers.append(self._basetracker)
         return True
+
+    def mainloop(self):
+        """ The loop where this object spends
+        most of its time. However it is not
+        an idle loop """
+
+        # New in 1.4.5, moving code from
+        # the crawl method.
+        count=0
+
+        if self._configobj.nocrawl:
+            numstops = 1
+        else:
+            numstops = 3
         
+        while 1:
+            time.sleep(1.0)
+            
+            if self.is_exit_condition():
+                count += 1
+                    
+            if count==numstops:
+                break
+
     def crawl(self):
         """ Starts crawling for this project """
 
@@ -133,11 +163,6 @@ class HarvestManCrawlerQueue(object):
         
         self._controller = datamgr.harvestManController()
         self._controller.start()
-
-        if self._configobj.nocrawl:
-            numstops = 1
-        else:
-            numstops = 5
             
         if self._configobj.fastmode:
             # Create the number of threads in the config file
@@ -180,14 +205,8 @@ class HarvestManCrawlerQueue(object):
                 # otherwise we exit immediately sometimes.
                 time.sleep(2.0)
 
-            count=0
-            while 1:
-                time.sleep(1.0)
-                if self.is_exit_condition():
-                    count += 1
-                    
-                if count==numstops: break
-                
+            self.mainloop()
+            
             # Set flag to 1 to denote that downloading is finished.
             self._flag = 1
             
@@ -285,7 +304,6 @@ class HarvestManCrawlerQueue(object):
         for t in self._trackers:
             if t.has_work():
                 print t,' =>', t.getUrl()
-
             
     def is_locked_up(self, role):
          """ The queue is considered locked up if all threads
@@ -407,7 +425,6 @@ class HarvestManCrawlerQueue(object):
                 except Queue.Full:
                     time.sleep(0.5)
                     
-                    
         elif role == 'fetcher':
             stuff = (obj[0].get_priority(), (obj[0].index, obj[1]))
             while ntries < 5:
@@ -432,7 +449,13 @@ class HarvestManCrawlerQueue(object):
         if self._configobj.project:
             moreinfo("Ending Project", self._configobj.project,'...')
         for t in self._trackers:
-            t.stop()
+            try:
+                t.terminate()
+                t.join()
+            except crawler.HarvestManUrlCrawlerException, e:
+                pass
+            except Exception, e:
+                pass
 
         # Stop controller
         self._controller.stop()
@@ -442,7 +465,7 @@ class HarvestManCrawlerQueue(object):
         
         # Exit the system
         if not noexit:
-            sys.exit(2)
+            sys.exit(0)
 
     def terminate_threads(self):
         """ Kill all current running threads and
@@ -474,9 +497,7 @@ class HarvestManCrawlerQueue(object):
 
         count =0
 
-        debug('Current running threads => ', threading.activeCount())
-        debug('Current tracker count => ', len(self._trackers))
-        extrainfo('Waiting for threads to clean up ')
+        debug('Waiting for threads to clean up ')
 
         for tracker in self._trackers:
             count += 1
@@ -504,3 +525,42 @@ class HarvestManCrawlerQueue(object):
 
         self._trackers = []
         self._basetracker = None
+
+    def recycle_thread(self, tracker):
+        """ Recycle and regenerate a tracker thread """
+
+        # Not used in 1.4.5 - Need to look into
+        # this as a part of thread checkpointing
+        # in next version.
+        
+        # Get the type of thread
+        role = tracker.get_role()
+        # Get its url object and index
+        urlobj, idx = tracker.get_url_object(), tracker.get_index()
+        links = []
+        
+        # Kill the thread and remove it
+        # from the list
+        try:
+            self._trackers.remove(tracker)
+            tracker.terminate()
+        except:
+            pass
+
+        # Create a new tracker
+        if role == 'fetcher':
+            new_thread = crawler.HarvestManUrlFetcher(idx, None, True)
+        elif role == 'crawler':
+            new_thread = crawler.HarvestManUrlCrawler(idx, None, True)            
+            links = tracker.links
+            
+        self._trackers.append(new_thread)
+        new_thread.start()
+
+        if urlobj:
+            if role=='fetcher':
+                self.buffer.append(urlobj)
+            elif role=='crawler':
+                self.buffer.append((urlobj,links))
+        else:
+            pass

@@ -10,7 +10,7 @@ HARVESTMan is an internet offline crawler (robot) program written
 in python. It helps you to grab pages from the internet and store 
 it in a local directory for offline browsing.
 
-This is version 1.4.5 beta 1.
+This is version 1.4.5 final.
 
 Author: Anand Pillai.
 
@@ -220,7 +220,7 @@ This version has been developed partly on Ubuntu "Hoary Hedgehog"
 and Windows 2000/XP, running Python 2.4.1 .
 
 HarvestMan seems to work fine with Python 2.4 on Windows XP now, after
-the changes introduced in alpha 2. There might be some performance issues 
+the changes introduced in 1.4.5 alpha 2. There might be some performance issues 
 with Python 2.3 on Windows XP. It is advised to use Python 2.4 on all 
 platforms for maximizing performance.
 

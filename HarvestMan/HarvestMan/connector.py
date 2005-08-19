@@ -537,10 +537,11 @@ class HarvestManUrlConnector:
 
             if queryauth:
                 user=bin_crypt(raw_input('Enter username for your proxy server: '))
-                import getpass
-                passwd=bin_crypt(getpass.getpass('Enter password for your proxy server: '))
-                # Set it on myself and re-configure
-                if user and passwd:
+                # Ask for password only if a valid user is given.
+                if user:
+                    import getpass
+                    passwd=bin_crypt(getpass.getpass('Enter password for your proxy server: '))
+                    # Set it on myself and re-configure
                     self.network_conn.set_authinfo(user,passwd)
         except EOFError, e:
             debug(str(e))

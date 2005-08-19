@@ -4,9 +4,9 @@
 """ HarvestMan - Multithreaded internet spider program
     using urllib2 and other python modules.
     
-    Version      - 1.4.5 beta 1
+    Version      - 1.4.5 final
 
-   Author: Anand B Pillai(anandpillai at letterboxes dot org).
+   Author: Anand B Pillai.
 
  HARVESTMAN is totally free software. See the file LICENSE.txt for
  information on the terms and conditions of usage, and a DISCLAIMER
@@ -41,6 +41,7 @@
                                      stuff is done. Done testing new command
                                      line options and verification on M$ Windoze
                                      platform.
+     Aug 19 2005                     1.4.5 final release.
 """     
 
 __revision__ = '1.4.5'
@@ -346,7 +347,6 @@ class harvestMan(object):
                 # screws up existing cache.
                 GetObject('datamanager').conditional_cache_set()
                 self.clean_up()
-                # sys.exit("Exiting...")
 
         # Clean up actions    
         self.finish()       

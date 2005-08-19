@@ -3,6 +3,33 @@
 |                                                          |
 |           URL: http://harvestman.freezope.org            |
 *==========================================================*
+Version 1.4.5 final
+Release Date: Aug 19 2005
+
+Release Focus: Bug-fixes
+
+Changes
+=======
+1. Added a subdomain flag to the command line.
+2. For verbosity level of zero, no message is printed.
+Earlier this used to print the welcome message.
+
+Bug-fixes
+=========
+1. Fixed the bug with starting a project by reading
+back an existing project file. This was not working
+before. Project file written out using Python marshal
+module, not pickle.
+2. Fixed bugs in localization. The regular expression's
+sub method should replace URL only once. Test site:
+http://www.oligopolywatch.com .
+3. Verbosity command line flag was not working. Fixed
+it. Fixed errors with a few other command line options.
+4. The stop project method of the program now
+calls the "terminate" method on threads so we dont
+have hanging threads.
+
+
 Version 1.4.5 b1 (beta 1)
 Release Date: Aug 02 2005
 

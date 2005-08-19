@@ -1,16 +1,19 @@
-1. Localization still has problems. Some downloaded files
-are still not localized correctly.
-2. The code which reads back a project file and runs it
-fails with a KeyError - Fixed.
-3. While localizing, the program still shows many running threads.
-It should be only one. Need to check this.
-4. Not shutting down threads after a successful download.
-Need to check.
-5. Problem with cache checking. Even if no cache was there,
-we still see messages like "5 files were uptodate in the project cache...".
-Need to fix this.
 
-5. memory consumption problem!
+FEATURE/FIX                                  |  STATUS
+-------------------------------------------------------------------------------------
+1.Localization still has problems. Some      | Kind of fixed. A few sample sites
+downloaded files are still not localized     | such as http://www.oligopolywatch.com
+correctly.                                   | now localize correctly.
+                                             |
+2. Memory consumption problem                | In next version.
+3. Scheduler to start crawling at a given    | In next version.
+time.                                        |
+4. Ability to pick up and add URLs from/to   | In next version.
+a URL database.                              |
+5. Thread checkpointing and data migration   | In next version.
+for crawlers.                                |
+6. Cache creation using C extensions.        | In next version.
+7. A basic UI.                               | In next version.
+---------------------------------------------------------------------------------------
 
 
-Fix 1-5 for 1.4.5 final.

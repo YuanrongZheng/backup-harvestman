@@ -263,15 +263,13 @@ class HarvestManCacheManager(object):
         # Get cache filename
         if not os.path.exists(self.__cachefilename):
             moreinfo("Project cache not found")
-            return
+            return None
 
         cfg = GetObject('config')
         if cfg.cachefileformat == 'pickled':
             return self.__read_pickled_cache_file()
         elif cfg.cachefileformat == 'dbm':
             return self.__read_dbm_cache_file()
-
-        return None
 
     def __read_pickled_cache_file(self):
 

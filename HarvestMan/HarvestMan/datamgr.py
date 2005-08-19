@@ -68,6 +68,8 @@ class harvestManDataManager(object):
         if self._cfg.usethreads:
             self._urlThreadPool = harvestManUrlThreadPool()
             self._urlThreadPool.spawn_threads()
+        else:
+            self._urlThreadPool = None
 
     def get_proj_cache_filename(self):
         """ Return the cache filename for the current project """
@@ -312,12 +314,13 @@ class harvestManDataManager(object):
 
         # localise downloaded file's links, dont do if jit localisation
         # is enabled.
-        if self._cfg.localise and not self._cfg.jitlocalise:
+        if self._cfg.localise:
             self.localise_links()
 
         # Write archive file...
         if self._cfg.archive:
             self.archive_project()
+            
         #  Get handle to rules checker object
         ruleschecker = GetObject('ruleschecker')
         # dump downloaded urls to a text file
@@ -506,6 +509,7 @@ class harvestManDataManager(object):
             if not self._cfg.usethreads or urlobj.is_webpage():
                 server = urlobj.get_domain()
                 conn_factory = GetObject('connectorfactory')
+
                 # This call will block if we exceed the number of connections
                 conn = conn_factory.create_connector( server )
                 res = conn.save_url( urlobj )
@@ -824,7 +828,8 @@ class harvestManDataManager(object):
                 # Get the location of the link in the file
                 try:
                     if oldurl != newurl:
-                        # extrainfo('Replacing %s with %s' % (oldurl, newurl))
+                        # Bugfix: Replace only once, otherwise you get
+                        # invalid URls - Fix for 1.4.5 final.
                         data = re.sub(oldurlre, newurl, data,1)
                 except Exception, e:
                     debug(str(e))
@@ -844,6 +849,8 @@ class harvestManDataManager(object):
                     try:
                         oldurl = "".join((item, "=\"", v, "\""))
                         if oldurl != newurl:
+                            # Bugfix: Replace only once, otherwise you get
+                            # invalid URls - Fix for 1.4.5 final.                            
                             data = re.sub(oldurlre, newurl, data,1)
                     except:
                         pass
@@ -1084,8 +1091,10 @@ class harvestManController(tg.Thread):
     # NOTE: This class's object does not get registered
     def __init__(self):
         self._dmgr = GetObject('datamanager')
+        self._tq =  GetObject('trackerqueue')
         self._cfg = GetObject('config')
         self._exitflag = False
+        self._conn = {}
         tg.Thread.__init__(self, None, None, 'HarvestMan Control Class')
 
     def run(self):
@@ -1096,7 +1105,6 @@ class harvestManController(tg.Thread):
             # Wake up every second and look
             # for exceptional conditions
             time.sleep(1.0)
-            # self.__check_terminate_condition()
             self.__manage_time_limits()
             self.__manage_file_limits()
 
@@ -1105,24 +1113,39 @@ class harvestManController(tg.Thread):
 
         self._exitflag = True
 
-    def terminator(self):
-        """ This function terminates HarvestMan """
-        
-        # Get tracker queue object
-        tq = GetObject('trackerqueue')
-        tq.terminate_threads()
-            
-    def __check_terminate_condition(self):
-        """ Check terminate condition on the config object """
+    def __manage_fetcher_connections(self):
+        """ Manage timeouts for fetcher downloads using
+        a dictionary - New in 1.4.5 final """
 
-        # If someone set the terminate flag in
-        # config object, return true straight away.
-        # This is the most easy way to signal program
-        # exit.
+        # Not enabled in this version!
+        for key, value in self._conn.items():
+            # Key is the thread itself
+            tracker = key
+            # If this tracker is not in a download stage, skip it.
+            if tracker.get_status() != 1:
+                continue
+            # Value is a two tuple of timeout-count, connection timestamp
+            count, start_time = value
+            # Check time gap
+            time_gap = time.time() - start_time
+            # Check if it is greater than allowed time-out
+            if time_gap>self._cfg.fetchertimeout:
+                # If number of violations is two, kill the thread
+                if count>=2:
+                    try:
+                        # debug('Terminating thread',tracker)
+                        self._tq.recycle_thread(tracker)
+                    except Exception, e:
+                        pass
 
-        if self._cfg.terminate:
-            self.terminator()
-        
+                    # debug('Running threads=>',tg.activeCount())
+                    del self._conn[tracker]
+                else:
+                    # Increment violation count and re-set
+                    # time-stamp
+                    count += 1
+                    self._conn[tracker] = count, time.time()
+
     def __manage_time_limits(self):
         """ Manage limits on time for the project """
 
@@ -1182,9 +1205,17 @@ class harvestManController(tg.Thread):
                         print e
 
         return 0
-
                     
-                
-    
+    def log_connection(self, conn, thread_conn):
+        """ Log a connection for a download (Fetcher) thread """
+
+        # To be enabled in next version!
+        
+        # Logic: The idea is to keep track of fetcher threads
+        # which gets stuck while downloading a URL. The log
+        # is a dictionary entry, a tuple of two values - The
+        # number of times the download time exceeded the thread
+        # timeout value and the timestamp of the download.
+        self._conn[thread_conn] = (0, time.time())
 
 

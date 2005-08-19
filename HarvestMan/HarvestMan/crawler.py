@@ -53,6 +53,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         
         if isThread:
             threading.Thread.__init__(self, None, None, self.get_role() + str(self._index))
+
     def _initialize(self):
         """ Initialise my state after construction """
 
@@ -193,7 +194,12 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         manage its data """
 
         pass
-    
+
+    def append_to_buffer(self, url_obj):
+        """ Add an item to the buffer """
+
+        self.buffer.append(url_obj)
+        
     def push_buffer(self):
         """ Try to push items in local buffer to queue """
 
@@ -576,7 +582,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             if self._configobj.images:
                 links += self.wp.images
             
-            
             # Fix for hanging threads - Append objects
             # to local buffer if queue was full.
 
@@ -616,7 +621,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     
             # Update links called here
             mgr.update_links(url_obj.get_full_filename(), urlobjlist)
-            
 
 class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
     """ This is a mixin class which does both the jobs of crawling webpages
