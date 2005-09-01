@@ -10,7 +10,6 @@
 
     Dependency
     ==========
-    WebHTMLParser, string
 
     Jun 14 2004       Anand          1.3.9 release.
     May 14 2005       Anand          1.4.1 - Replaced parser
@@ -21,6 +20,10 @@
                                      [Original code of SGMLParser derived
                                      parser, courtesy Leonardo of BeautifulSoup
                                      module]
+
+   Sep 1 2005       Anand            Made _handled, skip_re and query_re
+                                     as class level members to optimize their
+                                     usage.
                                      
 """
 
@@ -36,20 +39,25 @@ class CaselessDict(dict):
         return False
     
 class harvestManSimpleParser(SGMLParser):
-    """ This class contains our handler methods for HTML elements
-    which can be used by various parsers """
+    """ An HTML/XHTML parser derived from SGMLParser """
 
+    # Optimizations - put some of the data as
+    # class level members.
+    query_re = re.compile(r'[-.:_a-zA-Z0-9]*\?[-.:_a-zA-Z0-9]*=[-.a:_-zA-Z0-9]*')
+    skip_re = re.compile(r'(javascript:)|(mailto:)|(news:)|(\?m=a)|(\?n=d)|(\?s=a)|(\?d=a)')
+
+    handled = { 'a' : (('href', 'normal'), ('href', 'anchor')),
+                'base': (('href', 'base'),),
+                'frame': (('src', 'normal'),),
+                'img' : (('src', 'image'),),
+                'form' : (('action', 'form'),),
+                'link' : (('href', ''),),
+                'body' : (('background', 'image'),),
+                'script' : (('src', 'javascript'),),
+                'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet'))
+                }        
+    
     def __init__(self):
-        self._handled = { 'a' : (('href', 'normal'), ('href', 'anchor')),
-                          'base': (('href', 'base'),),
-                          'frame': (('src', 'normal'),),
-                          'img' : (('src', 'image'),),
-                          'form' : (('action', 'form'),),
-                          'link' : (('href', ''),),
-                          'body' : (('background', 'image'),),
-                          'script' : (('src', 'javascript'),),
-                          'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet'))
-                        }        
         self.links = []
         self.images = []
         # Fix for <base href="..."> links
@@ -80,15 +88,13 @@ class harvestManSimpleParser(SGMLParser):
         llink = link.lower()
 
         # Skip javascript, mailto, news and directory special tags.
-        skip_re = re.compile(r'(javascript:)|(mailto:)|(news:)|(\?m=a)|(\?n=d)|(\?s=a)|(\?d=a)')
-
-        # Skip query forms
-        query_re = re.compile(r'[-.:_a-zA-Z0-9]*\?[-.:_a-zA-Z0-9]*=[-.a:_-zA-Z0-9]*')
-        if skip_re.match(llink):
+        if self.skip_re.match(llink):
             return 1
 
         cfg = GetObject('config')
-        if cfg.skipqueryforms and query_re.search(llink):
+
+        # Skip query forms
+        if cfg.skipqueryforms and self.query_re.search(llink):
             return 1
 
         return 0
@@ -136,10 +142,10 @@ class harvestManSimpleParser(SGMLParser):
         
         isBaseTag = not self.base and tag == 'base'
 
-        if tag in self._handled:
+        if tag in self.handled:
 
             d = CaselessDict(attrs)
-            _values = (self._handled[tag])
+            _values = (self.handled[tag])
 
             link = ''
 
@@ -242,8 +248,8 @@ class harvestManSimpleParser(SGMLParser):
         tagelname, tageltype = taginfo[key]
 
         # see if this is an already existing tagtype
-        if key in self._handled.keys:
-            _values = self._handled[key]
+        if key in self.handled.keys:
+            _values = self.handled[key]
 
             f=0
             for index in xrange(len(_values)):
@@ -265,7 +271,7 @@ class harvestManSimpleParser(SGMLParser):
             # new key, directly modify dictionary
             elements = []
             elements.append((tagelname, tageltype))
-            self._handled[key] = elements 
+            self.handled[key] = elements 
 
     def reset(self):
         SGMLParser.reset(self)
