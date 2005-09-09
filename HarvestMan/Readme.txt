@@ -10,7 +10,7 @@ HARVESTMan is an internet offline crawler (robot) program written
 in python. It helps you to grab pages from the internet and store 
 it in a local directory for offline browsing.
 
-This is version 1.4.5 final.
+This is version 1.4.6 final.
 
 Author: Anand Pillai.
 
@@ -27,9 +27,9 @@ Getting started
 
 Unarchive the file to a directory of your choice. 
 
-% tar -xjf HarvestMan-1.4.5-b1.tar.bz2
+% tar -xjf HarvestMan-1.4.6.tar.bz2
 
-Change to directory 'HarvestMan-1.4.5-b1' and install
+Change to directory 'HarvestMan-1.4.6' and install
 the program.
 
 Installation steps are given below.
@@ -37,7 +37,7 @@ Installation steps are given below.
 How to Install
 --------------
 Make sure you are at the top-level HarvestMan
-directory. For this version it is 'HarvestMan-1.4.5-b1'.
+directory. For this version it is 'HarvestMan-1.4.6'.
 
 On Windows, you need to run the setup.py script
 to install the program. 
@@ -62,6 +62,9 @@ system wide symbolic link that will create a
 link to harvestman main module in the /usr/bin
 directory as 'harvestman', so you can run the program
 by typing 'harvestman' at a shell prompt.
+
+The install script will work on Windows based Unix emulation
+layers such as cygwin also.
 
 Running the program
 -------------------
