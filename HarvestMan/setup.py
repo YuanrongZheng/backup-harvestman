@@ -1,13 +1,15 @@
 # This module is part of the HarvestMan project and is Copyright 2004-2005
 # Anand B Pillai (anandpillai at letterboxes dot org).
 
+# Fixed a bug in function site_packages_dir - Use sys.path instead of
+# site.sitedirs since latter is not there in Python 2.4 - Anand 09/09/05
+
 from distutils.core import setup
-import os
+import os, sys
 
 def site_packages_dir():
-    import site
     
-    for p in site.sitedirs:
+    for p in sys.path:
         if p.find('site-packages') != -1:
             return p
     
