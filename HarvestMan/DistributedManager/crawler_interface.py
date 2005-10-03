@@ -24,7 +24,11 @@ class crawler_interface(Pyro.core.ObjBase):
         
     def new_domain(self,domain):
         queue = url_queue.url_queue()
-        queue.insert("andaas.net")
+        queue.insert(domain)
+        
+    def check_for_domain(self,domain):
+        queue = url_queue.url_queue()
+        queue.is_defined(domain)
         
             
         

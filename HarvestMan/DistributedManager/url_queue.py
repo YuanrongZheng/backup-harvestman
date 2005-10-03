@@ -16,6 +16,10 @@ class url_queue:
         pass
         
     def is_defined(self,key):
-        pass
+        if(key in self.__class__.queue):
+            print "Domain defined!!!"
+        else:
+            print "Domain not defined!!!"
+        
         
     
