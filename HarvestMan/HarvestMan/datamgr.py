@@ -25,6 +25,9 @@
                                  Added url header dump feature. Url headers
                                  dumped in DBM format.
 
+  Oct 5 2005        Anand        (Re)added function terminator in harvestManController.
+                                  Fix for bug 005252.
+
 """
 import os, sys
 import time
@@ -1113,6 +1116,15 @@ class harvestManController(tg.Thread):
 
         self._exitflag = True
 
+    def terminator(self):
+        """ The function which terminates the program
+        in case of an exceptional condition """
+
+        # This somehow got deleted in HarvestMan 1.4.5
+        
+        tq = GetObject('trackerqueue')
+        tq.terminate_threads()
+        
     def __manage_fetcher_connections(self):
         """ Manage timeouts for fetcher downloads using
         a dictionary - New in 1.4.5 final """
