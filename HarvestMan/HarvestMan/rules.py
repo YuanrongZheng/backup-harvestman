@@ -11,6 +11,11 @@
     Nov 24 2004         Anand   Added a junk filter class
                                 to filter out advertisement
                                 urls, images, banners etc.
+
+    Oct 17 2005         Anand   __compare_domain uses only
+                                __compare_by_name, not __compare_by_ip
+                                since latter is buggy. This also
+                                fixes bug #5289.
                                 
 """
 import socket
@@ -105,23 +110,8 @@ class harvestManRulesChecker(object):
         ip and then by name and return True if both point
         to the same server, return False otherwise. """
 
-        # For comparing robots.txt file, first compare by
-        # ip and then by name.
-        if robots: 
-            firstval=self.__compare_by_ip(domain1, domain2)
-            if firstval:
-                return firstval
-            else:
-                return self.__compare_by_name(domain1, domain2)
 
-        # otherwise, we do a name check first and
-        # ip check later
-        else:
-            firstval=self.__compare_by_name(domain1, domain2)
-            if firstval:
-                return firstval
-            else:
-                return self.__compare_by_ip(domain1, domain2)
+        return self.__compare_by_name(domain1, domain2)
 
     def __get_base_server(self, server):
         """ Return the base server name of  the passed
@@ -177,6 +167,8 @@ class harvestManRulesChecker(object):
         try:
             ip1 = socket.gethostbyname(domain1)
             ip2 = socket.gethostbyname(domain2)
+            print domain1,'=>',ip1
+            print domain2,'=>',ip2
         except Exception:
             return False
 
@@ -460,7 +452,6 @@ class harvestManRulesChecker(object):
             return True
 
         bdir = baseUrlObj.get_url_directory()
-
         # Look for bdir inside dir
         index = directory.find(bdir)
 
@@ -482,7 +473,7 @@ class harvestManRulesChecker(object):
             bdir = baseUrlObj.get_url_directory_sans_domain()
 
             # Check again
-            if directory.find(bdir) == 0:
+            if directory and bdir and directory.find(bdir) == 0:
                 return True
 
         return False
@@ -520,6 +511,7 @@ class harvestManRulesChecker(object):
 
         # if under the same starting directory, return False
         if self.is_under_starting_directory(urlObj):
+            # print 'Is under starting directory=>',urlObj.get_full_url()
             return False
 
         directory = urlObj.get_url_directory()
@@ -536,7 +528,7 @@ class harvestManRulesChecker(object):
             if self._configobj.getimagelinks: return False
 
         if not self.is_external_server_link(urlObj):
-            # print 'Same server ', urlObj.domain, baseUrlObj.domain
+            print 'Same server ', urlObj.domain, baseUrlObj.domain
             if self._configobj.fetchlevel==0:
                 return True
             elif self._configobj.fetchlevel==3:
@@ -589,7 +581,7 @@ class harvestManRulesChecker(object):
                 self.add_to_filter(urlObj.get_full_url())
                 return True
         else:
-            # print 'Different server ', urlObj.domain, baseUrlObj.domain
+            print 'Different server ', urlObj.domain, baseUrlObj.domain
             # print 'Fetchlevel ', self._configobj.fetchlevel
             # Both belong to different base servers
             if self._configobj.fetchlevel==0 or self._configobj.fetchlevel == 1:
