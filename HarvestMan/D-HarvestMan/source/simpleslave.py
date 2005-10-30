@@ -8,7 +8,7 @@ class SimpleSlave:
         self.manager = Pyro.core.getProxyForURI(self.manager_uri)
         
     def test(self):
-        return self.manager.test()
+        return self.manager.fetch_url()
 
 if __name__=='__main__':
     print "Starting SimpleSlave..."
