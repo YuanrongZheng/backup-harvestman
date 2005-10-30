@@ -14,7 +14,7 @@ class ManagerInterface:
 class ThreadingServer(ThreadingMixIn, SimpleXMLRPCServer):
     pass
 
-serveraddr = ('', 1234)
+serveraddr = ('', 7766)
 server = ThreadingServer(serveraddr, SimpleXMLRPCRequestHandler)
 server.register_instance(ManagerInterface())
 server.register_introspection_functions()

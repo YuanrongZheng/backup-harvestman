@@ -23,7 +23,7 @@ class SimpleRequestHandler(SocketServer.StreamRequestHandler):
         self.wfile.write('ok')
         
 def test():
-    portnum = 3333
+    portnum = 7766
     server = ThreadingServer(('', portnum), SimpleRequestHandler)
     print "starting socket server on port " + str(portnum)
     server.serve_forever()
