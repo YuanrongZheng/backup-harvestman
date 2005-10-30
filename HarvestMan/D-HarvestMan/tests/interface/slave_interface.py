@@ -25,6 +25,3 @@ class SlaveInterface:
     def set_state(self):
         pass
         
-    def fetch_url(self):
-        pass
-        

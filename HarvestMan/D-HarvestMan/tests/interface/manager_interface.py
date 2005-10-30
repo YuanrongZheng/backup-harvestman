@@ -12,3 +12,6 @@ class ManagerInterface:
         
     def url_found(self):
         pass
+        
+    def fetch_url(self):
+        pass
