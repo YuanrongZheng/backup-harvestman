@@ -14,4 +14,6 @@ if __name__=='__main__':
     print "Starting SimpleSlave..."
     slave = SimpleSlave()
     print slave.test()
+    slave.manager.url_found("http://www.hia.no")
+    slave.manager.url_found("http://www.ffi.no")
     
