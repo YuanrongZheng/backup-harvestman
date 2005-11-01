@@ -2,8 +2,12 @@ import Pyro.core, Pyro.naming
 import time
 
 class DomainState:
-    """ this class holds the state of a domain
-    that is either being crawled or is finished """
+    """ This class holds the state of a domain
+    that is either being crawled or is finished.
+    This class could be inserted in some kind of
+    hash-array as the value, with key being
+    the domain name being crawled.
+    """
     
     def __init__(self, urladdress):
         self.domain = urladdress
@@ -31,7 +35,7 @@ class DomainState:
     end_time = None
     
     # timestamp of last heardbeat
-    heartbeat = No    
+    heartbeat = None
 
 class Manager(Pyro.core.ObjBase):
     domains = {}
@@ -74,30 +78,33 @@ class Manager(Pyro.core.ObjBase):
         new_domain.start_time = self.get_current_time()
         new_domain.heartbeat = self.get_current_time()
         # todo
-        #new_domain.crawler = get_remote_address()        
+        #new_domain.crawler = get_remote_address()
+        
+        # add to global hash array
+        self.domains[new_domain.domain] = new_domain
         
         # return domain to slave
         return new_domain.domain
     
     def heartbeat(self, domain):
         # update heardbeat timestamp for this domain
-        if domains.has_key(domain):
+        if self.domains.has_key(domain):
             print "updating heartbeat for domain " + domain
-            domain_state = domains[domain]
+            domain_state = self.domains[domain]
             domain_state.heartbeat = self.get_current_time()
         
     def crawl_failed(self, domain):
         # update state for this domain
-        print "crawl failed for domain " + domain
-        if domains.has_key(domain):
-            domain_state = domains[domain]
+        if self.domains.has_key(domain):
+            print "crawl failed for domain " + domain
+            domain_state = self.domains[domain]
             domain_state.state = DomainState.URL_FAILED
         
     def crawl_finished(self, domain):
         # update state for this domain
-        print "crawl finished for domain " + domain
-        if domains.has_key(domain):
-            domain_state = domains[domain]
+        if self.domains.has_key(domain):
+            print "crawl finished for domain " + domain
+            domain_state = self.domains[domain]
             domain_state.state = DomainState.URL_FINISHED
         
     def url_found(self, new_url):
