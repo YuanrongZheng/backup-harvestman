@@ -38,6 +38,9 @@ class DomainState:
     heartbeat = None
 
 class Manager(Pyro.core.ObjBase):
+    """ This class implements the D-Harvestman
+    Manager functionality """
+    
     domains = {}
     new_domains = []
     
