@@ -2,23 +2,30 @@ import timeit
 import random
 
 array = {}
-array_size = 10000000
-array_item = "http://localhost:"
-
-def test():
-    key = random.randint(0, array_size-1)
-    if str(key) in array.keys():
-        value = array[str(key)]
+array_size = 3000000
+array_item = "http://www.yahoo.com/some/path:"
+def test(current_array_size):
+    intkey = random.randint(0, current_array_size-1)
+    key = array_item+str(intkey)
+    if array.has_key(key):
+        value = array[key]
     else:
-        print "item not found in hash array"
+        print "item not found in hash array: " + str(key)
 
 if __name__=='__main__':
-    print "setting up hash array with " + str(array_size) + " elements..."
-    for i in range(0, array_size):
-        array[str(i)] = array_item + str(i)
+    print "starting test..."
+    step = int(array_size/100)
+    resultlist = []
     
-    print "starting performance test"
-    t = timeit.Timer("test()", "from __main__ import test")
-    res = t.repeat(10, 1)
-    for i in res:
-        print i
+    for i in range(1, array_size):
+        if i%step == 0:
+            t = timeit.Timer("test("+str(i)+")", "from __main__ import test")
+            res = t.repeat(1, 1)
+            resultlist += res
+        array[array_item+str(i)] = array_item + str(i)
+    
+    print "length of hash array: " + str(len(array))
+    for j in resultlist:
+        print j
+
+    
