@@ -1,5 +1,6 @@
 import Pyro.core, Pyro.naming
 import time
+import random
 
 class DomainState:
     """ This class holds the state of a domain
@@ -48,9 +49,11 @@ class Manager(Pyro.core.ObjBase):
         Pyro.core.ObjBase.__init__(self)
         
         # insert some dummy data
-        self.new_domains.append("http://www.google.com")
-        self.new_domains.append("http://www.yahoo.com")
-        self.new_domains.append("http://www.altavista.com")
+        for i in range(1,10000):
+            self.new_domains.append("http://www.google.com/"+str(i))
+            #self.new_domains.append("http://www.yahoo.com")
+            #self.new_domains.append("http://www.altavista.com")
+        print "Number of domains in new_domains: " + str(self.new_domains.__len__())
         
     def get_current_time(self):
         return time.time()
@@ -94,6 +97,7 @@ class Manager(Pyro.core.ObjBase):
         if self.domains.has_key(domain):
             print "updating heartbeat for domain " + domain
             domain_state = self.domains[domain]
+            ### TODO check old heartbeat
             domain_state.heartbeat = self.get_current_time()
         
     def crawl_failed(self, domain):
@@ -114,7 +118,7 @@ class Manager(Pyro.core.ObjBase):
         # register new url in queue
         print "adding new domain: " + new_url
         self.new_domains.append(new_url)
-        pass
+        
     
 # this is where the fun starts
 if __name__=='__main__':
