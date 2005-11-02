@@ -95,7 +95,7 @@ class Manager(Pyro.core.ObjBase):
     def heartbeat(self, domain):
         # update heardbeat timestamp for this domain
         if self.domains.has_key(domain):
-            print "updating heartbeat for domain " + domain
+          #  print "updating heartbeat for domain " + domain
             domain_state = self.domains[domain]
             ### TODO check old heartbeat
             domain_state.heartbeat = self.get_current_time()
@@ -103,14 +103,14 @@ class Manager(Pyro.core.ObjBase):
     def crawl_failed(self, domain):
         # update state for this domain
         if self.domains.has_key(domain):
-            print "crawl failed for domain " + domain
+          #  print "crawl failed for domain " + domain
             domain_state = self.domains[domain]
             domain_state.state = DomainState.URL_FAILED
         
     def crawl_finished(self, domain):
         # update state for this domain
         if self.domains.has_key(domain):
-            print "crawl finished for domain " + domain
+           # print "crawl finished for domain " + domain
             domain_state = self.domains[domain]
             domain_state.state = DomainState.URL_FINISHED
         
