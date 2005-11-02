@@ -73,8 +73,6 @@ class Manager(Pyro.core.ObjBase):
         # find a domain to crawl
         try:
             domainaddr = self.new_domains.pop()
-            if not domainaddr:
-                return None
         except:
             return None
         
