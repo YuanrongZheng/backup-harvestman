@@ -49,11 +49,11 @@ class Manager(Pyro.core.ObjBase):
         Pyro.core.ObjBase.__init__(self)
         
         # insert some dummy data
-        for i in range(1,10000):
+        for i in range(0,10000):
             self.new_domains.append("http://www.google.com/"+str(i))
             #self.new_domains.append("http://www.yahoo.com")
             #self.new_domains.append("http://www.altavista.com")
-        print "Number of domains in new_domains: " + str(self.new_domains.__len__())
+        print "Number of domains in new_domains: " + str(len(self.new_domains))
         
     def get_current_time(self):
         return time.time()
@@ -61,7 +61,7 @@ class Manager(Pyro.core.ObjBase):
     def start_service(self):
         Pyro.core.initServer()
         daemon = Pyro.core.Daemon()
-        uri = daemon.connect(Manager(), "manager")
+        uri = daemon.connect(self, "manager")
         print "The daemon runs on port: ", daemon.port
         print "The object's uri is: ", uri
         daemon.requestLoop()
