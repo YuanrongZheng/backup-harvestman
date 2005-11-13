@@ -84,7 +84,19 @@ options:
     --urlslist=FILE             Dump a list of urls to file FILE.
     --urltree=FILE              Dump a file containing hierarchy of urls to FILE.
 
-Mail bug reports and suggestions to <anandpillai@letterboxes.org>.
+D-HarvestMan options:
+
+    These are options for enabling HarvestMan to work as a disttibuted crawler.
+  
+    --master                   Start up as the D-HarvestMan master.
+    --slave [name:ip]          Start up as a D-HarvestMan slave. The slave has to be
+                               passed information to contact the master in the form
+                               of 'name:ip' where 'name' is the name of the server
+                               proxy object for the master and 'ip' is the master's
+                               I.P address.
+                               
+
+Send your bug reports and suggestions to <abpillai@gmail.com>.
 """
 
 import os, sys
@@ -242,6 +254,23 @@ class HarvestManStateObject(dict):
         # that the configuration was
         # read from a project file
         self.fromprojfile = False
+        self._init1_1()
+
+    def _init1_1(self):
+        """ D-HarvestMan specific options """
+
+        # D-HarvestMan specific, all D-HarvestMan
+        # options begin with 'd_'
+        self.d_manager = False
+        self.d_maxdomains = 5
+        self.d_ipmin = '127.0.0.1'
+        self.d_ipmax = '127.0.0.1'
+        self.d_slaves = []
+        self.d_serviceport = '3600'
+        self.d_isslave = False
+        self.d_masterinfo =  ''
+        # Slave id
+        self.d_slaveid = -1
         
     def _init2(self):
         
@@ -404,6 +433,15 @@ class HarvestManStateObject(dict):
                          'fastmode_value': ('fastmode','int'),
                          'localise_value' : ('localise','int'),
                          'browsepage_value' : ('browsepage','int'),
+                         # Begin D-HarvestMan specific
+                         'cluster_enable' : ('d_manager','int'),
+                         'maxdomains_value' : ('d_maxdomains', 'int'),
+                         'iprange_min' : ('d_ipmin', 'str'),
+                         'iprange_max' : ('d_ipmax', 'str'),
+                         'slave_ip' : ('d_slaves','list:str'),
+                         'service_port': ('d_serviceport', 'int'),
+                         'master_info' : ('d_masterinfo','str')
+                         # End D-HarvestMan specific                         
                          }
 
     def assign_option(self, option_val, value):
@@ -614,7 +652,8 @@ class HarvestManStateObject(dict):
                         "retry=","connections=","subbdomain=",
                         "localize=","fetchlevel=","proxy=",
                         "proxyuser=","proxypass=","urlserver=",
-                        "cache=","urlslist=","urltree="
+                        "cache=","urlslist=","urltree=",'master',
+                        'slave='
                         ]
 
         arguments = sys.argv[1:]
@@ -664,7 +703,7 @@ class HarvestManStateObject(dict):
                 if self.check_value(value): self.set_option_xml('retries_value', self.process_value(value))
             elif option in ('-l', '--localize'):
                 if self.check_value(value): self.set_option_xml('localise_value', self.process_value(value))
-            elif option in ('--f', '--fetchlevel'):
+            elif option in ('-f', '--fetchlevel'):
                 if self.check_value(value): self.set_option_xml('fetchlevel_value', self.process_value(value))
             elif option in ('-T', '--maxthreads'):
                 if self.check_value(value): self.set_option_xml('trackers_value', self.process_value(value))
@@ -707,6 +746,12 @@ class HarvestManStateObject(dict):
                 if self.check_value(value): self.set_option_xml('connections_value', self.process_value(value))
             elif option in ('-V','--verbosity'):
                 if self.check_value(value): self.set_option_xml('verbosity_value', self.process_value(value))
+            elif option in ('--master',):
+                if self.check_value(value): self.set_option_xml('cluster_enable', self.process_value(value))
+            elif option in ('--slave',):
+                if self.check_value(value):
+                    self.set_option_xml('master_info', self.process_value(value))
+                    self.d_isslave = True
             else:
                 print 'Ignoring invalid option ', option
 

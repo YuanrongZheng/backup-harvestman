@@ -27,6 +27,9 @@ import robotparser
 from common import *
 # urlPathParser module
 import urlparser
+# LRU caching
+import lrucache
+from Pyro.errors import PyroError, ProtocolError
 
 class harvestManRulesChecker(object):
     """ Class which checks the download rules for urls. These
@@ -38,7 +41,10 @@ class harvestManRulesChecker(object):
 
         self._links = []
         self._sourceurls = []
-        self._filter = []
+        # Filter is made an LRU cache.
+        self._filter = lrucache.LRUCache(1000)
+        # List of announced urls
+        self._announced = lrucache.LRUCache(1000)
         self._extservers = []
         self._extdirs = []
         self._rexplist = []
@@ -64,8 +70,8 @@ class harvestManRulesChecker(object):
         # if this url exists in filter list, return
         # True rightaway
         try:
-            self._filter.index(url)
-            return True
+            if url in self._filter:
+                return True
         except ValueError:
             pass
 
@@ -87,7 +93,13 @@ class harvestManRulesChecker(object):
 
         # check if this is an external link
         if self.__is_external_link( urlObj ):
-            extrainfo("External link - filtered ", urlObj.get_full_url())
+            # Change for D-HarvestMan
+            # If D-HarvestMan is enabled, announce the link to it.
+            if self._configobj.d_isslave:
+                extrainfo("Announcing external url %s to master" % urlObj.get_full_url())
+                self.announce_external_url(urlObj.get_full_url())
+            else:
+                extrainfo("External link - filtered ", urlObj.get_full_url())
             return True
 
         # depth check
@@ -97,14 +109,79 @@ class harvestManRulesChecker(object):
 
         return False
 
-    def add_to_filter(self, link):
+    def add_to_filter(self, url):
         """ Add the link to the filter list """
 
-        try:
-            self._filter.index(link)
-        except:
-            self._filter.append(link)
+        if not url in self._filter:
+            self._filter[url] = 1
 
+    def announce_external_url(self, url):
+        """ Announce external url to D-HarvestMan master """
+
+        ret = ''
+        # Check if URL is present in announced cache.
+        if url in self._announced:
+            # See the result of announcing
+            results = self._announced[url]
+            # Result is a two tuple of numbers
+            # 1st shows whether manager accepted the
+            # url, second shows the reason for not
+            # accepting if any.
+            result, reason = results
+            # result is 0: not accepted
+            # result is 1: accepted, was either
+            #              passed to an existing
+            #              crawlr, or a new one started.
+            # If accepted: reason can be,
+            # reason is 1: An existing crawler accepted it
+            # reason is 2: A new crawler was started to
+            #              crawl this domain.
+            #
+            # If not accepted:
+            # reason is 1: URL already in mgrs cache.
+            # reason is 2: URL was announced, but
+            #              no crawler is crawling this
+            #              domain. Could not start a
+            #              new crawler since we have
+            #              reached limit of max domains.
+            # reason is 3: URL was announced and a crawler
+            #              was found to crawl it, but it
+            #              failed to accept it.
+            # reason is 4: URL was announced, tried to
+            #              start a new crawler but failed.
+            # 
+
+            # if result is 0, we re-announce it only if
+            # reason is either 3 or 4.
+            if result==0:
+                if reason==3 or reason==4:
+                    # Get proxy
+                    proxy = self._configobj.d_mgrproxy
+                    if proxy:
+                        try:
+                            debug('Announcing url %s to manager...' % url)
+                            ret = proxy.url_found(url)
+                        except (PyroError, ProtocolError), e:
+                            print str(e)
+                            return -1
+            else:
+                debug('Not announcing url %s to manager, since it was done before.' % url)
+        else:
+            # Url is not there, so announce it.
+            try:
+                debug('Announcing url %s to manager...' % url)
+                ret = proxy.url_found(url)
+            except (PyroError, ProtocolError), e:
+                print str(e)
+                return -1
+
+        # 'ret' is the return from manager. It is a string
+        # of the form 'result:reason'
+        if ret:
+            self._announced[url] = ret.split(':')
+            return 0
+
+        
     def __compare_domains(self, domain1, domain2, robots=False):
         """ Compare two domains (servers) first by
         ip and then by name and return True if both point
@@ -203,8 +280,8 @@ class harvestManRulesChecker(object):
         # if this url exists in filter list, return
         # True rightaway
         try:
-            self._filter.index(urlObj.get_full_url())
-            return True
+            if urlObj.get_full_url() in self._filter:
+                return True
         except ValueError:
             pass
 
@@ -563,7 +640,6 @@ class harvestManRulesChecker(object):
             res=self.__ext_directory_check(directory)
             if not res:
                 extrainfo("External directory error - filtered!")
-                self.add_to_filter(urlObj.get_full_url())
                 return True
 
             # Apply depth check for external dirs here
@@ -578,7 +654,6 @@ class harvestManRulesChecker(object):
             else:
                 # We cannot get external links belonging to same server,
                 # so this is an external link
-                self.add_to_filter(urlObj.get_full_url())
                 return True
         else:
             print 'Different server ', urlObj.domain, baseUrlObj.domain
@@ -615,7 +690,6 @@ class harvestManRulesChecker(object):
             res = self.__ext_server_check(urlObj.get_domain())
 
             if not res:
-                self.add_to_filter(urlObj.get_full_url())
                 return True
 
             # Apply filter for servers here
@@ -634,7 +708,6 @@ class harvestManRulesChecker(object):
             else:
                 # We cannot get external links beloning to another server,
                 # so this is an external link
-                self.add_to_filter(urlObj.get_full_url())
                 return True
 
         # We should not reach here
@@ -1100,12 +1173,12 @@ class harvestManRulesChecker(object):
         # Reset lists
         self._links = []
         self._sourceurls = []
-        self._filter = []
         self._extservers = []
         self._extdirs = []
         self._robocache = []
         # Reset dicts
         self._robots.clear()
+        del self._filter
         
 class JunkFilter(object):
     """ Junk filter class. Filter out junk urls such

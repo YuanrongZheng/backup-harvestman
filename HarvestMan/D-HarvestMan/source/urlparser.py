@@ -27,6 +27,8 @@ import copy
 
 from common import *
 
+__TEST__ = 0
+
 class HarvestManUrlParserError(Exception):
     def __init__(self, value):
         self.value = value
@@ -730,10 +732,13 @@ class HarvestManUrlParser:
         the url data """
 
         cfg = GetObject('config')
-        if cfg.rawsave:
-            return self.get_filename()
+        if not __TEST__:
+            if cfg.rawsave:
+                return self.get_filename()
+            else:
+                return os.path.join(self.get_local_directory(), self.get_filename())
         else:
-            return os.path.join(self.get_local_directory(), self.get_filename())
+            return os.path.join(self.get_local_directory(), self.get_filename())            
 
     def get_filename(self):
         """ Return the filenam of this url on the disk. """
@@ -1000,6 +1005,9 @@ class HarvestManUrlParser:
 if __name__=="__main__":
     # Test code
 
+    global __TEST__
+    __TEST__ = 1
+    
     hulist = [HarvestManUrlParser('http://www.yahoo.com/photos/my photo.gif'),
               HarvestManUrlParser('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
               HarvestManUrlParser('http://cwc2003.rediffblogs.com'),

@@ -100,7 +100,15 @@
     <display>
       <browsepage value="1"/>
     </display>
-    
+
+    <cluster enable="1">
+      <service port="3600" />
+      <maxdomains value="5" />
+      <slaves>
+	<iprange min="127.0.0.1" max="127.0.0.1" />
+      </slaves>
+    </cluster>
+
   </config>
   
 </HarvestMan>

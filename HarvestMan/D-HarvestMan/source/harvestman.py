@@ -77,9 +77,54 @@ class harvestMan(object):
 
         # project start page (on disk)
         self._projectstartpage = 'file://'
-        # error file descriptor
         self.USER_AGENT = "HarvestMan 1.4"
-        
+
+    def initMgrProxy(self):
+        """ Initialize manager proxy for D-HarvestMan
+        This is never called for the stand-alone HarvestMan
+        crawler.
+        """
+
+        # The mgr info should be there in
+        # self._cfg
+        mgrinfo = self._cfg.d_masterinfo
+        # This should be a string like this:
+        # <proxyname>:<ipaddress>:<protocol>
+        # For example, DHarvestMan:127.0.0.1:PYRO
+        if mgrinfo:
+            try:
+                proxy_name, ip, protocol = mgrinfo.split(':')
+            except ValueError, e:
+                print str(e)
+                print 'Error: Could not initialize manager proxy.'
+                return -1
+
+            # Right now only PYRO is supported
+            if protocol == 'PYRO':
+                import Pyro.core
+                from Pyro.errors import PyroError, ProtocolError
+
+                print 'Resolving manager proxy...'
+                uri = 'PYROLOC://' + ip + '/' + proxy_name
+                print 'URI=>',uri
+                proxy = Pyro.core.getProxyForURI(uri)
+
+                if proxy:
+                    # Set it in cfg
+                    self._cfg.d_mgrproxy = proxy
+                    return 0
+                else:
+                    print 'Error: Could not resolve manager proxy.'
+                    return -1
+            else:
+                print 'Error: Unsupported protocol %s' % protocol
+                return -1
+        else:
+            print 'Error: Could not find manager info in config object.'
+            return -1
+
+        return -1
+    
     def finish(self):
         """ Actions to take after download is over """
 
@@ -208,7 +253,7 @@ class harvestMan(object):
         tq = GetObject('trackerqueue')
         tq.terminate_threads()
 
-    def __prepare(self):
+    def _prepare(self):
         """ Do the basic things and get ready """
 
         # Initialize globals module. This initializes
@@ -268,7 +313,7 @@ class harvestMan(object):
         """ Run the HarvestMan projects specified in the config file """
 
         # Prepare myself
-        self.__prepare()
+        self._prepare()
         
         # Get program options
         self._cfg.get_program_options()
@@ -280,36 +325,78 @@ class harvestMan(object):
 
         self.register_common_objects()
 
+        print self._cfg.d_masterinfo
+        print self._cfg.d_isslave
+
         # Welcome messages
         if self._cfg.verbosity:
             self.welcome_message()
 
-        for x in range(len(self._cfg.urls)):
-            # Get all project related vars
-            url = self._cfg.urls[x]
+        # If this is a D-HarvestMan slave, the startup routine
+        # is a bit different.
+        if self._cfg.d_isslave:
+            # Reset user-agent
+            SetUserAgent('DHarvestMan 1.4')
+            # Initialize mgr proxy
+            if self.initMgrProxy()==0:
+                print 'Successfully initialized manager proxy...'
+            else:
+                sys.exit(1)
 
+            # In D-HarvestMan we will be crawling
+            # only one project in a given session.
+            self._cfg.url = self._cfg.urls[0]
             if not self._cfg.nocrawl:
-                project = self._cfg.projects[x]
-                verb = self._cfg.verbosities[x]
-                tout = self._cfg.projtimeouts[x]
-                basedir = self._cfg.basedirs[x]
+                self._cfg.project = self._cfg.projects[0]
+                self._cfg.verbosity = self._cfg.verbosities[0]
+                self._cfg.projtimeout = self._cfg.projtimeouts[0]
+                self._cfg.basedir = self._cfg.basedirs[0]
 
-                if not url or not project or not basedir:
-                    info('Invalid config options found!')
-                    if not url: info('Provide a valid url')
-                    if not project: info('Provide a valid project name')
-                    if not basedir: info('Provide a valid base directory')
-                    continue
-            
-            # Set the current project vars
-            self._cfg.url = url
-            if not self._cfg.nocrawl:
-                self._cfg.project = project
-                self._cfg.verbosity = verb
-                self._cfg.projtimeout = tout
-                self._cfg.basedir = basedir
+                # Inform manager that crawl
+                # has started
                 
-            self.run_project()
+                myid = self._cfg.d_mgrproxy.slave_started(getipaddress())
+                print 'MY ID =>',myid
+                self._cfg.d_mgrproxy.crawl_started(getipaddress())                
+
+                # Save my id, this is useful for
+                # communicating with the mgr.
+                self._cfg.d_slaveid = myid
+
+                print 'MY URL =>',self._cfg.url
+                print 'NAME =>',self._cfg.project
+                print 'FETCHLEVEL=>',self._cfg.fetchlevel
+                
+                # self.run_project()
+                
+        else:
+            # Code for stand-alone crawler
+            for x in range(len(self._cfg.urls)):
+                # Get all project related vars
+                url = self._cfg.urls[x]
+
+                if not self._cfg.nocrawl:
+                    project = self._cfg.projects[x]
+                    verb = self._cfg.verbosities[x]
+                    tout = self._cfg.projtimeouts[x]
+                    basedir = self._cfg.basedirs[x]
+
+                    if not url or not project or not basedir:
+                        info('Invalid config options found!')
+                        if not url: info('Provide a valid url')
+                        if not project: info('Provide a valid project name')
+                        if not basedir: info('Provide a valid base directory')
+                        continue
+
+                # Set the current project vars
+                self._cfg.url = url
+                if not self._cfg.nocrawl:
+                    self._cfg.project = project
+                    self._cfg.verbosity = verb
+                    self._cfg.projtimeout = tout
+                    self._cfg.basedir = basedir
+
+                self.run_project()
             
     def run_project(self):
         """ Run a harvestman project """

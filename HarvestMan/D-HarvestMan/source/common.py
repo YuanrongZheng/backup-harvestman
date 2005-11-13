@@ -550,7 +550,18 @@ def ping_urlserver_udp(host, port):
     except socket.error:
         debug('Could not connect to (%s:%d)' % (host, port))
         return ''    
-        
+
+def icmp_ping(hostip):
+    """ Ping the given host 'hostip'. Return True
+    if host responds and False otherwise """
+
+    cmd = ''.join(('ping -c 1 -q ',str(hostip),' 2>&1 > /dev/null'))
+    ret = os.system(cmd)
+    if ret==0:
+        return True
+    else:
+        return False
+    
 # Modified to use the logger object
 def info(arg, *args):
     """ Print basic information, will print if verbosity is >=1 """
@@ -587,6 +598,38 @@ def moredebug(arg, *args):
     # Setting verbosity to 5 will print maximum information
     # plus maximum debugging information.
     RegisterObj.logger.logntrace5(arg, *args)        
+
+# The following functions are for D-HarvestMan but still
+# this seems like a nice place to put the code since it
+# is quite generic.
+
+def check_pyro():
+    """ Check the local Pyro installation
+    If installed, return the version number,
+    otherwise return -1
+    """
+
+    # Import the Pyro module
+    try:
+        p = __import__("Pyro")
+        try:
+            # See if we can get Pyro.configuration
+            p1 = p.configuration
+            # See if we can import Pyro.constants
+            p2 = p.constants
+            version = p2.VERSION
+            return version
+        except AttributeError, e:
+            print str(e)
+            print 'Error: Could not validate Pyro installation.'
+    except ImportError, e:
+        print 'Error: Pyro is not installed!'
+
+    return -1
+
+# Return my i.p address
+def getipaddress():
+    return socket.gethostbyname(socket.gethostname())    
 
 if __name__=="__main__":
     Initialize()
