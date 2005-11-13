@@ -101,7 +101,11 @@ class DHarvestManBootStrapService(object):
         # The file should be present in
         # /etc/d-harvestman.conf in the
         # ConfigParser format.
-        confpath = '/etc/d-harvestman.conf'
+        if os.name == 'posix':
+            confpath = '/etc/d-harvestman.conf'
+        elif os.name == 'nt':
+            confpath = 'C:/d-harvestman.conf'
+            
         if not os.path.isfile(confpath):
             print 'Fatal Error: D-HarvestMan config file <%s> not found!' % confpath
             sys.exit(1)
@@ -449,9 +453,18 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
             # Start it as a D-HarvestMan slave
             mgr_args = ''.join((self._mgrinfo[0],':',self._mgrinfo[1],':',self._protocol))
             print mgr_args
-            args = ['python',hmanpath,'-p',name,'-b',basedir,'-f',fetchlevel,'-l 0',
+            if os.name == 'posix':
+                cmd = 'python'
+            elif os.name == 'nt':
+                cmd = os.path.join(sys.prefix,'python.exe')
+                
+            args = [cmd,hmanpath,'-p',name,'-b',basedir,'-f',fetchlevel,'-l 0',
                     ''.join(('--slave=',mgr_args)),url]
-            pid = os.spawnvpe(os.P_NOWAIT,'python',args,os.environ)
+            if os.name == 'posix':
+                pid = os.spawnvpe(os.P_NOWAIT,cmd,args,os.environ)
+            elif os.name == 'nt':
+                pid = os.spawnv(os.P_NOWAIT,cmd,args)
+                
             if pid:
                 # Save the process id
                 setattr(self._handle,'_spid',pid)

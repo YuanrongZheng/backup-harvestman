@@ -429,6 +429,7 @@ class harvestMan(object):
             if not self._cfg.testnocrawl:
                 self.start_project()
         except (KeyboardInterrupt, EOFError):
+            sys.tracebacklimit = 0
             if not self._cfg.ignorekbinterrupt:
                 # dont allow to write cache, since it
                 # screws up existing cache.

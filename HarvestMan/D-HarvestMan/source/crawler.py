@@ -133,7 +133,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         
     def run(self):
         """ The overloaded run method of threading.Thread class """
-
+        
         self.action()
 
     def terminate(self):
@@ -249,17 +249,20 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
             self._loops = 0
 
             while not self._endflag:
-                if self.buffer:
-                    self.push_buffer()
-                    
-                obj = self._crawlerqueue.get_url_data( "crawler" )
-                if not obj:
-                    if self.buffer and not self._configobj.blocking:
+                try:
+                    if self.buffer:
                         self.push_buffer()
 
-                    continue
-                
-                self.set_url_object(obj)
+                    obj = self._crawlerqueue.get_url_data( "crawler" )
+                    if not obj:
+                        if self.buffer and not self._configobj.blocking:
+                            self.push_buffer()
+
+                        continue
+
+                    self.set_url_object(obj)
+                except Exception, e:
+                    debug(str(e))
 
                 # Set status to one to denote busy state
                 self._status = 1
@@ -487,28 +490,31 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             self._loops = 0
 
             while not self._endflag:
-                if self.buffer:
-                    self.push_buffer()
-                    
-                # If url server is disabled, get data
-                # from Queue, else query url server for
-                # new urls.
-                if not self._configobj.urlserver:
-                    obj = self._crawlerqueue.get_url_data("fetcher" )
-                    if not obj:
-                        if not self._configobj.blocking and self.buffer:
-                            self.push_buffer()
-                        continue
-                        
-                    if not self.set_url_object(obj):
-                        continue
-                    
-                else:
-                    if self.receive_url() != 1:
-                        # Time gap helps to reduce
-                        # network errors.
-                        time.sleep(0.3)
-                        continue
+                try:
+                    if self.buffer:
+                        self.push_buffer()
+
+                    # If url server is disabled, get data
+                    # from Queue, else query url server for
+                    # new urls.
+                    if not self._configobj.urlserver:
+                        obj = self._crawlerqueue.get_url_data("fetcher" )
+                        if not obj:
+                            if not self._configobj.blocking and self.buffer:
+                                self.push_buffer()
+                            continue
+
+                        if not self.set_url_object(obj):
+                            continue
+
+                    else:
+                        if self.receive_url() != 1:
+                            # Time gap helps to reduce
+                            # network errors.
+                            time.sleep(0.3)
+                            continue
+                except Exception, e:
+                    debug(str(e))
                 
                 # Set status to busy 
                 self._status = 1

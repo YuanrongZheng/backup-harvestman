@@ -44,7 +44,9 @@ class Registry(object):
                      'crawler',
                      'urlserver',
                      'asyncorethread',
-                     'logger')
+                     'logger',
+                     'dmanager',
+                     'dremotemanager')
 
         def __init__(self):
             self.ini = 0
@@ -65,6 +67,8 @@ class Registry(object):
                               'harvestManUrlServer' : 'urlserver',
                               'AsyncoreThread'      : 'asyncorethread',
                               'HarvestManLogger'    : 'logger',
+                              'DHarvestManMgr' : 'dmanager',
+                              'DHarvestManRemoteMgr' : 'dremotemanager',
                               }
             pass
         
@@ -555,12 +559,16 @@ def icmp_ping(hostip):
     """ Ping the given host 'hostip'. Return True
     if host responds and False otherwise """
 
-    cmd = ''.join(('ping -c 1 -q ',str(hostip),' 2>&1 > /dev/null'))
-    ret = os.system(cmd)
-    if ret==0:
+    if os.name == 'posix':
+        cmd = ''.join(('ping -c 1 -q ',str(hostip),' 2>&1 > /dev/null'))
+        ret = os.system(cmd)
+        if ret==0:
+            return True
+        else:
+            return False
+    elif os.name == 'nt':
+        # Not doing anything for NT right now
         return True
-    else:
-        return False
     
 # Modified to use the logger object
 def info(arg, *args):

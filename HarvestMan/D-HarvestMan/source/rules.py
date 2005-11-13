@@ -95,7 +95,7 @@ class harvestManRulesChecker(object):
         if self.__is_external_link( urlObj ):
             # Change for D-HarvestMan
             # If D-HarvestMan is enabled, announce the link to it.
-            if self._configobj.d_isslave:
+            if self._configobj.d_isslave or self._configobj.d_ismaster:
                 extrainfo("Announcing external url %s to master" % urlObj.get_full_url())
                 self.announce_external_url(urlObj.get_full_url())
             else:
@@ -119,6 +119,19 @@ class harvestManRulesChecker(object):
         """ Announce external url to D-HarvestMan master """
 
         ret = ''
+
+        # Modified code to call master's url_found
+        # routine if this is part of master.
+        # If this is the master, call the routine in
+        # the master straight-away.
+        if self._configobj.d_ismaster:
+            extrainfo('Announcing url %s to master' % url)
+            master = GetObject('dmanager')
+            master.url_found(url)
+            return 0
+
+        # Get proxy
+        proxy = self._configobj.d_mgrproxy            
         # Check if URL is present in announced cache.
         if url in self._announced:
             # See the result of announcing
@@ -155,32 +168,30 @@ class harvestManRulesChecker(object):
             # reason is either 3 or 4.
             if result==0:
                 if reason==3 or reason==4:
-                    # Get proxy
-                    proxy = self._configobj.d_mgrproxy
                     if proxy:
                         try:
-                            debug('Announcing url %s to manager...' % url)
+                            exrainfo('Announcing url %s to manager...' % url)
                             ret = proxy.url_found(url)
                         except (PyroError, ProtocolError), e:
-                            print str(e)
+                            print 'PyroError:',str(e)
                             return -1
             else:
-                debug('Not announcing url %s to manager, since it was done before.' % url)
+                extrainfo('Not announcing url %s to manager, since it was done before.' % url)
         else:
-            # Url is not there, so announce it.
-            try:
-                debug('Announcing url %s to manager...' % url)
-                ret = proxy.url_found(url)
-            except (PyroError, ProtocolError), e:
-                print str(e)
-                return -1
+            if proxy:
+                # Url is not there, so announce it.
+                try:
+                    extrainfo('Announcing url %s to manager...' % url)
+                    ret = proxy.url_found(url)
+                except (PyroError, ProtocolError), e:
+                    print 'PyroError:',str(e)
+                    return -1
 
         # 'ret' is the return from manager. It is a string
         # of the form 'result:reason'
         if ret:
             self._announced[url] = ret.split(':')
             return 0
-
         
     def __compare_domains(self, domain1, domain2, robots=False):
         """ Compare two domains (servers) first by
@@ -605,7 +616,7 @@ class harvestManRulesChecker(object):
             if self._configobj.getimagelinks: return False
 
         if not self.is_external_server_link(urlObj):
-            print 'Same server ', urlObj.domain, baseUrlObj.domain
+            # print 'Same server ', urlObj.domain, baseUrlObj.domain
             if self._configobj.fetchlevel==0:
                 return True
             elif self._configobj.fetchlevel==3:
@@ -656,7 +667,7 @@ class harvestManRulesChecker(object):
                 # so this is an external link
                 return True
         else:
-            print 'Different server ', urlObj.domain, baseUrlObj.domain
+            # print 'Different server ', urlObj.domain, baseUrlObj.domain
             # print 'Fetchlevel ', self._configobj.fetchlevel
             # Both belong to different base servers
             if self._configobj.fetchlevel==0 or self._configobj.fetchlevel == 1:

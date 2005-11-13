@@ -1,5 +1,6 @@
 """ D-HarvestMan interface module. This module consists
-of both the manager and slave interfaces in one.
+of the D-HarvestMan manager interface and the Pyro
+plumbing for it.
 
 Created - Anand B Pillai 12/11/05
 
@@ -16,8 +17,11 @@ import os
 import socket
 import md5
 import lrucache
+import threading
 
-class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
+__TEST__=0
+
+class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
 
     def __init__(self, pyroname='DHarvestMan'):
         self.USER_AGENT = "D-HarvestMan 1.4"
@@ -44,6 +48,9 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
         self._slaveurls = {}
         # Cache of announced urls
         self._urlcache = lrucache.LRUCache(3000)
+        # Lock
+        self._lock = threading.Condition(threading.Lock())
+        
         Pyro.core.ObjBase.__init__(self)        
         pass
 
@@ -107,6 +114,10 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
                 if self._slavestatus[ip] == SLAVE_RUNNING:
                     return ip
 
+    def register_common_objects(self):
+        SetObject(self)
+        harvestman.harvestMan.register_common_objects(self)
+
     def run_projects(self):
         """ Run the HarvestMan projects specified in the config file """
         
@@ -119,19 +130,21 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
         # In D-HarvestMan, fetchlevel is always 1
         # i.e crawling only the current domain.
         self._cfg.fetchlevel = 1
+        # Let other modules know that this is the
+        # master crawler.
+        self._cfg.d_ismaster = True
         
         # Set locale - To fix errors with
         # regular expressions on non-english web
         # sites.
         self.set_locale()
-        
         self.register_common_objects()
         
         # Welcome messages
         if self._cfg.verbosity:
             self.welcome_message()    
-          
-        print self._cfg.d_manager
+        
+        print self._cfg.d_cluster
         print self._cfg.d_maxdomains
         print self._cfg.d_ipmin, self._cfg.d_ipmax
         print self._cfg.d_slaves
@@ -145,20 +158,27 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
             self._cfg.projtimeout = self._cfg.projtimeouts[0]
             self._cfg.basedir = self._cfg.basedirs[0]
 
-            self.run_project()
-            # self.test_code()
-            # status = self.start_slave('http://www.python.org/')
-            # if status==1:
-            #    print 'Slave is running...'
-            # ip = self.find_slave_ip('http://www.python.org/doc/current/tut/tut.html')
-            # print 'FOUND IP=>',ip
-            # self.stop_slave(ip)
+            if not __TEST__:
+                self.run_project()
+
+            # Uncomment the following lines to test the
+            # functions in the Manager.
+            else:
+                status = self.wrapper_start_slave('http://www.python.org/')
+                if status==1:
+                    print 'Slave is running...'
+                ip = self.find_slave_ip('http://www.python.org/doc/current/tut/tut.html')
+                print 'FOUND IP=>',ip
+                
+            # self.wrapper_stop_slave(ip)
                 
     # Callback funcs
     def url_found(self, url):
         """ A URL not belonging to the current domain of a slave
         is found """
 
+        # print 'URL_FOUND CALLED!'
+        
         flag = False
         # First see if this url is there in my cache
         if url in self._urlcache:
@@ -176,7 +196,7 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
             # 5 => Announced, no slave was found, could not
             #      start a new crawler due to some other error.
             if status==1 or status==2:
-                print 'URL %s was accepted by a slave before' % url
+                extrainfo('URL %s was accepted by a slave before' % url)
                 return '0:1'
             elif status==3 or status==4 or status==5:
                 flag = True
@@ -190,11 +210,11 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
             # Announce the new url to it
             status = self.send_url(ip, url)
             if status==1:
-                print 'URL %s was accepted by slave %s' % (url, ip)
+                extrainfo('URL %s was accepted by slave %s' % (url, ip))
                 self._urlcache[url] = 1
                 return '1:1'
             else:
-                print 'URL %s was not accepted by slave %s' % (url, ip)
+                extrainfo('URL %s was not accepted by slave %s' % (url, ip))
                 self._urlcache[url] = 3                
                 return '0:3'                
         else:
@@ -203,7 +223,7 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
             if ip:
                 status = self.send_url(ip, url)
                 if status==1:
-                    print 'URL %s was accepted by slave %s' % (url, ip)
+                    extrainfo('URL %s was accepted by slave %s' % (url, ip))
                     self._urlcache[url] = 1
                     return '1:1'
 
@@ -212,18 +232,18 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
             print 'Number of running slaves =>',len(self._slaves)
             if len(self._slaves) < self._cfg.d_maxdomains:
                 # Try starting a new slave with the new url
-                status = self.start_slave(url)
+                status = self.wrapper_start_slave(url)
                 if status==1:
-                    print 'Successfully started slave for url %s' % url
+                    extrainfo('Successfully started slave for url %s' % url)
                     self._urlcache[url] = 2                                    
                     return '1:2'
                 else:
-                    print 'Failed to start slave for url %s' % url
+                    extrainfo('Failed to start slave for url %s' % url)
                     self._urlcache[url] = 5
                     return '0:4'
             else:
                 # We are at the limit
-                print 'Reached limit of maximum number of crawlers, could not start a new one'
+                extrainfo('Reached limit of maximum number of crawlers, could not start a new one!')
                 self._urlcache[url] = 4                                                    
                 return '0:2'
                 
@@ -288,6 +308,12 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
     def _boostrap_slave(self, ip, url):
         """ Bootstrap a slave with the given URL """        
 
+        # If this slave is already running, return False
+        status = self._slavestatus.get(ip, SLAVE_NOT_RUNNING)
+        if status == SLAVE_RUNNING:
+            print 'A slave is already running at ip %s' % ip
+            return False
+
         try:
             sock = self._establish_connection(ip)
             sock.sendall(self._make_command_string('START_SLAVE',ip))
@@ -305,7 +331,11 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
                 # Create a project name from url
                 # Project name is 'project_' plus hash of the url
                 name = ''.join(('project_',str(abs(hash(url)))))
-                basedir = '~/websites'
+                if os.name == 'posix':
+                    basedir = '~/websites'
+                elif os.name == 'nt':
+                    basedir = 'C:/websites'
+                    
                 fetchlevel = 1
                 data = ''.join(('ACK CMD ',key,' ',
                                 ''.join(('URL:'+url,
@@ -334,7 +364,6 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
             print e
             
         return False
-
 
     def find_slave_ip(self, url):
         """ Find the slave who could be crawling the domain
@@ -370,38 +399,30 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
         # always returns 1
         return 1
     
-    def stop_slave(self, ip):
-        """ Stop the slave with the given ip """
+    def wrapper_start_slave(self, url):
+        """ Thread safe wrapper for start_slave """
 
-        status = self._slavestatus.get(ip, SLAVE_STATUS_UNKNOWN)
-        if status == SLAVE_RUNNING:
-            try:
-                sock = self._establish_connection(ip)
-                print 'BEFORE MAKING COMMAND STRING'
-                cmd = self._make_command_string('STOP_SLAVE',ip)
-                sock.send(cmd)
-                data = sock.recv(1024)
-                print 'DATA=>',data
-                # Check for status
-                key, msg = data.split()
-                if key == 'STATUS':
-                    if msg == 'SLAVE_STOPPED':
-                        self._slavestatus[ip] = SLAVE_STOPPED
-                        self.remove_slave_info(ip)
-                        print 'Slave successfully stopped.'
-                        return 1
-                    else:
-                        print 'Error stopping slave.'
-            except socket.error, e:
-                print e
-        else:
-            print 'Slave is not running!'
-                
-        return 0
-                
+        try:
+            self._lock.acquire()
+            return self.start_slave(url)
+        finally:
+            self._lock.release()
+
+    def wrapper_stop_slave(self, url):
+        """ Thread safe wrapper for stop_slave """
+
+        try:
+            self._lock.acquire()
+            return self.start_slave(url)
+        finally:
+            self._lock.release()            
+
     def start_slave(self, url):
         """ Start a slave with the given URL """
 
+        # NOTE: This is not thread safe so never call this
+        # directly. Always call wrapper_start_slave instead.
+        
         # First the slaves list is examined. Then the ip range
         slave_list = self._cfg.d_slaves
         # Boostrap status
@@ -442,22 +463,62 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
                         
         return status
     
-                        
-class RemoteManager(object):
+    def stop_slave(self, ip):
+        """ Stop the slave with the given ip """
 
+        # NOTE: This is not thread safe so never call this
+        # directly. Always call wrapper_stop_slave instead.
+        
+        status = self._slavestatus.get(ip, SLAVE_STATUS_UNKNOWN)
+        if status == SLAVE_RUNNING:
+            try:
+                sock = self._establish_connection(ip)
+                print 'BEFORE MAKING COMMAND STRING'
+                cmd = self._make_command_string('STOP_SLAVE',ip)
+                sock.send(cmd)
+                data = sock.recv(1024)
+                print 'DATA=>',data
+                # Check for status
+                key, msg = data.split()
+                if key == 'STATUS':
+                    if msg == 'SLAVE_STOPPED':
+                        self._slavestatus[ip] = SLAVE_STOPPED
+                        self.remove_slave_info(ip)
+                        print 'Slave successfully stopped.'
+                        return 1
+                    else:
+                        print 'Error stopping slave.'
+            except socket.error, e:
+                print e
+        else:
+            print 'Slave is not running!'
+                
+        return 0
+                        
+class DHarvestManRemoteMgr(object):
+    """ The Pyro plumbing class for DHarvestManMgr """
+    
     def __init__(self,name='DHarvestMan'):
         self._daemon = None
         self._uri = ''
         self._name = name
-        self._mgr = Manager(name)
+        self._mgr = DHarvestManMgr(name)
         pass
 
     def _bootstrap(self):
-        cmd = 'python'
-        args = [cmd,'startmgr.py',self._name]
-        os.spawnvp(os.P_NOWAIT, cmd, args)
-        
+
+        if os.name == 'posix':
+            cmd = 'python'
+            args = [cmd,'startmgr.py',self._name]
+            os.spawnvp(os.P_NOWAIT, cmd, args)
+        elif os.name == 'nt':
+            cmd = os.path.join(sys.prefix, 'python.exe')
+            args = [cmd,'startmgr.py',self._name]
+            os.spawnv(os.P_NOWAIT, cmd, args)
+            
     def StartManager(self):
+        self._bootstrap()
+        
         Pyro.core.initServer()
         self._daemon=Pyro.core.Daemon()
         
@@ -465,11 +526,17 @@ class RemoteManager(object):
         
         print "The daemon runs on port:", self._daemon.port
         print "The object's uri is:", self._uri
-
-        self._bootstrap()
-        self._daemon.requestLoop()    
+        self._daemon.requestLoop()
+        
         print 'HI'
 
 if __name__=="__main__":
-    o = RemoteManager()
-    o.StartManager()
+    global __TEST__
+    __TEST__  = 0
+    
+    try:
+        o = DHarvestManRemoteMgr()
+        o.StartManager()
+    except KeyboardInterrupt, e:
+        print 'Exiting with KeyboardInterrupt.'
+        sys.exit(1)

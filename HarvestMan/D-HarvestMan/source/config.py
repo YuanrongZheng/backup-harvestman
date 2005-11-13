@@ -261,7 +261,8 @@ class HarvestManStateObject(dict):
 
         # D-HarvestMan specific, all D-HarvestMan
         # options begin with 'd_'
-        self.d_manager = False
+        self.d_cluster = False
+        self.d_ismaster = False
         self.d_maxdomains = 5
         self.d_ipmin = '127.0.0.1'
         self.d_ipmax = '127.0.0.1'
@@ -434,7 +435,7 @@ class HarvestManStateObject(dict):
                          'localise_value' : ('localise','int'),
                          'browsepage_value' : ('browsepage','int'),
                          # Begin D-HarvestMan specific
-                         'cluster_enable' : ('d_manager','int'),
+                         'cluster_enable' : ('d_cluster','int'),
                          'maxdomains_value' : ('d_maxdomains', 'int'),
                          'iprange_min' : ('d_ipmin', 'str'),
                          'iprange_max' : ('d_ipmax', 'str'),

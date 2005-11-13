@@ -181,7 +181,11 @@ class harvestManUrlThread(threading.Thread):
             # Perf fix: Check end flag
             # in case the program was terminated
             # between start of loop and now!
-            if not self.__endflag: self.download(url_obj)
+            if not self.__endflag:
+                try:
+                    self.download(url_obj)
+                except Exception, e:
+                    debug(str(e))
             # reset busyflag
             self.__busyflag = False
 
