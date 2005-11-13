@@ -367,7 +367,7 @@ class harvestMan(object):
                 print 'NAME =>',self._cfg.project
                 print 'FETCHLEVEL=>',self._cfg.fetchlevel
                 
-                # self.run_project()
+                self.run_project()
                 
         else:
             # Code for stand-alone crawler

@@ -145,14 +145,14 @@ class Manager(harvestman.harvestMan, Pyro.core.ObjBase):
             self._cfg.projtimeout = self._cfg.projtimeouts[0]
             self._cfg.basedir = self._cfg.basedirs[0]
 
-            # self.run_project()
+            self.run_project()
             # self.test_code()
-            status = self.start_slave('http://www.python.org/')
-            if status==1:
-                print 'Slave is running...'
-            ip = self.find_slave_ip('http://www.python.org/doc/current/tut/tut.html')
-            print 'FOUND IP=>',ip
-            self.stop_slave(ip)
+            # status = self.start_slave('http://www.python.org/')
+            # if status==1:
+            #    print 'Slave is running...'
+            # ip = self.find_slave_ip('http://www.python.org/doc/current/tut/tut.html')
+            # print 'FOUND IP=>',ip
+            # self.stop_slave(ip)
                 
     # Callback funcs
     def url_found(self, url):
