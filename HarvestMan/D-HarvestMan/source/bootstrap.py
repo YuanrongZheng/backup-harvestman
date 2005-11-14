@@ -457,8 +457,9 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
                 cmd = 'python'
             elif os.name == 'nt':
                 cmd = os.path.join(sys.prefix,'python.exe')
-                
-            args = [cmd,hmanpath,'-p',name,'-b',basedir,'-f',fetchlevel,'-l 0',
+
+            # Setting verbosity to 3 to see slave's URL announced messages
+            args = [cmd,hmanpath,'-p',name,'-b',basedir,'-f',fetchlevel,'-l 0','-V 3',
                     ''.join(('--slave=',mgr_args)),url]
             if os.name == 'posix':
                 pid = os.spawnvpe(os.P_NOWAIT,cmd,args,os.environ)

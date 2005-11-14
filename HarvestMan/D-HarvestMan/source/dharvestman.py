@@ -178,6 +178,15 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         is found """
 
         # print 'URL_FOUND CALLED!'
+
+        # If this url belongs to my domain, dont do anything
+        # FIXME: This needs to be modifed so that this URL
+        # is pushed to the local buffer of a fetcher (Later)
+        urlobj = HarvestManUrlParser(url)
+        domain = urlobj.get_domain()
+        if domain == self._cfg.baseurlobj.get_domain():
+            extrainfo("URL %s belongs to domain of master, skipped" % url)
+            return '0:1'
         
         flag = False
         # First see if this url is there in my cache

@@ -254,6 +254,8 @@ class HarvestManStateObject(dict):
         # that the configuration was
         # read from a project file
         self.fromprojfile = False
+        # Url object of starting url
+        self.baseurlobj = None
         self._init1_1()
 
     def _init1_1(self):
