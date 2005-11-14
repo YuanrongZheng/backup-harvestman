@@ -93,6 +93,8 @@ class HarvestManCrawlerQueue(object):
             self._baseUrlObj = urlparser.HarvestManUrlParser(self._configobj.url, 'normal',
                                                              0, self._configobj.url,
                                                              self._configobj.projdir)
+            # Set it on cfg
+            self._configobj.baseurlobj = self._baseUrlObj
             SetUrlObject(self._baseUrlObj)
         except urlparser.HarvestManUrlParserError:
             return False

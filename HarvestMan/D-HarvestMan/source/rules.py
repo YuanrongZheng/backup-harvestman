@@ -151,7 +151,8 @@ class harvestManRulesChecker(object):
             #              crawl this domain.
             #
             # If not accepted:
-            # reason is 1: URL already in mgrs cache.
+            # reason is 1: URL already in mgrs cache or
+            #              url belongs to mgrs domain.
             # reason is 2: URL was announced, but
             #              no crawler is crawling this
             #              domain. Could not start a
