@@ -200,9 +200,12 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
     def handle(self):
 
         while True:
-            data = self.request.recv(self.BUFSIZ)
-            if not data: break
-            print data
+            try:
+                data = self.request.recv(self.BUFSIZ)
+                if not data: break
+            except socket.error, e:
+                print e
+                break
 
             # If this is a D-HarvestMan manager handshake
             # initiation, it will be a string in the following
@@ -231,7 +234,7 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
                 data = self.request.recv(self.BUFSIZ)
                 # These could be commands to manage the slave process
                 cmd = self._parse_mgr_command(data)
-                print 'COMMAND =>', cmd
+                # print 'COMMAND =>', cmd
                 if cmd == 'START_SLAVE':
                     # Request for Pyro information
                     info = self._send_recv_command('SEND_CONTACTINFO')
@@ -239,7 +242,7 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
                     self._parse_mgr_contact_info_cmd(info)
                     # Ping to see mgr if it is alive
                     # (This is a bit reduntant!)
-                    print 'MGR INFO=>',self._mgrinfo
+                    # print 'MGR INFO=>',self._mgrinfo
                     mgr_ip = self._mgrinfo[1]
                     if icmp_ping(mgr_ip):
                         # Request parameters for slave. The manager
@@ -272,14 +275,14 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
                     else:
                         self._send_status_msg('SLAVE_NOT_RESTARTED')                    
                 
-        self.request.close()
-
+            # self.request.close()
+    
     def _send_recv_command(self, cmd):
         """ Send the cmd and recv data. Return
         the data recvd """
 
         data = ''.join(('CMD ',cmd))
-        print 'Sending CMD =>', data
+        # print 'Sending CMD =>', data
         self.request.sendall(data)
         data = self.request.recv(self.BUFSIZ)
         return data
@@ -293,7 +296,7 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
         # The data is of the following form
         # ACK CMD CONTACTINFO OBJNAME:HOSTIP
 
-        print 'Data =>', data
+        # print 'Data =>', data
         verify, info = self._verify_mgr_command_ack(data, 'SEND_CONTACTINFO')
         if verify and info:
             # Split it into two
@@ -309,7 +312,7 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
         # Every command should include the session
         # key in the form "CMD <cmdstring>#<SESSIONKEY>"
         parts = data.split('#')
-        print 'Parts=>', parts
+        # print 'Parts=>', parts
         if len(parts)==2:
             if parts[1] == self._session_key:
                 print 'Session key verified.'
@@ -330,7 +333,7 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
         the information """
         
         parts = data.split()
-        print 'Parts=>', parts
+        # print 'Parts=>', parts
         if len(parts)==4:
             # The first two strings have to be 'ACK CMD'
             if parts[0] == 'ACK' and parts[1] == 'CMD':
@@ -422,16 +425,16 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
         # It also needs to be given the fetchlevel
         # the base-dir, and a project name.
         parts = info.split(',')
-        print 'PARTS=>',parts
+        # print 'PARTS=>',parts
         
         url,basedir,name,fetchlevel='','~/websites','',1
-        print 'HERE'
+        # print 'HERE'
         for part in parts:
-            print 'PART IN LOOP=>',part
+            # print 'PART IN LOOP=>',part
             idx = part.find(':')
             key, value = part[:idx].strip(), part[idx+1:]
-            print 'KEY=>',key
-            print 'VALUE=>',value
+            # print 'KEY=>',key
+            # print 'VALUE=>',value
             
             if key == 'URL':
                 url = str(value)
@@ -447,7 +450,7 @@ class DHarvestManServiceHandler(SocketServer.BaseRequestHandler):
         print 'BASEDIR=>',basedir
         
         if url and basedir and name:
-            print 'VALID!'
+            # print 'VALID!'
             hmanpath = self._handle.get_hmanmodule()
             print 'HMANPATH=>',hmanpath
             # Start it as a D-HarvestMan slave

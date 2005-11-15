@@ -46,6 +46,15 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         # Dictionary of slave ips
         # to their URLs
         self._slaveurls = {}
+
+        # Dictionary of slave ids
+        # to their download count
+        # This code is only for
+        # DHM demo!
+        self._slavednld = {}
+        self._dnldf = open('download.log','w')
+        # End demo code
+        
         # Cache of announced urls
         self._urlcache = lrucache.LRUCache(3000)
         # Lock
@@ -54,6 +63,10 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         Pyro.core.ObjBase.__init__(self)        
         pass
 
+    def cleanup(self):
+        if self._dnldf:
+            self._dnldf.close()
+            
     def test_code(self):
         # Test code for Pyro.
         for x in range(1000):
@@ -73,7 +86,7 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         crawling """
 
         # Create an id for the slave and return it
-        lastid = 1
+        lastid = 0
         for value in self._slaveids.values():
             if value > lastid:
                 lastid = value
@@ -106,6 +119,28 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         self._slavestatus[slave_ip] = SLAVE_STOPPED
         self.remove_slave_info(slave_ip)
 
+    def update_download_data(self, slave_id, current_count):
+        """ Update download data - This is written
+        specifically for capturing statistics """
+
+        # This function is only for D-HarvestMan demo,
+        # remove it after that!
+        
+        self._slavednld[slave_id] = current_count
+        debug('Download count of slave %d is %d' % (slave_id, current_count))
+        # Log it to a file for every 20th call
+        
+        # Output in increasing order of keys, i.e slave ids
+        keys = self._slavednld.keys()
+        keys.sort()
+        s=time.strftime('%H:%M:%S')
+        for k in keys:
+            val = self._slavednld[k]
+            s = ''.join((s,' ',str(val)))
+        s += '\n'
+        self._dnldf.write(s)
+        self._dnldf.flush()
+        
     def find_idle_slave(self):
         """ Return an idle slave """
 
@@ -133,6 +168,8 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         # Let other modules know that this is the
         # master crawler.
         self._cfg.d_ismaster = True
+        # The master's "slave id" is always zero
+        self._cfg.d_slaveid = 0
         
         # Set locale - To fix errors with
         # regular expressions on non-english web
@@ -171,7 +208,16 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
                 print 'FOUND IP=>',ip
                 
             # self.wrapper_stop_slave(ip)
-                
+
+    def wrapper_url_found(self, url):
+        """ Thread safe wrapper to url_found """
+
+        try:
+            self._lock.acquire()
+            return self.url_found(url)
+        finally:
+            self._lock.release()
+            
     # Callback funcs
     def url_found(self, url):
         """ A URL not belonging to the current domain of a slave
@@ -293,9 +339,9 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
             # Send IDENTIFIER
             sock.send('IDENTIFIER ADAPT:PYRO')
             data = sock.recv(1024)
-            print data
+            # print data
             cmd, key = data.split()
-            print 'Key=>',key
+            # print 'Key=>',key
             key2, hashval = key.split(':')
             # Verify hash
             if self._verify_hash(key2, hashval):
@@ -314,7 +360,7 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         except socket.error, e:
             print e
             
-    def _boostrap_slave(self, ip, url):
+    def _bootstrap_slave(self, ip, url):
         """ Bootstrap a slave with the given URL """        
 
         # If this slave is already running, return False
@@ -325,6 +371,7 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
 
         try:
             sock = self._establish_connection(ip)
+            if not sock: return False
             sock.sendall(self._make_command_string('START_SLAVE',ip))
             data = sock.recv(1024)
             print data 
@@ -442,8 +489,8 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         if slave_list:
             for ip in slave_list:
                 if ip not in self._slaves:
-                    print 'IP=>',ip
-                    if self._boostrap_slave(ip, url):
+                    # print 'IP=>',ip
+                    if self._bootstrap_slave(ip, url):
                         status=1
                         self._slaves.append(ip)
                         self._slaveurls[ip] = HarvestManUrlParser(url)                        
@@ -463,8 +510,8 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
                 for x in range(min_val, max_val+1):
                     ip = ''.join((ip_rest,'.',str(x)))
                     if not ip in self._slaves:
-                        print 'IP=>',ip
-                        if self._boostrap_slave(ip, url):
+                        # print 'IP=>',ip
+                        if self._bootstrap_slave(ip, url):
                             status=1
                             self._slaves.append(ip)
                             self._slaveurls[ip] = HarvestManUrlParser(url)
@@ -482,11 +529,11 @@ class DHarvestManMgr(harvestman.harvestMan, Pyro.core.ObjBase):
         if status == SLAVE_RUNNING:
             try:
                 sock = self._establish_connection(ip)
-                print 'BEFORE MAKING COMMAND STRING'
+                # print 'BEFORE MAKING COMMAND STRING'
                 cmd = self._make_command_string('STOP_SLAVE',ip)
                 sock.send(cmd)
                 data = sock.recv(1024)
-                print 'DATA=>',data
+                # print 'DATA=>',data
                 # Check for status
                 key, msg = data.split()
                 if key == 'STATUS':
@@ -539,6 +586,9 @@ class DHarvestManRemoteMgr(object):
         
         print 'HI'
 
+    def cleanup(self):
+        self._mgr.cleanup()
+        
 if __name__=="__main__":
     global __TEST__
     __TEST__  = 0
@@ -548,4 +598,5 @@ if __name__=="__main__":
         o.StartManager()
     except KeyboardInterrupt, e:
         print 'Exiting with KeyboardInterrupt.'
+        o.cleanup()
         sys.exit(1)

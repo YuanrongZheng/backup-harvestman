@@ -42,6 +42,7 @@ import utils
 from urlthread import harvestManUrlThreadPool
 from connector import *
 from common import *
+from Pyro.errors import PyroError, ProtocolError
 
 class harvestManDataManager(object):
     """ The data manager cum indexer class """
@@ -575,6 +576,12 @@ class harvestManDataManager(object):
         except ValueError:
             return False
 
+    def get_num_saved_files(self):
+        """ Get the number of downloaded files so far """
+
+        # For D-HarvestMan statistics capturing
+        return len(self._downloaddict['_savedfiles'])
+    
     def check_duplicate_download(self, urlobj):
         """ Check if this is a duplicate download """
 
@@ -1096,6 +1103,13 @@ class harvestManController(tg.Thread):
         self._dmgr = GetObject('datamanager')
         self._tq =  GetObject('trackerqueue')
         self._cfg = GetObject('config')
+        # This is only for D-HarvestMan demo,
+        # remove it after that!
+        if self._cfg.d_ismaster:
+            self._master = GetObject('dmanager')
+        elif self._cfg.d_isslave:
+            self._master = self._cfg.d_mgrproxy
+        # End demo code
         self._exitflag = False
         self._conn = {}
         tg.Thread.__init__(self, None, None, 'HarvestMan Control Class')
@@ -1104,10 +1118,25 @@ class harvestManController(tg.Thread):
         """ Run in a loop looking for
         exceptional conditions """
 
+        count = 0
         while not self._exitflag:
             # Wake up every second and look
             # for exceptional conditions
             time.sleep(1.0)
+            # For statistics capturing - Update
+            # the download count on the manager
+            count += 1
+            # This is only for DHM demo. Remove
+            # it after that!
+            if count==15 and self._master:
+                count = 0
+                dnldcnt = self._dmgr.get_num_saved_files()
+                try:
+                    self._master.update_download_data(self._cfg.d_slaveid, dnldcnt)
+                except (PyroError, ProtocolError), e:
+                    print 'PyroError:',str(e)
+            # End DHM demo code
+                
             self.__manage_time_limits()
             self.__manage_file_limits()
 

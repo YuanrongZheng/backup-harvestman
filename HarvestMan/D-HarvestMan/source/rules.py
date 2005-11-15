@@ -29,7 +29,9 @@ from common import *
 import urlparser
 # LRU caching
 import lrucache
+
 from Pyro.errors import PyroError, ProtocolError
+from pickle import UnpicklingError
 
 class harvestManRulesChecker(object):
     """ Class which checks the download rules for urls. These
@@ -173,7 +175,7 @@ class harvestManRulesChecker(object):
                         try:
                             exrainfo('Announcing url %s to manager...' % url)
                             ret = proxy.url_found(url)
-                        except (PyroError, ProtocolError), e:
+                        except (PyroError, ProtocolError, UnpicklingError, EOFError), e:
                             print 'PyroError:',str(e)
                             return -1
             else:
@@ -184,7 +186,7 @@ class harvestManRulesChecker(object):
                 try:
                     extrainfo('Announcing url %s to manager...' % url)
                     ret = proxy.url_found(url)
-                except (PyroError, ProtocolError), e:
+                except (PyroError, ProtocolError, UnpicklingError, EOFError), e:
                     print 'PyroError:',str(e)
                     return -1
 

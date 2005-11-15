@@ -170,13 +170,16 @@ class HarvestManStateObject(dict):
         self.eserverlinks=0
         self.epagelinks=1
         self.fastmode=1
-        self.usethreads=1
+        # For D-harvestMan we are not
+        # enabling worker threads for
+        # the time being.
+        self.usethreads=0
         self.maxfiles=5000
         self.maxextservers=0
         self.maxextdirs=0
         self.retryfailed=1
         self.extdepth=0
-        self.maxtrackers=4
+        self.maxtrackers=5
         self.urlfilter=''
         self.wordfilter=''
         self.inclfilter=[]

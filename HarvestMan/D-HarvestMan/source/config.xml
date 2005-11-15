@@ -80,8 +80,8 @@
     </control>
     
     <system>
-      <workers status="1" size="10" timeout="200"/>
-      <trackers value="10"/>
+      <workers status="0" size="10" timeout="200"/>
+      <trackers value="5"/>
       <locale>C</locale>
       <fastmode value="1"/>
     </system>
