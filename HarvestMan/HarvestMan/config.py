@@ -105,8 +105,8 @@ class HarvestManStateObject(dict):
 
     def _init1(self):
         
-        self.version='1.4.5'
-        self.maturity="final"
+        self.version='1.5'
+        self.maturity="alpha"
         self.appname='HarvestMan'
         self.progname="".join((self.appname," ",self.version," ",self.maturity))
         self.url=''
@@ -191,6 +191,8 @@ class HarvestManStateObject(dict):
         self.checkfiles=1
         self.cookies=1
         self.pagecache=1
+        # New internal flag - Added Jan 8 2006
+        self.cachefound=0
         self._error=''
         self.starttime=0
         self.endtime=0

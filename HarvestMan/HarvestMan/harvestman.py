@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 # -- coding: latin-1
 
 """ HarvestMan - Multithreaded internet spider program

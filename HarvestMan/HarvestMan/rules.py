@@ -11,16 +11,28 @@
     Nov 24 2004         Anand   Added a junk filter class
                                 to filter out advertisement
                                 urls, images, banners etc.
+    Jan 5 2006          Anand   Bugfix: In __apply_rep, first we
+                                should check against whether
+                                the robots.txt file is there
+                                in filter list to speed up
+                                things.
 
-    Oct 17 2005         Anand   __compare_domain uses only
-                                __compare_by_name, not __compare_by_ip
-                                since latter is buggy. This also
-                                fixes bug #5289.
+                                Fixed as a part of random walk
+                                bug. EIAO ticket #74.
+
+   Jan 8 2006          Anand    Updated this file from EIAO
+                                repository to get fixes for robot
+                                rules. Removed EIAO specific
+                                code.
+
+                                Put ext check rules before robots
+                                check to speed up things.
                                 
 """
 import socket
 import re
 import os
+import time
 
 import robotparser
 
@@ -45,6 +57,7 @@ class harvestManRulesChecker(object):
         self._wordstr = '[\s+<>]'
         self._robots  = {}
         self._robocache = []
+        self._logger = GetObject('logger')
 
         # Configure robotparser object if rep rule is specified
         self._configobj = GetObject('config')
@@ -79,15 +92,15 @@ class harvestManRulesChecker(object):
             if not self.junkfilter.check(urlObj):
                 extrainfo("Junk Filter - filtered", url)
                 return True
-                                                                                                                 
-        # now apply REP
-        if self.__apply_rep(urlObj):
-            extrainfo("Robots.txt rules prevents download of ", url)
-            return True
 
         # check if this is an external link
         if self.__is_external_link( urlObj ):
             extrainfo("External link - filtered ", urlObj.get_full_url())
+            return True
+
+        # now apply REP
+        if self.__apply_rep(urlObj):
+            extrainfo("Robots.txt rules prevents download of ", url)
             return True
 
         # depth check
@@ -110,8 +123,23 @@ class harvestManRulesChecker(object):
         ip and then by name and return True if both point
         to the same server, return False otherwise. """
 
+        # For comparing robots.txt file, first compare by
+        # ip and then by name.
+        if robots: 
+            firstval=self.__compare_by_ip(domain1, domain2)
+            if firstval:
+                return firstval
+            else:
+                return self.__compare_by_name(domain1, domain2)
 
-        return self.__compare_by_name(domain1, domain2)
+        # otherwise, we do a name check first and
+        # ip check later
+        else:
+            firstval=self.__compare_by_name(domain1, domain2)
+            if firstval:
+                return firstval
+            else:
+                return self.__compare_by_ip(domain1, domain2)
 
     def __get_base_server(self, server):
         """ Return the base server name of  the passed
@@ -167,8 +195,6 @@ class harvestManRulesChecker(object):
         try:
             ip1 = socket.gethostbyname(domain1)
             ip2 = socket.gethostbyname(domain2)
-            print domain1,'=>',ip1
-            print domain2,'=>',ip2
         except Exception:
             return False
 
@@ -185,46 +211,53 @@ class harvestManRulesChecker(object):
 
         # robots option turned off
         if self._configobj.robots==0: return False
-
+        
         domport = urlObj.get_full_domain_with_port()
-
-        url_directory = urlObj.get_url_directory()
-        # Optimization #1: Check if this directory
-        # is already there in the white list
-        try:
-            self._robocache.index(url_directory)
-            return False
-        except ValueError:
-            pass
-
         # The robots.txt file url
         robotsfile = "".join((domport, '/robots.txt'))
 
+        # Check #1 - See if this site does not
+        # have a robots.txt, then no need to bother.
+        try:
+            self._filter.index(robotsfile)
+            return 0
+        except ValueError:
+            pass
+
+        url_directory = urlObj.get_url_directory()
+
+        # Check #2: Check if this directory
+        # is already there in the white list
+        try:
+            self._robocache.index(url_directory)
+            return 0
+        except ValueError:
+            pass
+
+        # Check #3
         # if this url exists in filter list, return
         # True rightaway
         try:
             self._filter.index(urlObj.get_full_url())
-            return True
+            return 1
         except ValueError:
             pass
 
-        # Optimization #2: Maintain a cache
-        # of robot parser objects to each
-        # server.
         try:
             rp = self._robots[domport]
+            # Check #4
             # If there is an entry, but it
             # is None, it means there is no
             # robots.txt file in the server
             # (see below). So return False.
-            if not rp:
-                return False
+            if not rp: return 0
         except KeyError:
             # Not there, create a fresh
             # one and add it.
             rp = robotparser.RobotFileParser()
             rp.set_url(robotsfile)
             ret = rp.read()
+            # Check #5                
             if ret==-1:
                 # no robots.txt file
                 # Set the entry for this
@@ -232,24 +265,25 @@ class harvestManRulesChecker(object):
                 # time we dont need to do
                 # this operation again.
                 self._robots[domport] = None
-                return False
+                return 0
             else:
                 # Set it
                 self._robots[domport] = rp
 
         # Get user-agent from Spider
         ua = GetObject('USER_AGENT')
-
+        
+        # Check #6
         if rp.can_fetch(ua, url_directory):
             # Add to white list
             self._robocache.append(url_directory)
-            return False
+            return 0
 
         # Cannot fetch, so add to filter
         # for quick look up later.
         self.add_to_filter(urlObj.get_full_url())
-
-        return True
+        
+        return 1
 
     def apply_word_filter(self, data):
         """ Apply the word filter """
@@ -452,6 +486,7 @@ class harvestManRulesChecker(object):
             return True
 
         bdir = baseUrlObj.get_url_directory()
+
         # Look for bdir inside dir
         index = directory.find(bdir)
 
@@ -473,7 +508,7 @@ class harvestManRulesChecker(object):
             bdir = baseUrlObj.get_url_directory_sans_domain()
 
             # Check again
-            if directory and bdir and directory.find(bdir) == 0:
+            if directory.find(bdir) == 0:
                 return True
 
         return False
@@ -511,7 +546,6 @@ class harvestManRulesChecker(object):
 
         # if under the same starting directory, return False
         if self.is_under_starting_directory(urlObj):
-            # print 'Is under starting directory=>',urlObj.get_full_url()
             return False
 
         directory = urlObj.get_url_directory()
@@ -528,7 +562,7 @@ class harvestManRulesChecker(object):
             if self._configobj.getimagelinks: return False
 
         if not self.is_external_server_link(urlObj):
-            print 'Same server ', urlObj.domain, baseUrlObj.domain
+            # print 'Same server ', urlObj.domain, baseUrlObj.domain
             if self._configobj.fetchlevel==0:
                 return True
             elif self._configobj.fetchlevel==3:
@@ -581,7 +615,7 @@ class harvestManRulesChecker(object):
                 self.add_to_filter(urlObj.get_full_url())
                 return True
         else:
-            print 'Different server ', urlObj.domain, baseUrlObj.domain
+            # print 'Different server ', urlObj.domain, baseUrlObj.domain
             # print 'Fetchlevel ', self._configobj.fetchlevel
             # Both belong to different base servers
             if self._configobj.fetchlevel==0 or self._configobj.fetchlevel == 1:

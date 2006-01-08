@@ -24,6 +24,12 @@
    Sep 1 2005       Anand            Made _handled, skip_re and query_re
                                      as class level members to optimize their
                                      usage.
+   Jan 4 2006       Anand            Fixed a bug in duplicate links for anchor
+                                     type links as part of EIAO ticket #74
+                                     changes (random walk fix).
+   Jan 8 2006       Anand            Updated this file from EIAO repository
+                                     to get a few bug-fixes. Removed EIAO
+                                     specific code.
                                      
 """
 
@@ -55,10 +61,11 @@ class harvestManSimpleParser(SGMLParser):
                 'body' : (('background', 'image'),),
                 'script' : (('src', 'javascript'),),
                 'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet'))
-                }        
+                }
     
     def __init__(self):
         self.links = []
+        self.linkpos = {}
         self.images = []
         # Fix for <base href="..."> links
         self.base_href = False
@@ -106,20 +113,27 @@ class harvestManSimpleParser(SGMLParser):
         # and only add the webpage link
         if not link: return
 
-        self.links.append(('anchor', link))
+        # Need to do this here also
+        self.check_add_link('anchor', link)
 
         # No point in getting #anchor sort of links
         # since they point to anchors in the same page
+
+        # Jan 4 06: Fixed a bug here - This routine
+        # was adding a lot of duplicate links. Made
+        # it to call check_add_link instead of
+        # adding directly.
+        
         index = link.rfind('.html#')
         if index != -1:
             newhref = link[:(index + 5)]
-            self.links.append(('normal', newhref))
+            self.check_add_link('normal', newhref)
             return 0
         else:
             index = link.rfind('.htm#')
             if index != -1:
                 newhref = link[:(index + 4)]
-                self.links.append(('normal', newhref))
+                self.check_add_link('normal', newhref)
             return 0
 
         return 1
@@ -138,14 +152,13 @@ class harvestManSimpleParser(SGMLParser):
         # frame => for redirects
 
         if not attrs: return
-        #print attrs
-        
         isBaseTag = not self.base and tag == 'base'
 
         if tag in self.handled:
 
             d = CaselessDict(attrs)
             _values = (self.handled[tag])
+            #print 'd', d, d.line, d.column
 
             link = ''
 
@@ -207,25 +220,17 @@ class harvestManSimpleParser(SGMLParser):
         f = False
 
         if typ == 'image':
-            for k,v  in self.images:
-                if v == link:
-                    f = True
-                    break
-
-            if not f:
+            if not (typ, link) in self.images:
                 # moredebug('Adding image ', link, typ)
                 #print 'Adding image ', link, typ
                 self.images.append((typ, link))
-        else:
-            for k,v in self.links:
-                if v == link:
-                    f = True
-                    break
-
-            if not f:
+        elif not (typ, link) in self.links:
                 # moredebug('Adding link ', link, typ)
                 #print 'Adding link ', link, typ
+                pos = self.getpos()
                 self.links.append((typ, link))
+                self.linkpos[(typ,link)] = (pos[0],pos[1])
+                
 
     def add_tag_info(self, taginfo):
         """ Add new tag information to this object.
@@ -275,8 +280,6 @@ class harvestManSimpleParser(SGMLParser):
 
     def reset(self):
         SGMLParser.reset(self)
-        del self.links
-        del self.images
 
         self.base = None
         self.links = []
@@ -301,7 +304,7 @@ if __name__=="__main__":
     cfg.verbosity = 5
     
     p=harvestManSimpleParser()
-    p.feed(open('escher.html').read())
+    p.feed(open('module-sgmllib.html').read())
     pass
 
 

@@ -8,8 +8,8 @@
       <project skip="0">
         <url>http://www.python.org/doc/current/tut/tut.html</url>
         <name>pytut</name>
-        <basedir>C:/websites</basedir>
-        <verbosity value="2"/>
+        <basedir>~/websites</basedir>
+        <verbosity value="3"/>
       </project>
       
     </projects>

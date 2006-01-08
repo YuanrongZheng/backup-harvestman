@@ -10,6 +10,8 @@
     Modification history (Trimmed on Dec 14 2004)
 
     Jan 12 2005 - Created this by splitting urltracker.py .
+    Jan  08 2006 - Inserted random sleeps periods.
+    
 
 """
 
@@ -18,6 +20,7 @@ import socket
 import time
 import math
 import threading
+import random
 
 from sgmllib import SGMLParseError
 
@@ -264,6 +267,9 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                 # Set status to one to denote busy state
                 self._status = 1
 
+                # Inserting a random sleep
+                time.sleep(random.random()*0.3)
+                
                 # Do a crawl to generate new objects
                 # only after trying to push buffer
                 # objects.
@@ -275,7 +281,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                 self._urlobject = None
                 
                 # Sleep for some time
-                time.sleep(0.3)
+                time.sleep(random.random()*0.3)
                 # Set status to zero to denote idle state                
                 self._status = 0
         else:
@@ -353,9 +359,9 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
 
             if ruleschecker.is_duplicate_link( url_obj.get_full_url()):
                 continue
+            else:
+                print 'Not duplicate link->',url_obj.get_full_url()
 
-            # print 'Url =>',url_obj.get_full_url()
-            
             url_obj.generation = self._urlobject.generation + 1
             typ = url_obj.get_type()
             
@@ -513,6 +519,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 # Set status to busy 
                 self._status = 1
 
+                # Inserting a random sleep
+                time.sleep(random.random()*0.3)
+                
                 # Process to generate new objects
                 # only after trying to push buffer
                 # objects.                    
@@ -522,8 +531,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 del self._urlobject
                 self._urlobject = None
                 
-                # Sleep for some time
-                time.sleep(0.3)
+                # Sleep for some random time
+                time.sleep(random.random()*0.3)                
                 self._status = 0
         else:
             self.process_url()

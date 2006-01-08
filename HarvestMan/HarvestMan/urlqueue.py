@@ -378,7 +378,8 @@ class HarvestManCrawlerQueue(object):
         are waiting for data, and no data is coming """
 
         blocked = self.__get_num_blocked_threads()
-        
+
+        # print 'Blocked threads=>',blocked
         if blocked == len(self._trackers):
             return True
         else:

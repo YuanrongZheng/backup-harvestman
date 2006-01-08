@@ -19,14 +19,21 @@
     ================ End Original Copyright =========================
 
     Feb 14 2004        Anand       fixed a typo.
-    Jun 14 2004         Anand   1.3.9 release.    
-                
+    Jun 14 2004         Anand   1.3.9 release.
+    Jan 5 2006          Anand   Fix for EIAO ticket #74, small change
+                                in open of URLopener class, Also moved
+                                import of HarvestManUrlConnector to top.
+
+    Jan 8 2006         Anand    Updated this file from EIAO robacc
+                                repository.
+                                
     This module is a modified version of robotparser.py supplied
     with the python standard distribution. For licensing information see the
     file LICENSE.txt that is included in this distribution.
 """
 
 import re,urlparse,urllib
+from connector import HarvestManUrlConnector
 
 __all__ = ["RobotFileParser"]
 
@@ -278,11 +285,7 @@ class URLopener(urllib.FancyURLopener):
         return result
 
     def open(self, url):
-
-        from connector import HarvestManUrlConnector
-        
-        conn = HarvestManUrlConnector()
-        return conn.robot_urlopen(url)
+        return HarvestManUrlConnector().robot_urlopen(url)
     
 def _check(a,b):
     if not b:

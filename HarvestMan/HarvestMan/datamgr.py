@@ -27,6 +27,9 @@
 
   Oct 5 2005        Anand        (Re)added function terminator in harvestManController.
                                   Fix for bug 005252.
+  Jan 8 2006        Anand         Added a flag for cache found in read_project_cache.
+                                  Cache checks are done only if this flag is true.
+  
 
 """
 import os, sys
@@ -100,6 +103,10 @@ class harvestManDataManager(object):
 
         if obj:
             self._projectcache = obj
+            self._cfg.cachefound = 1
+        else:
+            print 'Cache not found, setting cachefound to zero...'
+            self._cfg.cachefound = 0
 
     def write_file_from_cache(self, url):
         """ Write file from url cache. This
@@ -422,13 +429,7 @@ class harvestManDataManager(object):
             lookuplist = self._downloaddict['_cachefiles']            
         else:
             return -1
-
-        for x in lookuplist:
-            # Already added
-            if x[0] == filename:
-                ok=True
-                break
-
+        
         # If this was present in failed urls list, remove it
         try:
             self._downloaddict['_failedurls'].index(urlObject)
@@ -436,7 +437,7 @@ class harvestManDataManager(object):
         except:
             pass
             
-        if not ok:
+        if not filename in lookuplist:
             lookuplist.append( filename )
 
         return 0

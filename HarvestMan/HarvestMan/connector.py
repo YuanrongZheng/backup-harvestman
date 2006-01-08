@@ -56,6 +56,9 @@
 
    July 19 2005               Refixed the above bug so that it will work
                               without Python 2.4 also.
+
+   jan 8 2006       Anand     Optimizaton for cache check. Check only if
+                              cachefound flag is set.
                               
 """
 
@@ -909,32 +912,36 @@ class HarvestManUrlConnector:
         update, fileverified = False, False
         
         lmt = -1
-        if timestr:
-            try:
-                lmt = time.mktime( strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
-            except ValueError, e:
-                debug(e)
 
-            if lmt != -1:
-                url, filename = urlobj.get_full_url(), urlobj.get_full_filename()
-                update, fileverified = dmgr.is_url_uptodate(url, filename, lmt, self.__data)
+        # Optimization: We need to do all these checks
+        # only if the cache was loaded in the beginning.
+        if self._cfg.cachefound:
+            if timestr:
+                try:
+                    lmt = time.mktime( strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
+                except ValueError, e:
+                    debug(e)
+
+                if lmt != -1:
+                    url, filename = urlobj.get_full_url(), urlobj.get_full_filename()
+                    update, fileverified = dmgr.is_url_uptodate(url, filename, lmt, self.__data)
+                    # No need to download
+                    if update and fileverified:
+                        extrainfo("Project cache is uptodate =>", url)
+                        return 3
+            else:
+                update, fileverified = dmgr.is_url_cache_uptodate(url, filename, self.get_content_length(), self.__data)
                 # No need to download
                 if update and fileverified:
                     extrainfo("Project cache is uptodate =>", url)
                     return 3
-        else:
-            update, fileverified = dmgr.is_url_cache_uptodate(url, filename, self.get_content_length(), self.__data)
-            # No need to download
-            if update and fileverified:
-                extrainfo("Project cache is uptodate =>", url)
-                return 3
-        
-        # If cache is up to date, but someone has deleted
-        # the downloaded files, instruct data manager to
-        # write file from the cache.
-        if update and not fileverified:
-            if dmgr.write_file_from_cache(url):
-                return 4
+
+            # If cache is up to date, but someone has deleted
+            # the downloaded files, instruct data manager to
+            # write file from the cache.
+            if update and not fileverified:
+                if dmgr.write_file_from_cache(url):
+                    return 4
             
         if dmgr.create_local_directory(urlobj) == 0:
             extrainfo('Writing file ', filename)
