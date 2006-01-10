@@ -59,6 +59,8 @@
 
    jan 8 2006       Anand     Optimizaton for cache check. Check only if
                               cachefound flag is set.
+   Jan 10 2006      Anand     Converted from dos to unix format (removed
+                              Ctrl-Ms).                       
                               
 """
 
@@ -912,25 +914,26 @@ class HarvestManUrlConnector:
         update, fileverified = False, False
         
         lmt = -1
+        if timestr:
+            try:
+                lmt = time.mktime( strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
+            except ValueError, e:
+                debug(e)
 
+        datalen = self.get_content_length()
+        
         # Optimization: We need to do all these checks
         # only if the cache was loaded in the beginning.
         if self._cfg.cachefound:
-            if timestr:
-                try:
-                    lmt = time.mktime( strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
-                except ValueError, e:
-                    debug(e)
-
-                if lmt != -1:
-                    url, filename = urlobj.get_full_url(), urlobj.get_full_filename()
-                    update, fileverified = dmgr.is_url_uptodate(url, filename, lmt, self.__data)
-                    # No need to download
-                    if update and fileverified:
-                        extrainfo("Project cache is uptodate =>", url)
-                        return 3
+            if lmt != -1:
+                url, filename = urlobj.get_full_url(), urlobj.get_full_filename()
+                update, fileverified = dmgr.is_url_uptodate(url, filename, lmt, self.__data)
+                # No need to download
+                if update and fileverified:
+                    extrainfo("Project cache is uptodate =>", url)
+                    return 3
             else:
-                update, fileverified = dmgr.is_url_cache_uptodate(url, filename, self.get_content_length(), self.__data)
+                update, fileverified = dmgr.is_url_cache_uptodate(url, filename, datalen, self.__data)
                 # No need to download
                 if update and fileverified:
                     extrainfo("Project cache is uptodate =>", url)
@@ -942,6 +945,14 @@ class HarvestManUrlConnector:
             if update and not fileverified:
                 if dmgr.write_file_from_cache(url):
                     return 4
+        else:
+            # Modified this logic - Anand Jan 10 06            
+            # If cache is not found, update cache information
+            # straight away.
+            if timestr:
+                dmgr.wrapper_update_cache_for_url2(url, filename, lmt, self.__data)
+            else:
+                dmgr.wrapper_update_cache_for_url(url, filename, datalen, self.__data)
             
         if dmgr.create_local_directory(urlobj) == 0:
             extrainfo('Writing file ', filename)
