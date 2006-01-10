@@ -11,7 +11,11 @@
 
     Jan 12 2005 - Created this by splitting urltracker.py .
     Jan  08 2006 - Inserted random sleeps periods.
-    
+    Jan 10 2006  Anand   1. Converted from dos to unix format
+                         (removed Ctrl-Ms).
+                         2. Fix for download of duplicate urls
+                         in process_url method of Fetcher class.
+                         
 
 """
 
@@ -127,6 +131,11 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         """ Return the url object of this crawler """
 
         return self._urlobject
+
+    def get_current_url(self):
+        """ Return the current url """
+
+        return self._urlobject.get_full_url()
     
     def action(self):
         """ The action method, to be overridden by
@@ -340,6 +349,9 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')
+        # Data manager object
+        dmgr = GetObject('datamanager')
+        
         # Check whether I was crawled
         if ruleschecker.add_source_link(self._url):
             return None
@@ -360,7 +372,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
             if ruleschecker.is_duplicate_link( url_obj.get_full_url()):
                 continue
             else:
-                print 'Not duplicate link->',url_obj.get_full_url()
+                debug('Not duplicate link->',url_obj.get_full_url())
 
             url_obj.generation = self._urlobject.generation + 1
             typ = url_obj.get_type()
@@ -439,10 +451,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         except TypeError:
             url_obj = obj
 
-        # Check if this is already downloaded
-        if GetObject('datamanager').check_duplicate_download(url_obj):
-            return False
-        
         return HarvestManBaseUrlCrawler.set_url_object(self, url_obj)
 
     def receive_url(self):
@@ -542,9 +550,16 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         """ This function downloads the data for a url and writes its files.
         It also posts the data for web pages to a data queue """
 
-        mgr = GetObject('datamanager')            
+        mgr = GetObject('datamanager')
+        ruleschecker = GetObject('ruleschecker')
+
+        # Mod - Anand Jan 10 06 - moved duplicate download check here.
+        if mgr.check_duplicate_download(self._urlobject):
+            debug('Detected duplicate URL in process_url... %s' % self._url)
+            return -1
+        
         moreinfo('Downloading file for url', self._url)
-        data = mgr.download_url(self._urlobject)
+        data = mgr.download_url(self, self._urlobject)
 
         # Add webpage links in datamgr, if we managed to
         # download the url
