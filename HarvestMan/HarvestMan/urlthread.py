@@ -1,5 +1,5 @@
 # -- coding: latin-1
-""" HarvestManUrlThread.py - Url thread downloader module.
+""" urlthread.py - Url thread downloader module.
     Has two classes, one for downloading of urls and another
     for managing the url threads.
 
@@ -33,7 +33,10 @@
                         1. Added check for end flag in download() method
                         of threads for better clean up in case of
                         program termination or killing (using Ctrl-C).
-
+    Jan 10 2006  Anand  Converted from dos to unix format (removed Ctrl-Ms).
+    Jan 20 2006  Anand  Small change in printing debug info in download
+                        method.
+    
 """
 
 import os, sys
@@ -123,8 +126,9 @@ class harvestManUrlThread(threading.Thread):
 
         if url_obj.is_image():
             info('Downloading image ...', url)
-
-        extrainfo('Downloading url ...', url)
+        else:
+            info('Downloading url ...', url)
+            
         server = url_obj.get_domain()
 
         conn_factory = GetObject('connectorfactory')
