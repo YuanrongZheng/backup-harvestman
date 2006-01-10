@@ -1,5 +1,5 @@
 # -- coding: latin-1
-""" HarvestManPageParser.py - Module to parse an html page and
+""" pageparser.py - Module to parse an html page and
     extract its links. This software is part of the
     HarvestMan program.
 
@@ -30,6 +30,17 @@
    Jan 8 2006       Anand            Updated this file from EIAO repository
                                      to get a few bug-fixes. Removed EIAO
                                      specific code.
+   Jan 10 2006      John             Bugfix by John Kleven for query forms
+                                     variable (changed skipqueryforms to getqueryforms
+                                     and fixed filter_link method).
+   Jan 10 2006      Anand            1. Converted from dos to unix format (removed
+                                     Ctrl-Ms).
+                                     2. Bugfix for 'link' type tags - Type should not
+                                     be empty; set to 'normal'. Also added a
+                                     'handled_rel_types' variable to hold the types
+                                     handled inside <link.. type of tags. This bug
+                                     was causing a number of web-page links to be
+                                     reported as non-webpage links.
                                      
 """
 
@@ -57,11 +68,14 @@ class harvestManSimpleParser(SGMLParser):
                 'frame': (('src', 'normal'),),
                 'img' : (('src', 'image'),),
                 'form' : (('action', 'form'),),
-                'link' : (('href', ''),),
+                'link' : (('href', 'normal'),),
                 'body' : (('background', 'image'),),
                 'script' : (('src', 'javascript'),),
                 'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet'))
                 }
+
+    # Valid 'rel' values - Added Jan 10 06 -Anand
+    handled_rel_types = ( 'stylesheet', )
     
     def __init__(self):
         self.links = []
@@ -127,13 +141,13 @@ class harvestManSimpleParser(SGMLParser):
         index = link.rfind('.html#')
         if index != -1:
             newhref = link[:(index + 5)]
-            self.check_add_link('normal', newhref)
+            self.check_add_link('webpage', newhref)
             return 0
         else:
             index = link.rfind('.htm#')
             if index != -1:
                 newhref = link[:(index + 4)]
-                self.check_add_link('normal', newhref)
+                self.check_add_link('webpage', newhref)
             return 0
 
         return 1
@@ -183,7 +197,11 @@ class harvestManSimpleParser(SGMLParser):
 
                 if tag == 'link':
                     try:
-                        typ = d['rel']
+                        # Fix - only reset typ if it is one
+                        # of the valid handled rel types.
+                        foundtyp = d['rel'].lower()
+                        if foundtyp in self.handled_rel_types:
+                            typ = foundtyp
                     except KeyError:
                         pass
 
@@ -226,7 +244,7 @@ class harvestManSimpleParser(SGMLParser):
                 self.images.append((typ, link))
         elif not (typ, link) in self.links:
                 # moredebug('Adding link ', link, typ)
-                #print 'Adding link ', link, typ
+                # print 'Adding link ', link, typ
                 pos = self.getpos()
                 self.links.append((typ, link))
                 self.linkpos[(typ,link)] = (pos[0],pos[1])
