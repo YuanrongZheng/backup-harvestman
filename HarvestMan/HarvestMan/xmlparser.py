@@ -1,4 +1,24 @@
 # -- coding: latin-1
+
+"""
+xmlparser.py - XML Parsing routines for HarvestMan. 
+This module contains a single class ConfigParser which acts
+as a class for parsing HarvestMan XML configuration files
+using pyexpat.
+
+This module is part of the HarvestMan program.
+
+Author: Anand B Pillai
+
+For licensing information see the file LICENSE.txt that
+is included in this distribution.
+
+Created xx-xx-xxxx  Anand
+
+Added this comment header                         10-1-06 Anand
+Fixes for handling URLs with '&amp;' correctly    10/1/06 jkleven 
+"""
+
 import xml.parsers.expat
 
 class ConfigParser(object):
@@ -6,13 +26,12 @@ class ConfigParser(object):
     def __init__(self, config):
         self.cfg = config
         self._node = ''
-        char_data = ''
+        self._data = ''
         
     def start_element(self, name, attrs):
        
-       # reset character and node data, we're starting new element
-        self.char_data = ''
-        self._node = ''
+        # reset character and node data, we're starting new element
+        self._data = ''
         
         if attrs:
             # If the element has attributes
@@ -44,21 +63,19 @@ class ConfigParser(object):
         # parsing strings in config file 
         # with '&amp;' (aka '&') correctly.  Now we are.
         
-        
-        self.char_data = self.char_data.strip()
-        if self.char_data != '':
+        if self._data != '':
             # This was an element with data between an opening and closing tag
             # ... now that we're guaranteed to have it all, lets add it to the config
             # print 'Setting option for %s %s ' % (self._node, char_data)
             if self.cfg:
-                self.cfg.set_option_xml(self._node, self.char_data)
+                self.cfg.set_option_xml(self._node, self._data)
             else:
-                print self.char_data
+                print self._data
                 
         # reset these because we'll be encountering a new element node 
         # name soon, and our char data will then be useless as well.
         self._node = ''
-        char_data  = ''            
+        self._data  = ''            
             
     def char_data(self, data):
         # This will be called after the
@@ -67,7 +84,8 @@ class ConfigParser(object):
         # then in the end element callback
         # we will actually add the whole
         # string to the internal config structure
-        self.char_data += data
+
+        self._data += data.strip()
 
 def parse_xml_config_file(configobj, configfile):
     """ Parse xml config file """
