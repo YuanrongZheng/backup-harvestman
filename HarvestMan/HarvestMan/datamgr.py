@@ -1,4 +1,4 @@
-# -- coding: latin-1
+ -- coding: latin-1
 """ HarvestManDataManager.py - Data manager module for HarvestMan.
     This software is part of the HarvestMan program.
 
@@ -29,14 +29,21 @@
                                   Fix for bug 005252.
   Jan 8 2006        Anand         Added a flag for cache found in read_project_cache.
                                   Cache checks are done only if this flag is true.
-  
-
+  Jan 10 2006       Anand         Converted from dos to unix format (removed Ctrl-Ms).
+  Jan 10 2006       Anand         1. Bugfix for does_cache_need_update method.
+                                  2. Fixes for writing cache if originally cache was not loaded.
+                                  3. Comprehensive duplicate download check algorithm using
+                                  an added dictionary of fetcher status holding their current
+                                  urls.
+                                  
+ 
 """
 import os, sys
 import time
 import math
 import binascii
 import re
+import md5
 
 import threading as tg
 # Utils
@@ -65,6 +72,9 @@ class harvestManDataManager(object):
         self._cfg = GetObject('config')
         # Used for localizing links
         self._linksdict = {}
+        # New datastructure added on Jan 10 06
+        # to keep status of each fetcher
+        self._fetcherstatus = {}
         # byte count
         self._bytes = 0L
         # Redownload flag
@@ -140,6 +150,52 @@ class harvestManDataManager(object):
                                 
         return ret
 
+    def wrapper_update_cache_for_url(self, url, filename, contentlen, urldata):
+        """ Wrapper for update_cache_for_url which is called from connector module """
+
+        # Created this method - Anand Jan 10 06
+        m1=md5.new()
+        if urldata: m1.update(urldata)
+        digest1=m1.digest()
+        return self.update_cache_for_url(url, filename, contentlen, urldata, digest1)
+
+    def wrapper_update_cache_for_url2(self, url, filename, lmt, urldata):
+        """ Wrapper for update_cache_for_url2 which is called from connector module """
+
+        # Created this method - Anand Jan 10 06
+        return self.update_cache_for_url2(url, filename, lmt, urldata)
+                                      
+    def update_cache_for_url(self, url, filename, contentlen, urldata, digeststr):
+        """ Method to update the cache information for the URL 'url'
+        associated to file 'filename' on the disk """
+
+        # Jan 10 06 - Anand, Created by moving code from is_url_cache_uptodate
+        # Update all cache keys
+        cachekey = {}
+        cachekey[intern('checksum')] = bin_crypt(digeststr)
+        cachekey[intern('location')] = filename
+        cachekey[intern('content-length')] = contentlen
+        cachekey[intern('updated')] = True
+        if self._cfg.datacache:
+            cachekey['data'] = urldata
+
+        self._projectcache[intern(url)] = cachekey
+
+    def update_cache_for_url2(self, url, filename, lmt, urldata):
+        """ Second method to update the cache information for the URL 'url'
+        associated to file 'filename' on the disk """
+
+        # Jan 10 06 - Anand, Created by moving code from is_url_uptodate.
+        # Update all cache keys
+        cachekey = {}
+        cachekey[intern('location')] = filename
+        cachekey[intern('last-modified')] = lmt
+        cachekey[intern('updated')] = True
+        if self._cfg.datacache:
+            cachekey['data'] = urldata            
+                
+        self._projectcache[intern(url)] = cachekey
+                              
     def is_url_cache_uptodate(self, url, filename, contentlen, urldata):
         """ Check with project cache and find out if the
         content needs update """
@@ -159,12 +215,12 @@ class harvestManDataManager(object):
         if contentlen==0:
             return (False, False)
 
-        # Look up the dictionary containing the url cache info
-        import md5
-
         m1=md5.new()
+        # Anand 10/1/06 - Fix: need to update md5 object with data to
+        # get digest! (This line somehow has got deleted)
+        if urldata: m1.update(urldata)
         digest1=m1.digest()
-
+        
         # Assume that cache is not uptodate apriori
         uptodate=False
         fileverified=False
@@ -191,21 +247,10 @@ class harvestManDataManager(object):
                 if binascii.hexlify(cachemd5) == binascii.hexlify(digest1) and fileverified:
                     uptodate=True
 
-        # If cache is not updated, update all cache keys
         if not uptodate:
-            cachekey[intern('checksum')] = bin_crypt(digest1)
-            cachekey[intern('location')] = filename
-            cachekey[intern('content-length')] = contentlen
-            cachekey[intern('updated')] = True
-            if self._cfg.datacache:
-                cachekey['data'] = urldata
+            # Modified this logic - Anand Jan 10 06            
+            self.update_cache_for_url(url, filename, contentlen, urldata, digest1)
 
-            self._projectcache[intern(url)] = cachekey
-
-        # If both checksums are equal, return True
-        # else return False.
-        # Modification (Oct 1 2004) - Combine
-        # with fileverified boolean.
         return (uptodate, fileverified)
 
     def is_url_uptodate(self, url, filename, lmt, urldata):
@@ -245,18 +290,9 @@ class harvestManDataManager(object):
 
         # If cache is not updated, update all cache keys
         if not uptodate:
-            cachekey[intern('location')] = filename
-            cachekey[intern('last-modified')] = lmt
-            cachekey[intern('updated')] = True
-            if self._cfg.datacache:
-                cachekey['data'] = urldata            
-                
-            self._projectcache[intern(url)] = cachekey
-            
-        # If both checksums are equal, return True
-        # else return False.
-        # Modification (Oct 1 2004) - Combine
-        # with fileverified boolean.        
+            # Modified this logic - Anand Jan 10 06                        
+            self.update_cache_for_url2(url, filename, lmt, urldata)
+
         return (uptodate, fileverified)
 
     def conditional_cache_set(self):
@@ -275,6 +311,9 @@ class harvestManDataManager(object):
     def does_cache_need_update(self):
         """ Find out if project cache needs update """
 
+        # Fix: if no cache found, always return True
+        if not self._cfg.cachefound: return True
+        
         # If any of the dictionary entries has the key
         # value for 'updated' set to True, the cache needs
         # update, else not.
@@ -302,7 +341,9 @@ class harvestManDataManager(object):
 
                 for urlobj in self._downloaddict['_failedurls']:
                     if not urlobj.fatal:
-                        self.download_url( urlobj )
+                        # Get calling thread
+                        t = tg.currentThread()
+                        self.download_url(t, urlobj )
 
         # bugfix: Moved the time calculation code here.
         if sys.platform == 'win32' or os.name=='nt':
@@ -506,11 +547,19 @@ class harvestManDataManager(object):
 
         return 0
 
-    def download_url(self, urlobj):
+    def download_url(self, caller, urlobj):
 
+        # Modified - Anand Jan 10 06, added the caller thread
+        # argument to this function for keeping a dictionary
+        # containing URLs currently being downloaded by fetchers.
+        
         try:
             data=""
             if not self._cfg.usethreads or urlobj.is_webpage():
+                # New logic - Update a local dictionary on the URLs
+                # each fetcher is in charge of
+                # Get the calling thread
+                self._fetcherstatus[caller] = urlobj.get_full_url()
                 server = urlobj.get_domain()
                 conn_factory = GetObject('connectorfactory')
 
@@ -576,14 +625,35 @@ class harvestManDataManager(object):
         except ValueError:
             return False
 
+    def check_duplicates(self, url):
+        """ Check for fetchers in charge of URL url.
+        Return True if found, False otherwise """
+
+        # Added this method - Anand Jan 10 06
+        return url in self._fetcherstatus.values()
+        
     def check_duplicate_download(self, urlobj):
         """ Check if this is a duplicate download """
 
+        # Modified - Anand Jan 10 06
+        # Modified to check fetcher status dictionary to avoid
+        # duplicate downloads, also urlthredpool should be queried
+        # only for non-webpage URLs.
+        
         # First query worker thread pool, if enabled
-        if self._urlThreadPool:
+        if not urlobj.is_webpage() and self._urlThreadPool:
+            debug('Checking duplicates for url...',urlobj.get_full_url(),urlobj.get_type())
             return self._urlThreadPool.check_duplicates(urlobj)
         else:
-            return self.is_file_downloaded(urlobj.get_full_filename())
+            ret = self.is_file_downloaded(urlobj.get_full_filename())
+            if ret:return ret
+            # Check if some fetcher is already in charge
+            # of this URL
+            else:
+                ret = self.check_duplicates(urlobj.get_full_url())
+                if ret:
+                    debug("Fetchers in charge of url",urlobj.get_full_url(),"...")
+                return ret
         
     def clean_up(self):
         """ Purge data for a project by cleaning up
