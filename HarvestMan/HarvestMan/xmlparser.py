@@ -6,9 +6,14 @@ class ConfigParser(object):
     def __init__(self, config):
         self.cfg = config
         self._node = ''
+        char_data = ''
         
     def start_element(self, name, attrs):
        
+       # reset character and node data, we're starting new element
+        self.char_data = ''
+        self._node = ''
+        
         if attrs:
             # If the element has attributes
             # it does not have CDATA. So set
@@ -29,22 +34,40 @@ class ConfigParser(object):
             # element name so that we can use it
             # in cdata callback.
             self._node = name
+
+    def end_element(self, name):
+        # This is called after the closing tag of an XML element was found
+        # When this is called we know that char_data now truly has all the data
+        # that was between the element start and end tag.        
         
+        # jkleven: 10/1/06 - this function exists because we weren't 
+        # parsing strings in config file 
+        # with '&amp;' (aka '&') correctly.  Now we are.
+        
+        
+        self.char_data = self.char_data.strip()
+        if self.char_data != '':
+            # This was an element with data between an opening and closing tag
+            # ... now that we're guaranteed to have it all, lets add it to the config
+            # print 'Setting option for %s %s ' % (self._node, char_data)
+            if self.cfg:
+                self.cfg.set_option_xml(self._node, self.char_data)
+            else:
+                print self.char_data
+                
+        # reset these because we'll be encountering a new element node 
+        # name soon, and our char data will then be useless as well.
+        self._node = ''
+        char_data  = ''            
+            
     def char_data(self, data):
         # This will be called after the
-        # start element is called. If the
-        # element is of interest, set it's
-        # option.
-        data = data.strip()
-        
-        if self._node and data:
-            # print 'Setting option for %s %s ' % (self._node, data)
-            if self.cfg:
-                self.cfg.set_option_xml(self._node, data)
-            else:
-                print data
-                
-            pass
+        # start element is called. Simply
+        # record all the data passed in and
+        # then in the end element callback
+        # we will actually add the whole
+        # string to the internal config structure
+        self.char_data += data
 
 def parse_xml_config_file(configobj, configfile):
     """ Parse xml config file """
@@ -55,6 +78,7 @@ def parse_xml_config_file(configobj, configfile):
 
     p.StartElementHandler = c.start_element
     p.CharacterDataHandler = c.char_data
+    p.EndElementHandler = c.end_element
 
     try:
         p.Parse(open(configfile).read())
@@ -69,6 +93,7 @@ if __name__=="__main__":
     
     p.StartElementHandler = c.start_element
     p.CharacterDataHandler = c.char_data
+    p.EndElementHandler = c.end_element
 
     try:
         p.Parse(open('config.xml').read())

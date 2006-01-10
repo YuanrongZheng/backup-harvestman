@@ -105,7 +105,7 @@ class GenConfig(object):
         cf.write(self.fitString('download.images') + str(self.images) + '\n')
         cf.write(self.fitString('download.javascript') + str(int(self.javascript)) + '\n')
         cf.write(self.fitString('download.javaapplet') + str(int(self.javaapplet)) + '\n')
-        cf.write(self.fitString('download.forms') + str(int(self.skipqueryforms)) + '\n')
+        cf.write(self.fitString('download.forms') + str(int(self.getqueryforms)) + '\n')
         cf.write(self.fitString('download.cookies') + str(int(self.cookies)) + '\n')
         
         cf.write(self.fitString('download.cache') + str(int(self.pagecache)) + '\n')
@@ -217,7 +217,7 @@ class GenConfig(object):
         cf.write("".join(('\t\t\t\t<images value="',str(self.images),'"/>\n')))
         cf.write("".join(('\t\t\t\t<javascript value="',str(self.javascript),'"/>\n')))
         cf.write("".join(('\t\t\t\t<javaapplet value="',str(self.javaapplet),'"/>\n')))
-        cf.write("".join(('\t\t\t\t<forms value="',str(self.skipqueryforms),'"/>\n')))
+        cf.write("".join(('\t\t\t\t<forms value="',str(self.getqueryforms),'"/>\n')))
         cf.write("".join(('\t\t\t\t<cookies value="',str(self.cookies),'"/>\n')))
         cf.write('\t\t\t</types>\n')
         # cache
@@ -433,7 +433,7 @@ class GenConfig(object):
             self.serverpriority=self.MakeStringQuery('Enter/Paste server priority string here:', 0, str(self.serverpriority))   
         self.retry=self.MakeYesOrNoQuery('Retry failed links')
         self.subdomain=self.MakeYesOrNoQuery('Consider subdomains in web servers as external servers', 0)
-        self.skipqueryforms=self.MakeYesOrNoQuery('Skip server-side query forms', 1)
+        self.getqueryforms=self.MakeYesOrNoQuery('Skip server-side query forms', 1)
         
         if self.MakeYesOrNoQuery('Localise links in Downloaded Files'):
             if self.MakeYesOrNoQuery('Localise links using absolute path names', 2) == 1:

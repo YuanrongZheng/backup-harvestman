@@ -17,6 +17,8 @@ July 21 2005      Fixed a bug in setting directory-like urls
                   HTTP 404 errors.
 July 30 2005      Added a few more xtensions to webpage types
                   which are missing.
+Jan 01 2006       jkleven change is_webpage to return "true"
+                  if the URL looks like a form query
 
 """
 
@@ -75,6 +77,12 @@ class HarvestManUrlParser:
     # Regular expression for matching
     # urls which contain white spaces
     wspacere = re.compile(r'\w+\s+\w+')
+
+    # jkleven: Regex if we still don't recognize a URL address as HTML.  Only
+    # to be used if we've looked at everything else and URL still isn't
+    # a known type.  This regex is similar to one in pageparser.py but 
+    # we changed a few '*' to '+' to get one or more matches.  
+    form_re = re.compile(r'[-.:_a-zA-Z0-9]+\?[-.:_a-zA-Z0-9]+=[-.a:_-zA-Z0-9]*')
 
     def reset_IDX(cls):
         HarvestManUrlParser.IDX = 0
@@ -489,6 +497,16 @@ class HarvestManUrlParser:
                 extn = ((os.path.splitext(self.validfilename))[1]).lower()
                 if extn in self.webpage_extns:
                     return True
+                else:
+                    # jkleven: 10/1/06.  Forms were never being parsed for links.
+
+                    # If we are allowing download of query forms (i.e., bin?asdf=3 style URLs)
+                    # then run the URL through a regex if we're still not sure if its ok.
+                    # if it matches the from_re precompiled regex then we'll assume its
+                    # a query style URL and we'll return true.
+                    cfg = GetObject('config')
+                    if cfg.getqueryforms and self.form_re.search(self.get_full_url()):                 
+                        return True
              
         return False
 

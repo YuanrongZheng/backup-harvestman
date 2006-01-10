@@ -25,6 +25,10 @@
                               Performance fix - Set the default tracker
                               size to three.
     Oct 25 2004      Anand    Added config variables for urlserver.                              
+    Jan 01 2006      jkleven  Change "skipqueryforms" to "getqueryforms" 
+                              So in config file <forms value="0"/> meaning
+                              is consistent with other types like 
+                              images=1 and html=1
 """
 
 PROG_HELP = """\
@@ -208,7 +212,7 @@ class HarvestManStateObject(dict):
         self.nocrawl = False
         self.ignorekbinterrupt = False
         self.subdomain = False
-        self.skipqueryforms = True
+        self.getqueryforms = False
         self.requests = 5
         self.bytes = 20.00 # Not used!
         self.projtimeout = 300 
@@ -277,7 +281,7 @@ class HarvestManStateObject(dict):
                             'download.retries' : ('retryfailed', 'int'),
                             'download.html': ('html', 'int'),
                             'download.images' : ('images', 'int'),
-                            'download.forms' : ('skipqueryforms', 'int'),
+                            'download.forms' : ('getqueryforms', 'int'),
                             'download.cache' : ('pagecache', 'int'),
                             'download.datacache' : ('datacache', 'int'),
 
@@ -363,7 +367,7 @@ class HarvestManStateObject(dict):
                          'images_value' : ('images','int'),
                          'javascript_value' : ('javascript','int'),
                          'javaapplet_value' : ('javaapplet','int'),
-                         'forms_value' : ('skipqueryforms','int'),
+                         'forms_value' : ('getqueryforms','int'),
 
                          'cache_status' : ('pagecache','int'),
                          'datacache_value' : ('datacache','int'),

@@ -6,10 +6,10 @@
     <projects combine="0">
       
       <project skip="0">
-        <url>http://www.python.org/doc/current/tut/tut.html</url>
-        <name>pytut</name>
-        <basedir>~/websites</basedir>
-        <verbosity value="3"/>
+        <url>http://www.stratsplace.com/cgi-bin/dbman.cgi?db=stores&amp;uid=default&amp;view_records=1&amp;Name=*</url>
+        <name>strats</name>
+        <basedir>/tmp</basedir>
+        <verbosity value="5"/>
       </project>
       
     </projects>
@@ -33,17 +33,17 @@
         <images value="1"/>
         <javascript value="1"/>
         <javaapplet value="1"/>
-        <forms value="0"/>
+        <forms value="1"/>
         <cookies value="1"/>
       </types> 
-      <cache status="1">
+      <cache status="0">
         <datacache value="1"/>
       </cache>
       <misc>
-        <retries value="1"/>
+        <retries value="0"/>
       </misc>
     </download>
-    
+
     <control>
       <links>
         <imagelinks value="1"/>
@@ -53,7 +53,7 @@
         <fetchlevel value="0"/>
         <extserverlinks value="0"/>
         <extpagelinks value="1"/>
-        <depth value="10"/>
+        <depth value="10 "/>
         <extdepth value="0"/>
         <subdomain value="1"/>
       </extent>
@@ -71,7 +71,7 @@
         <urlpriority></urlpriority>
         <serverpriority></serverpriority>
       </rules>
-      <filters>
+      <filters> 
         <urlfilter></urlfilter>
         <serverfilter></serverfilter>
         <wordfilter></wordfilter>
@@ -80,7 +80,7 @@
     </control>
     
     <system>
-      <workers status="1" size="10" timeout="200"/>
+      <workers status="1" size="10" timeout="100"/>
       <trackers value="10"/>
       <locale>C</locale>
       <fastmode value="1"/>
@@ -91,6 +91,8 @@
       <urltreefile></urltreefile>
       <archive status="0" format="bzip"/>
       <urlheaders status="1" />
+      <msgfile>logfile.txt</msgfile>
+      <errorfile>err.txt</errorfile>
     </files>
     
     <indexer>

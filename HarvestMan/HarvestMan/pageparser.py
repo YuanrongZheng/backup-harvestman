@@ -100,8 +100,8 @@ class harvestManSimpleParser(SGMLParser):
 
         cfg = GetObject('config')
 
-        # Skip query forms
-        if cfg.skipqueryforms and self.query_re.search(llink):
+        # Check if we're accepting query style URLs
+        if not cfg.getqueryforms and self.query_re.search(llink):
             return 1
 
         return 0
