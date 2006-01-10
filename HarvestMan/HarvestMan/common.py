@@ -13,6 +13,8 @@ Created: Jun 10 2003
                                      ping method checks whether
                                      server is alive & send_url
                                      method sends a url to it.
+ Jan 10 2006          Anand          Converted from dos to unix format
+                                     (removed Ctrl-Ms).                                 
 
 """
 

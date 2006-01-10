@@ -29,6 +29,8 @@
                               So in config file <forms value="0"/> meaning
                               is consistent with other types like 
                               images=1 and html=1
+    Jan 10 2006      Anand    Converted from dos to unix format (removed
+                              Ctrl-Ms).
 """
 
 PROG_HELP = """\
