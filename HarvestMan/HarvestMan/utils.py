@@ -22,6 +22,7 @@
                           was not getting pickled, but was getting
                           marshalled fine. This also fixes
                           the problem with reading project files.
+  Jan 10 2006     Anand   Converted from dos to unix format (removed Ctrl-Ms).
                           
 """
 

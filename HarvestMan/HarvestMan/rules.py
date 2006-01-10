@@ -27,6 +27,8 @@
 
                                 Put ext check rules before robots
                                 check to speed up things.
+  Jan 10 2006          Anand    Converted from dos to unix format
+                                (removed Ctrl-Ms).
                                 
 """
 import socket

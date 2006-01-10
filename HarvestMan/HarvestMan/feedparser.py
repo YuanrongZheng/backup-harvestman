@@ -1,4 +1,6 @@
 # -- coding: latin-1
+# Not used yet in HarvestMan
+
 import xml.parsers.expat
 
 class ConfigParser(object):

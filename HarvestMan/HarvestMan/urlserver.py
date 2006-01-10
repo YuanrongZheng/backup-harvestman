@@ -10,6 +10,8 @@ Date: 25/10/2004.
 2 Nov 2004 - Added a threading class to run the asyncore loop.
              This allows asyncore server to be run in a
              separate thread.
+Jan 10 2006  Anand  Converted from dos to unix format (removed Ctrl-Ms).
+
 """
 
 import select

@@ -26,6 +26,7 @@
 
     Jan 8 2006         Anand    Updated this file from EIAO robacc
                                 repository.
+    Jan 10 2006          Anand   Converted from dos to unix format (removed Ctrl-Ms).
                                 
     This module is a modified version of robotparser.py supplied
     with the python standard distribution. For licensing information see the

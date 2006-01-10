@@ -19,6 +19,7 @@ July 30 2005      Added a few more xtensions to webpage types
                   which are missing.
 Jan 01 2006       jkleven change is_webpage to return "true"
                   if the URL looks like a form query
+Jan 10 2006      Anand    Converted from dos to unix format (removed Ctrl-Ms).               
 
 """
 
