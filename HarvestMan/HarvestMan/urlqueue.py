@@ -5,7 +5,10 @@ program.
 
 Modification History
 
-Anand Jan 12 2005 - Created this module, by splitting urltracker.py
+Anand Jan 12 2005 -   Created this module, by splitting urltracker.py
+Aug 11 2006  Anand    Checked in changes for reducing CPU
+                      utlization (reported by EIAO).
+                         
 
 """
 
@@ -70,6 +73,8 @@ class HarvestManCrawlerQueue(object):
         self.data_q = PriorityQueue(4*self._configobj.maxtrackers)
         # Local buffer - new in 1.4.5
         self.buffer = []
+        # Event object for exit condition
+        # self.exitobj = threading.Event()
         
     def increment_lock_instance(self, val=1):
         self._lockedinst += val
@@ -123,10 +128,14 @@ class HarvestManCrawlerQueue(object):
         
         while 1:
             time.sleep(1.0)
+
+            # self.exitobj.wait()
             
             if self.is_exit_condition():
                 count += 1
-                    
+
+            # self.exitobj.clear()
+            
             if count==numstops:
                 break
 
@@ -135,6 +144,9 @@ class HarvestManCrawlerQueue(object):
 
         # Reset flag
         self._flag = 0
+
+        # Clear the event flag
+        # self.exitobj.clear()
         
         if os.name=='nt':
             t1=time.clock()
@@ -233,22 +245,28 @@ class HarvestManCrawlerQueue(object):
         blk = self._configobj.blocking
         
         if role == 'crawler':
-            try:
-                if blk:
-                    obj=self.data_q.get()
-                else:
-                    obj=self.data_q.get_nowait()
-            except Queue.Empty:
-                return None
+            if blk:
+                obj=self.data_q.get()
+            else:
+                for i in xrange(5):
+                    try:
+                        obj=self.data_q.get_nowait()
+                        break
+                    except Queue.Empty:
+                        time.sleep(0.3)
+                        continue
                 
         elif role == 'fetcher' or role=='tracker':
-            try:
-                if blk:
-                    obj = self.url_q.get()
-                else:
-                    obj = self.url_q.get_nowait()
-            except Queue.Empty:
-                return None
+            if blk:
+                obj = self.url_q.get()
+            else:
+                for i in xrange(5):
+                    try:
+                        obj = self.url_q.get_nowait()
+                        break
+                    except Queue.Empty:
+                        time.sleep(0.3)
+                        continue
             
         self._lasttimestamp = time.time()        
 
@@ -332,6 +350,8 @@ class HarvestManCrawlerQueue(object):
         sub-threads running and all the tracker threads
         are blocked or if the project times out """
 
+        need_to_exit = False
+        
         dmgr = GetObject('datamanager')
             
         currtime = time.time()
@@ -361,7 +381,7 @@ class HarvestManCrawlerQueue(object):
                 dmgr.kill_download_threads()
             
         if is_blocked and not has_running_threads:
-            return True
+            need_to_exit = True
         
         if timediff > self._waittime:
             timed_out = True
@@ -369,9 +389,13 @@ class HarvestManCrawlerQueue(object):
         if timed_out:
             moreinfo("Project", self._configobj.project, "timed out.")
             moreinfo('(Time since last data operation was', timediff, 'seconds)')
-            return True
+            need_to_exit = True
 
-        return False
+        # Wait on the need to exit condition
+        # if need_to_exit:
+        #    self.exitobj.set()
+
+        return need_to_exit
         
     def is_blocked(self):
         """ The queue is considered blocked if all threads
