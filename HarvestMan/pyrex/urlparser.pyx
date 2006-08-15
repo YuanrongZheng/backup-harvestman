@@ -54,6 +54,7 @@ cdef class HarvestManUrlParser:
     cdef object webpage_extns
     cdef object stylesheet_extns
     cdef object wspacere
+    cdef object form_re
 
     # Object-level plain strings
     # cdef char* typ
@@ -63,8 +64,8 @@ cdef class HarvestManUrlParser:
 
     cdef public int filelike
     cdef int defproto
-    cdef int fatal
-    cdef int starturl
+    cdef public int fatal
+    cdef public int starturl
     cdef int hasextn
     cdef int isrel
     cdef int isrels
@@ -74,11 +75,11 @@ cdef class HarvestManUrlParser:
     
     # Object-level, plain integers
     cdef public int port
-    cdef int index
-    cdef int status
+    cdef public int index
+    cdef public int status
     cdef int rdepth
-    cdef int generation
-    cdef int priority
+    cdef public int generation
+    cdef public int priority
     cdef int rindex
     
     # Object-level Unicode strings
@@ -101,7 +102,7 @@ cdef class HarvestManUrlParser:
     cdef object typ
     cdef object contentdict
     
-    cdef __new__(cls):
+    def __new__(cls, *args, **kwargs):
         cls.URLSEP = "/"
         cls.PROTOSEP = "//"
         cls.DOTDOT = ".."
@@ -133,7 +134,13 @@ cdef class HarvestManUrlParser:
         # Regular expression for matching
         # urls which contain white spaces
         cls.wspacere = re.compile(r'\w+\s+\w+')
-        
+
+        # jkleven: Regex if we still don't recognize a URL address as HTML.  Only
+        # to be used if we've looked at everything else and URL still isn't
+        # a known type.  This regex is similar to one in pageparser.py but 
+        # we changed a few '*' to '+' to get one or more matches.  
+        cls.form_re = re.compile(r'[-.:_a-zA-Z0-9]+\?[-.:_a-zA-Z0-9]+=[-.a:_-zA-Z0-9]*')
+    
     def __init__(self, url, urltype = 'normal', cgi=False, baseurl = None, rootdir = ""):
         
         if url[-1] == self.URLSEP:
@@ -155,6 +162,7 @@ cdef class HarvestManUrlParser:
         self.lastpath = ''
         self.protocol = ''
         self.defproto = False
+        
         # If the url is a file like url
         # this value will be true, if it is
         # a directory like url, this value will
@@ -642,8 +650,7 @@ cdef class HarvestManUrlParser:
         urldir = fulldom
 
         if self.dirpath:
-            dirpath2 = []
-            # for x in self.dirpath:
+            dirpath2 = []            # for x in self.dirpath:
             for i from 0 <= i < len(self.dirpath):
                 x = self.dirpath[i]
                 dirpath2.append(x+'/')
@@ -1107,7 +1114,7 @@ cdef class HarvestManUrlParser:
         global __IDX__
         __IDX__ = __IDX__ + 1
         self.index = __IDX__
-
+        
     # ============ End - Set Methods =========== #
         
 def main():
