@@ -6,8 +6,15 @@
     <projects combine="0">
       
       <project skip="0">
+        <!--- <url>http://www.miex.org/python/</url> -->
+
+        <!--- <url>http://www.python.org/dev/peps</url> -->
+        <!--- <name>pybooks</name> -->
+        <!--- <name>pydoc</name> -->
+        <!--- <name>pypeps</name> -->
+
         <url>http://www.python.org/doc/current/tut/tut.html</url>
-        <name>pytut</name>
+        <name>pydoc3</name>
         <basedir>~/websites</basedir>
         <verbosity value="3"/>
       </project>
@@ -61,9 +68,9 @@
         <maxextservers value="0"/>
         <maxextdirs value="0"/>
         <maxfiles value="5000"/>
-        <maxfilesize value="5048576"/>
-        <connections value="10"/>
-        <requests value="10"/>
+        <maxfilesize value="5048576000"/>
+        <connections value="2"/>
+        <requests value="2"/>
         <timelimit value="-1"/>
       </limits>
       <rules>
@@ -87,8 +94,8 @@
     </system>
     
     <files>
-      <urllistfile></urllistfile>
-      <urltreefile></urltreefile>
+      <urllistfile>urls-list.txt</urllistfile>
+      <urltreefile>urls.html</urltreefile>
       <archive status="0" format="bzip"/>
       <urlheaders status="1" />
     </files>

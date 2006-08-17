@@ -90,7 +90,7 @@ options:
     --urlslist=FILE             Dump a list of urls to file FILE.
     --urltree=FILE              Dump a file containing hierarchy of urls to FILE.
 
-Mail bug reports and suggestions to <anandpillai@letterboxes.org>.
+Mail bug reports and suggestions to <abpillai@gmail.com>.
 """
 
 import os, sys

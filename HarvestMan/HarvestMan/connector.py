@@ -11,56 +11,9 @@
     Modification History
     ====================
 
-
-    Sep 21 04 Anand     1.4 development
-
-                              Performance Improvements
-                              ========================
-
-                              1.Modified connector factory algorithm to
-                              use a bounded semaphore instead of a queue
-                              to control the number of connections. A
-                              semaphore is more suited to this function
-                              and is much more robust.
-
-                              2.Modified request control algorithm to
-                              use a condition object instead of the
-                              unreliable event object. Also added code
-                              to wakup all threads waiting on this
-                              condition object when the number of requests
-                              goes below the maximum.
-
-                              3.Moved call to request control to connector
-                              factory instead of putting it inside the
-                              'connect' method of connector class. This
-                              makes the 'connect' method more robust and
-                              less prone to errors.
-
-                              4. Removed the _connectors list inside the
-                              factory class to avoid unnecessary hanging
-                              references to connectors.
-
-    July 18 2005              Fixed bug w.r.t HTTP redirections that require
-                              cookies. For example the url http://www.eidsvoll.kommune.no/
-                              eway/default0.asp?pid=200 works by cookie
-                              authentication. When requested, it returns a new
-                              url and a cookie. We need to make a new request
-                              with the new url and the cookie, otherwise urllib2
-                              raises an HTTP redirect error and fails.
-
-                              This requires the use of cookielib which is
-                              available only in Python 2.4 . A fix for
-                              this will be added to HarvestMan cookiemgr
-                              module soon so that it will work with Python 2.3
-                              also.
-
-   July 19 2005               Refixed the above bug so that it will work
-                              without Python 2.4 also.
-
-   jan 8 2006       Anand     Optimizaton for cache check. Check only if
-                              cachefound flag is set.
-   Jan 10 2006      Anand     Converted from dos to unix format (removed
-                              Ctrl-Ms).                       
+    Aug 16 06         Restarted dev cycle. Fixed 2 bugs with 404
+                      errors, one with setting directory URLs
+                      and another with re-resolving URLs.
                               
 """
 
@@ -74,7 +27,6 @@ import urllib2
 import urlparse
 
 from common import *
-from strptime import strptime
 
 # HarvestManUrlParser module
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
@@ -104,6 +56,8 @@ class MyRedirectHandler(urllib2.HTTPRedirectHandler):
         
         if (code in (301, 302, 303, 307) and m in ("GET", "HEAD")
             or code in (301, 302, 303) and m == "POST"):
+            # req.headers['oldurl'] = oldurl
+            
             # Strictly (according to RFC 2616), 301 or 302 in response
             # to a POST MUST NOT cause a redirection without confirmation
             # from the user (of urllib2, in this case).  In practice,
@@ -618,18 +572,42 @@ class HarvestManUrlConnector:
                 # differentiate between directory like urls
                 # and file like urls.
                 actual_url = self.__freq.geturl()
-                    
+                
                 # Replace the urltofetch in actual_url with null
                 if actual_url:
-                    replacedurl = actual_url.replace(urltofetch, '')
-                    # If replacedurl starts with a '/', then
-                    # this is a directory url
-                    if replacedurl:
-                        if replacedurl[0]=='/' and urltofetch[-1] != '/':
-                            # directory url
+                    no_change = (actual_url == urltofetch)
+
+                    if not no_change:
+                        # print 'Actual url=>',actual_url
+                        # print 'Orig url=>',urltofetch
+                        
+                        replacedurl = actual_url.replace(urltofetch, '')
+                        # If the difference is only as a directory url
+                        if replacedurl=='/':
+                            no_change = True
+                            
+                        # Sometimes, there could be HTTP re-directions which
+                        # means the actual url may not be same as original one.
+
+                        if actual_url[-1] == '/' and urltofetch[-1] != '/':
                             extrainfo('Setting directory url=>',urltofetch)
                             hu.set_directory_url()
 
+                        if not no_change:
+                            # There is considerable change in the URL.
+                            # So we need to re-resolve it, since otherwise
+                            # some child URLs which derive from this could
+                            # be otherwise invalid and will result in 404
+                            # errors.
+                            
+                            # print hu.url, hu.baseurl
+                            # print hu.origurl
+                            # print actual_url
+                            hu.url = actual_url
+                            hu.wrapper_resolveurl()
+                            
+                        # hu.resolveurl()
+                    
                 # Find the actual type... if type was assumed
                 # as wrong, correct it.
                 content_type = self.get_content_type()
@@ -685,6 +663,8 @@ class HarvestManUrlConnector:
                     # Link not found, this might
                     # be a file wrongly fetched as directory
                     # Add to filter
+                    # print 'BASE=>',url_obj.baseurl.url
+                    # print 'SELF=>',url_obj.url
                     rulesmgr.add_to_filter(urltofetch)
                     self.__error['fatal']=True
                 elif errnum == 401: # Site authentication required
@@ -916,7 +896,7 @@ class HarvestManUrlConnector:
         lmt = -1
         if timestr:
             try:
-                lmt = time.mktime( strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
+                lmt = time.mktime( time.strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
             except ValueError, e:
                 debug(e)
 

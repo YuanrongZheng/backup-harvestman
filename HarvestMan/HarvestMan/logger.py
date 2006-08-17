@@ -1,172 +1,244 @@
-# -- coding: latin-1
-""" logger.py - Logging functions for HarvestMan.
+#! /usr/bin/env python
+
+"""
+logger.py -  Logging functions for HarvestMan.
 This file is part of the HarvestMan program.
 
 Author: Anand B Pillai
 Created: Jan 23 2005
 
+Modified: Anand B Pillai Aug 17 06
+Made this to use Python logging module.
+
+
 """
-import sys
 
+import logging, logging.handlers
+import os
+
+class HandlerFactory(object):
+    """ Factory class to create handlers of different families for use by SIMLogger """
+    
+    def createHandle(handlertype, *args):
+        """ Return a logging handler of the given type.
+        The handler will be initialized using params from the args and kwargs
+        arguments """
+
+        if handlertype == 'StreamHandler':
+            return logging.StreamHandler(*args)
+        elif handlertype == 'FileHandler':
+            return logging.FileHandler(*args)
+        elif handlertype == 'SocketHandler':
+            return logging.handlers.SocketHandler(*args)        
+        
+    createHandle = staticmethod(createHandle)
+
+        
 class HarvestManLogger(object):
-    """ Logging class for HarvestMan """
+    """ A customizable logging class for HarvestMan with different
+    levels of logging support """
 
-    def __init__(self):
+    # Useful macros for setting
+    # the log level.
+    
+    DISABLE = 0
+    INFO = 1
+    MOREINFO  = 2
+    EXTRAINFO = 3
+    DEBUG   = 4
+    MOREDEBUG = 5
+
+    # Dictionary from levels to level names
+    __namemap = { 0: 'DISABLE',
+                  1: 'INFO',
+                  2: 'MOREINFO',
+                  3: 'EXTRAINFO',
+                  4: 'DEBUG',
+                  5: 'MOREDEBUG' }
+
+    # Map of instances
+    _instances = {'default': None}
+    
+    def __init__(self, severity=1, logflag=2):
+        """ Initialize the logger class with severity and logflag """
         
-        self.logfile = ''
-        self.stream = None
-        self.verbosity = 2
-
-    def setLogFile(self, logfile):
-
-        self.logfile = logfile
- 
-        try:
-            self.stream = open(self.logfile, 'w')
-        except (OSError, IOError), e:
-            print e
-        except Exception, e:
-            print e
-
-    def close(self):
-        """ Close the logging stream """
-
+        self._severity = severity
+        self._consolelog = False
         
-        try:
-            if self.stream:
-                self.stream.flush()
-                self.stream.close()
-        except (IOError, EOFError), e:
-            print e
+        if logflag==0:
+            self._severity = 0
+        else:
+            self._severity = severity
+            if logflag == 2:
+                self.consolelog = True
+                
+        self._logger = logging.Logger('HarvestMan')
 
-    # Common tracing function
-    def trace(self, arg, *args):
-        """ Write the variable argument list to stdout """
-
-        # print args
-        op=str(arg)
-        if args:
-            op = ''.join((op, ' ',''.join([str(item) + ' ' for item in args])))
-
-        # Use the simple print
-        print op
-
-    # Common logging function
-    def log(self, arg, *args):
-        """ Logging function - This logs messages to a file """
-
-        op=str(arg)
-        if args:
-            op = ''.join((op, ' ',''.join([str(item) + ' ' for item in args])))
-
-        try:
-            self.stream.write("".join((op,'\n')))
-        except (AttributeError, IOError, OSError), e:
-            print e
-        except Exception, e:
-            print e
-
-    # Common function to both log & trace
-    def logntrace(self, arg, *args):
-        """ Log & trace function - This does both tracing & logging """
-        
-        self.trace(arg, *args)
-        if self.stream:
-            self.log(arg, *args)
-
-    # Tracing functions at various levels        
-    def trace1(self, arg, *args):
-        """ Trace function - Level 1 """
-
-        if self.verbosity>=1:
-            self.trace(arg, *args)
-
-    def trace2(self, arg, *args):
-        """ Trace function - Level 2 """
-
-        if self.verbosity>=2:
-            self.trace(arg, *args)
-
-    def trace3(self, arg, *args):
-        """ Trace function - Level 3 """
-
-        if self.verbosity>=3:
-            self.trace(arg, *args)
-
-    def trace4(self, arg, *args):
-        """ Trace function - Level 4 """
-
-        if self.verbosity>=4:
-            self.trace(arg, *args)
-
-    def trace5(self, arg, *args):
-        """ Trace function - Level 5 """
-
-        if self.verbosity>=5:
-            self.trace(arg, *args)
-
-    # Logging functions at various levels        
-    def log1(self, arg, *args):
-        """ Log function - Level 1 """
-
-        if self.verbosity>=1:
-            self.log(arg, *args)
-
-    def log2(self, arg, *args):
-        """ Log function - Level 2 """
-
-        if self.verbosity>=2:
-            self.log(arg, *args)
-
-    def log3(self, arg, *args):
-        """ Log function - Level 3 """
-
-        if self.verbosity>=3:
-            self.log(arg, *args)
-
-    def log4(self, arg, *args):
-        """ Log function - Level 4 """
-
-        if self.verbosity>=4:
-            self.log(arg, *args)
-
-    def log5(self, arg, *args):
-        """ Log function - Level 5 """
-
-        if self.verbosity>=5:
-            self.log(arg, *args)            
-
-    # Trace & log functions at various levels
-    def logntrace1(self, arg, *args):
-        """ Log & trace function - Level 1 """
-
-        if self.verbosity>=1:
-            self.logntrace(arg, *args)
-
-    def logntrace2(self, arg, *args):
-        """ Log & trace function - Level 2 """
-
-        if self.verbosity>=2:
-            self.logntrace(arg, *args)
-
-    def logntrace3(self, arg, *args):
-        """ Log & trace function - Level 3 """
-
-        if self.verbosity>=3:
-            self.logntrace(arg, *args)
-
-    def logntrace4(self, arg, *args):
-        """ Log & trace function - Level 4 """
-
-        if self.verbosity>=4:
-            self.logntrace(arg, *args)
-
-    def logntrace5(self, arg, *args):
-        """ Log & trace function - Level 5 """
-
-        if self.verbosity>=5:
-            self.logntrace(arg, *args)            
-        
-        
+        if self.consolelog:
+            formatter = logging.Formatter('[%(asctime)s] %(message)s',
+                                          '%H:%M:%S')
+            handler = logging.StreamHandler()
+            handler.setLevel(self._severity)
             
+            handler.setFormatter(formatter)
+            self._logger.addHandler(handler)
+        else:
+            pass
 
+
+    def __getMessage(self, arg, *args):
+        """ Private method to create a message string from the supplied arguments """
+        
+        return ''.join((str(arg),' ',' '.join([str(item) for item in args])))
+
+
+    def getLevelName(self, level):
+        """ Return the level name, given the level value """
+        
+        return self.__namemap.get(level, '')
+
+    def getLogLevel(self):
+        """ Return the current log level """
+
+        # Same as severity
+        return self.getLogSeverity()
+
+    def getLogSeverity(self):
+        """ Return the current log severity """
+
+        return self._severity
+
+    def getLogLevelName(self):
+        """ Return the name of the current log level """
+
+        return self.getLevelName(self._severity)
+
+    def setLogSeverity(self, severity):
+        """ Set the log severity """
+
+        self._severity = severity
+
+    def addLogHandler(self, handlertype, *args):
+        """ Generic method to add a handler to the logger """
+
+        # handlertype should be a string
+        # Call helper function here
+        handler = HandlerFactory.createHandle(handlertype, *args)
+        handler.setLevel(1)
+        formatter = logging.Formatter('%(asctime)s %(message)s',
+                                          '(%d-%m-%y) [%H:%M:%S]')
+        handler.setFormatter(formatter)
+        self._logger.addHandler(handler)
+        
+    def enableConsoleLogging(self):
+        """ Enable console logging - if console logging is already
+        enabled, this method does not have any effect """
+
+        if not self._consolelog:
+            self._consolelog = True
+            formatter = logging.Formatter('[%(asctime)s] %(message)s',
+                                          '%H:%M:%S')
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            self._logger.addHandler(handler)
+        else:
+            pass
+
+    def disableConsoleLogging(self):
+        """ Disable console logging - if console logging is already
+        disabled, this method does not have any effect """
+
+        if self._consolelog:
+            # Find out streamhandler if any
+            for h in self._logger.handlers:
+                if h.__class__.__name__ == 'StreamHandler':
+                    # Remove the handler
+                    self._logger.removeHandler(h)
+                    self._consolelog = False
+                    break
+        else:
+            pass
+            
+    def info(self, msg, *args):
+        """ Perform logging at the INFO level """
+        
+        (self._severity>=1) and self._logger.debug(self.__getMessage(msg, *args))
+
+    def moreinfo(self, msg, *args):
+        """ Perform logging at the MOREINFO level """
+        
+        (self._severity>=2) and self._logger.debug(self.__getMessage(msg, *args))
+
+    def extrainfo(self, msg, *args):
+        """ Perform logging at the EXTRAINFO level """
+        
+        (self._severity>=3) and self._logger.debug(self.__getMessage(msg, *args))
+
+    def debug(self, msg, *args):
+        """ Perform logging at the DEBUG level """
+        
+        (self._severity>=4) and self._logger.debug(self.__getMessage(msg, *args))
+
+    def moredebug(self, msg, *args):
+        """ Perform logging at the MOREDEBUG level """
+        
+        (self._severity>=5) and self._logger.debug(self.__getMessage(msg, *args))
+
+    def getDefaultLogger(cls):
+        """ Return the default logger instance """
+
+        return cls._instances.get('default')
+    
+    def Instance(cls, name='default', *args):
+        """ Return an instance of this class """
+
+        inst = cls(*args)
+        cls._instances[name] = inst
+
+        return inst
+
+    def shutdown(self):
+        logging.shutdown()
+
+    Instance = classmethod(Instance)
+    getDefaultLogger = classmethod(getDefaultLogger)
+    
+if __name__=="__main__":
+    import sys
+    
+    mylogger = HarvestManLogger.Instance()
+    mylogger.addLogHandler('FileHandler','report.log')
+    mylogger.setLogSeverity(2)
+    
+    p = 'Spikesource'
+    mylogger.info("Test message 1",p)
+    mylogger.moreinfo("Test message 2",p)
+    mylogger.extrainfo("Test message 3",p)
+    mylogger.debug("Test message 4",p)
+    mylogger.moredebug("Test message 5",p)
+    
+    print mylogger.getLogSeverity()
+    print mylogger.getLogLevelName()
+
+    mylogger.enableConsoleLogging()
+    mylogger.disableConsoleLogging()    
+
+    mylogger.info("Test message 1",p)
+    mylogger.moreinfo("Test message 2",p)
+    mylogger.extrainfo("Test message 3",p)
+    mylogger.debug("Test message 4",p)
+    mylogger.moredebug("Test message 5",p)
+
+
+    print HandlerFactory.createHandle('StreamHandler', sys.stdout)
+    print HandlerFactory.createHandle('FileHandler', 'my.txt')
+    print HandlerFactory.createHandle('SocketHandler', 'localhost', 5555)
+
+    mylogger.info("Test message 1",p)
+    mylogger.moreinfo("Test message 2",p)
+    mylogger.extrainfo("Test message 3",p)
+    mylogger.debug("Test message 4",p)
+    mylogger.moredebug("Test message 5",p)    
+
+    print HarvestManLogger.getDefaultLogger()==mylogger
+    print HarvestManLogger._instances

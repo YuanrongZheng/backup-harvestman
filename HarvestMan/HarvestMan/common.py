@@ -14,7 +14,9 @@ Created: Jun 10 2003
                                      server is alive & send_url
                                      method sends a url to it.
  Jan 10 2006          Anand          Converted from dos to unix format
-                                     (removed Ctrl-Ms).                                 
+                                     (removed Ctrl-Ms).
+ Aug 17 2006          Anand          Modifications for the new logging
+                                     module.
 
 """
 
@@ -23,6 +25,8 @@ import os, sys
 import socket
 import binascii
 
+from config import HarvestManStateObject
+from logger import HarvestManLogger
 
 class Registry(object):
 
@@ -51,7 +55,7 @@ class Registry(object):
         def __init__(self):
             self.ini = 0
             self.writeflag = 1
-            self.USER_AGENT = 'HarvestMan 1.4'
+            self.USER_AGENT = 'HarvestMan 1.5'
             self.userdebug = []
             self.modfilename = ''
             self.urlmappings = {}
@@ -213,7 +217,10 @@ def SetLogFile():
 
     global RegisterObj
     logfile = RegisterObj.config.logfile
-    if logfile: RegisterObj.logger.setLogFile(logfile)
+    # if logfile: RegisterObj.logger.setLogFile(logfile)
+    if logfile:
+        RegisterObj.logger.setLogSeverity(RegisterObj.config.verbosity)
+        RegisterObj.logger.addLogHandler('FileHandler',logfile)
 
 def SetUserAgent(user_agent):
     """ Set the user agent """
@@ -238,11 +245,6 @@ def Initialize():
     initializes the registry object and a basic
     config object in the regsitry. """
 
-    # From 1.4.1 this also initializes the
-    # logger object.
-    from config import HarvestManStateObject
-    from logger import HarvestManLogger
-    
     global RegisterObj
     if RegisterObj.ini==1:
         return -1
@@ -275,7 +277,8 @@ def Finish():
     
     RegisterObj.ini = 0
 
-    RegisterObj.logger.close()
+    # RegisterObj.logger.close()
+    RegisterObj.logger.shutdown()
     
     # Reset url object indices
     RegisterObj.urlmappings.clear()
@@ -559,14 +562,14 @@ def info(arg, *args):
 
     # Setting verbosity to 1 will print the basic
     # messages like project info and final download stats.
-    RegisterObj.logger.logntrace1(arg, *args)
+    RegisterObj.logger.info(arg, *args)
 
 def moreinfo(arg, *args):
     """ Print more information, will print if verbosity is >=2 """
 
     # Setting verbosity to 2 will print the basic info
     # as well as detailed information regarding each downloaded link.
-    RegisterObj.logger.logntrace2(arg, *args)    
+    RegisterObj.logger.moreinfo(arg, *args)    
 
 def extrainfo(arg, *args):
     """ Print extra information, will print if verbosity is >=3 """
@@ -574,21 +577,21 @@ def extrainfo(arg, *args):
     # Setting verbosity to 3 will print more information on each link
     # as well as information of each thread downloading the link, as
     # well as some more extra information.
-    RegisterObj.logger.logntrace3(arg, *args)    
+    RegisterObj.logger.extrainfo(arg, *args)    
 
 def debug(arg, *args):
     """ Print debug information, will print if verbosity is >=4 """
 
     # Setting verbosity to 4 will print maximum information
     # plus extra debugging information.
-    RegisterObj.logger.logntrace4(arg, *args)    
+    RegisterObj.logger.debug(arg, *args)    
 
 def moredebug(arg, *args):
     """ Print more debug information, will print if verbosity is >=5 """
 
     # Setting verbosity to 5 will print maximum information
     # plus maximum debugging information.
-    RegisterObj.logger.logntrace5(arg, *args)        
+    RegisterObj.logger.moredebug(arg, *args)        
 
 if __name__=="__main__":
     Initialize()

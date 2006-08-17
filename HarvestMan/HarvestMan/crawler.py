@@ -15,7 +15,7 @@
                          (removed Ctrl-Ms).
                          2. Fix for download of duplicate urls
                          in process_url method of Fetcher class.
-                         
+
 
 """
 
@@ -359,10 +359,10 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         ruleschecker.add_link(self._url)
 
         # Configuration object
-        moreinfo('\nFetching links for url', self._url)
+        moreinfo('Fetching links for url', self._url)
  
         priority_indx = 0
-        
+
         for url_obj in self.links:
             
             # Check for status flag to end loop
@@ -618,6 +618,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
             # Rules checker object
             ruleschecker = GetObject('ruleschecker')
+
+            # print 'CURRENT URL=>',url_obj.get_full_url()
             
             for typ, url in links:
                 is_cgi, is_php = False, False
@@ -636,6 +638,10 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     urlobjlist.append(child_urlobj)
                 except urlparser.HarvestManUrlParserError:
                     continue
+
+                # print 'CHILD=>',typ,url
+                # print '\tCHILD URL=>',child_urlobj.get_full_url()
+                # print '\tBASE URL=>',url_obj.url
             
             if not self._crawlerqueue.push((url_obj, urlobjlist), 'fetcher'):
                 if not self._configobj.blocking:                

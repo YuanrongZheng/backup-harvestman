@@ -93,7 +93,7 @@ class HarvestManCrawlerQueue(object):
         try:
             import urlparser
             
-            urlparser.HarvestManUrlParser.reset_IDX()
+            # urlparser.HarvestManUrlParser.reset_IDX()
             
             self._baseUrlObj = urlparser.HarvestManUrlParser(self._configobj.url, 'normal',
                                                              0, self._configobj.url,
@@ -102,7 +102,7 @@ class HarvestManCrawlerQueue(object):
         except urlparser.HarvestManUrlParserError:
             return False
 
-        self._baseUrlObj.is_starting_url = True
+        self._baseUrlObj.starturl = True
         
         if self._configobj.fastmode:
             self._basetracker = crawler.HarvestManUrlFetcher( 0, self._baseUrlObj, True )
@@ -444,14 +444,14 @@ class HarvestManCrawlerQueue(object):
             while ntries < 5:
                 try:
                     ntries += 1
-                    self.url_q.put_nowait((obj.get_priority(), obj.index))
+                    self.url_q.put_nowait((obj.priority, obj.index))
                     status = 1
                     break
                 except Queue.Full:
                     time.sleep(0.5)
                     
         elif role == 'fetcher':
-            stuff = (obj[0].get_priority(), (obj[0].index, obj[1]))
+            stuff = (obj[0].priority, (obj[0].index, obj[1]))
             while ntries < 5:
                 try:
                     ntries += 1
