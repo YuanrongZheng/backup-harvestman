@@ -1,4 +1,5 @@
 *************************
+*                       *
 * HarvestMan Webcrawler *
 *                       *
 *************************
@@ -10,7 +11,7 @@ HARVESTMan is an internet offline crawler (robot) program written
 in python. It helps you to grab pages from the internet and store 
 it in a local directory for offline browsing.
 
-This is version 1.4.6 final.
+This is version 1.5 beta 1.
 
 Author: Anand Pillai.
 
@@ -27,9 +28,9 @@ Getting started
 
 Unarchive the file to a directory of your choice. 
 
-% tar -xjf HarvestMan-1.4.6.tar.bz2
+% tar -xjf HarvestMan-1.5-b1.tar.bz2
 
-Change to directory 'HarvestMan-1.4.6' and install
+Change to directory 'HarvestMan-1.5-b1' and install
 the program.
 
 Installation steps are given below.
@@ -37,7 +38,7 @@ Installation steps are given below.
 How to Install
 --------------
 Make sure you are at the top-level HarvestMan
-directory. For this version it is 'HarvestMan-1.4.6'.
+directory. For this version it is 'HarvestMan-1.5-b1'.
 
 On Windows, you need to run the setup.py script
 to install the program. 
@@ -120,15 +121,7 @@ config file.
 
 Command line mode
 -----------------
-
-This version has brand new command line options which 
-allows you to use the program on the command line without
-a config file. The number of command line options are
-reduced to a few most useful ones.
-
-A notable feature is the new nocrawl option which allows
-you to just download a URL without trying to crawl it,
-similar to programs such as wget.
+HarvestMan supports command-line options.
 
 To download a URL without crawling it, pass the -N or
 --nocrawl option to the program along with the URL.
@@ -140,7 +133,7 @@ $ harvestman.py -N www.python.org
 For information on the command line options, run the program 
 with the --help or -h option.
 
-For a complete FAQ on the command line options, go to
+For a complete FAQ on the command line options, visit
 http://harvestman.freezope.org/commandline.html .
 
 Project file mode
@@ -211,7 +204,7 @@ Python 2.4.1 .
 
 It is preferred to run HarvestMan with the latest stable release of Python,
 to get the benefits of all features and for optimal performance. 
-Right now this is Python 2.4.1 .
+Right now this is Python 2.4.3 .
 
 The minimal requirement is any version of Python 2.3 .
 
@@ -221,11 +214,6 @@ Fedora Core 1,2,3,4, Ubuntu Hoary and Mandrake 10.1 .
 
 This version has been developed partly on Ubuntu "Hoary Hedgehog"
 and Windows 2000/XP, running Python 2.4.1 .
-
-HarvestMan seems to work fine with Python 2.4 on Windows XP now, after
-the changes introduced in 1.4.5 alpha 2. There might be some performance issues 
-with Python 2.3 on Windows XP. It is advised to use Python 2.4 on all 
-platforms for maximizing performance.
 
 You can use the script check_dep.py to check dependencies for
 your platform.
