@@ -29,9 +29,9 @@ case `whoami` in
 esac
 
 case $currver in
+"2.4") echo "Python 2.4 detected...";;
 "2.3") echo "Python 2.3 detected...";;
-"2.2") echo "Python 2.2 detected...";;
-*) echo "Python 2.2 or 2.3 not detected";echo "Please upgrade your Python installation";exit 2;;
+*) echo "Python 2.3 or 2.4 not detected";echo "Please upgrade your Python installation";exit 2;;
 esac
 
 echo "Creating build..."
