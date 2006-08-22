@@ -56,8 +56,7 @@ class MyRedirectHandler(urllib2.HTTPRedirectHandler):
         
         if (code in (301, 302, 303, 307) and m in ("GET", "HEAD")
             or code in (301, 302, 303) and m == "POST"):
-            # req.headers['oldurl'] = oldurl
-            
+
             # Strictly (according to RFC 2616), 301 or 302 in response
             # to a POST MUST NOT cause a redirection without confirmation
             # from the user (of urllib2, in this case).  In practice,
@@ -76,9 +75,10 @@ class MyRedirectHandler(urllib2.HTTPRedirectHandler):
             for key in headers.keys():
                 if key.lower().find('set-cookie') != -1:
                     cookie = headers[key]
-                    newreq.headers['Cookie'] = cookie
+                    newreq.add_header('Cookie',  cookie)
                     break
 
+            newreq.add_header('OLDURL', fp.geturl())
             return newreq
         
         else:
@@ -578,6 +578,10 @@ class HarvestManUrlConnector:
                     no_change = (actual_url == urltofetch)
 
                     if not no_change:
+                        # print self.get_http_headers()
+                        #if oldurl:
+                        #    print 'OLDURL=>',oldurl
+                        
                         # print 'Actual url=>',actual_url
                         # print 'Orig url=>',urltofetch
                         
@@ -606,7 +610,6 @@ class HarvestManUrlConnector:
                             hu.url = actual_url
                             hu.wrapper_resolveurl()
                             
-                        # hu.resolveurl()
                     
                 # Find the actual type... if type was assumed
                 # as wrong, correct it.

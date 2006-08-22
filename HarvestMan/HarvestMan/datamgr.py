@@ -1,4 +1,4 @@
- -- coding: latin-1
+# -- coding: latin-1
 """ HarvestManDataManager.py - Data manager module for HarvestMan.
     This software is part of the HarvestMan program.
 
@@ -81,7 +81,7 @@ class harvestManDataManager(object):
         self._redownload = False
         self._dataLock = tg.Condition(tg.RLock())        
         # Url thread group class for multithreaded downloads
-        if self._cfg.usethreads:
+        if self._cfg.usethreads and self._cfg.fastmode:
             self._urlThreadPool = harvestManUrlThreadPool()
             self._urlThreadPool.spawn_threads()
         else:
@@ -496,14 +496,14 @@ class harvestManDataManager(object):
         """ Download this url object in a separate thread """
 
         # Add this task to the url thread pool
-        if self._cfg.usethreads:
+        if self._urlThreadPool:
             self._urlThreadPool.push( urlObj )
 
     def has_download_threads(self):
         """ Return true if there are any download sub-threads
         running, else return false """
 
-        if self._cfg.usethreads:
+        if self._urlThreadPool:
             num_threads = self._urlThreadPool.has_busy_threads()
             if num_threads:
                 return True
@@ -514,7 +514,7 @@ class harvestManDataManager(object):
         """ Get the time stamp of the last completed
         download (sub) thread """
 
-        if self._cfg.usethreads:
+        if self._urlThreadPool:
             return self._urlThreadPool.last_thread_report_time()
         else:
             return 0
@@ -522,7 +522,7 @@ class harvestManDataManager(object):
     def kill_download_threads(self):
         """ Terminate all the download threads """
 
-        if self._cfg.usethreads:
+        if self._urlThreadPool:
             self._urlThreadPool.end_all_threads()
 
     def create_local_directory(self, urlObj):

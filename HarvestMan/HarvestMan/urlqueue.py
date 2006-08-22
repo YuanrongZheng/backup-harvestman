@@ -8,7 +8,8 @@ Modification History
 Anand Jan 12 2005 -   Created this module, by splitting urltracker.py
 Aug 11 2006  Anand    Checked in changes for reducing CPU
                       utlization (reported by EIAO).
-                         
+
+Aug 22 2006  Anand    Changes for fixing single-thread mode.
 
 """
 
@@ -69,8 +70,13 @@ class HarvestManCrawlerQueue(object):
         # before stopping the project with a timeout.
         self._waittime = GetObject('config').projtimeout
         self._configobj = GetObject('config')
-        self.url_q = PriorityQueue(4*self._configobj.maxtrackers)
-        self.data_q = PriorityQueue(4*self._configobj.maxtrackers)
+        if self._configobj.fastmode:
+            self.url_q = PriorityQueue(4*self._configobj.maxtrackers)
+            self.data_q = PriorityQueue(4*self._configobj.maxtrackers)
+        else:
+            self.url_q = PriorityQueue(0)
+            self.data_q = PriorityQueue(0)
+            
         # Local buffer - new in 1.4.5
         self.buffer = []
         # Event object for exit condition
@@ -107,6 +113,10 @@ class HarvestManCrawlerQueue(object):
         if self._configobj.fastmode:
             self._basetracker = crawler.HarvestManUrlFetcher( 0, self._baseUrlObj, True )
         else:
+            # Disable usethreads
+            self._configobj.usethreads = False
+            # Disable blocking
+            self._configobj.blocking = False
             self._basetracker = crawler.HarvestManUrlDownloader( 0, self._baseUrlObj, False )
             
         self._trackers.append(self._basetracker)
@@ -169,14 +179,14 @@ class HarvestManCrawlerQueue(object):
             except:
                 pass
 
-        # Start harvestman controller thread
-        # (New in 1.4)
-        import datamgr
-        
-        self._controller = datamgr.harvestManController()
-        self._controller.start()
-            
         if self._configobj.fastmode:
+
+            # Start harvestman controller thread
+            import datamgr
+            
+            self._controller = datamgr.harvestManController()
+            self._controller.start()
+            
             # Create the number of threads in the config file
             # Pre-launch the number of threads specified
             # in the config file.
@@ -505,12 +515,6 @@ class HarvestManCrawlerQueue(object):
         # Stop controller thread
         self._controller.stop()
  
-        # If not fastmode, then there are no
-        # further threads!
-        if not self._configobj.fastmode:
-            self._basetracker.stop()
-            return 
-
         # Kill tracker threads
         self.__kill_tracker_threads()
     

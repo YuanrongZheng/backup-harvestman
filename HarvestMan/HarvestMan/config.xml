@@ -8,12 +8,12 @@
       <project skip="0">
         <!--- <url>http://www.miex.org/python/</url> -->
 
-        <!--- <url>http://www.python.org/dev/peps</url> -->
+        <url>http://www.python.org/doc/peps</url>
         <!--- <name>pybooks</name> -->
         <!--- <name>pydoc</name> -->
         <!--- <name>pypeps</name> -->
 
-        <url>http://www.python.org/doc/current/tut/tut.html</url>
+        <!--- <url>http://www.python.org/doc/current/tut/tut.html</url> -->
         <name>pydoc3</name>
         <basedir>~/websites</basedir>
         <verbosity value="3"/>
@@ -90,7 +90,7 @@
       <workers status="1" size="10" timeout="200"/>
       <trackers value="10"/>
       <locale>C</locale>
-      <fastmode value="1"/>
+      <fastmode value="0"/>
     </system>
     
     <files>

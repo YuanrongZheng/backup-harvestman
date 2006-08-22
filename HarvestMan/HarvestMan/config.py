@@ -112,7 +112,7 @@ class HarvestManStateObject(dict):
     def _init1(self):
         
         self.version='1.5'
-        self.maturity="alpha"
+        self.maturity="beta 1"
         self.appname='HarvestMan'
         self.progname="".join((self.appname," ",self.version," ",self.maturity))
         self.url=''

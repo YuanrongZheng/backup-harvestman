@@ -16,6 +16,7 @@
                          2. Fix for download of duplicate urls
                          in process_url method of Fetcher class.
 
+    Aug 22 2006  Anand    Changes for fixing single-thread mode.
 
 """
 
@@ -90,6 +91,8 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         # Local Buffer for Objects
         # to be put in q.
         self.buffer = MyDeque()
+        # Flag for pushing to buffer
+        self._pushflag = self._configobj.fastmode and (not self._configobj.blocking)
         
     def __str__(self):
         return self.getName()
@@ -261,12 +264,12 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
             self._loops = 0
 
             while not self._endflag:
-                if self.buffer:
+                if self.buffer and self._pushflag:
                     self.push_buffer()
                     
                 obj = self._crawlerqueue.get_url_data( "crawler" )
                 if not obj:
-                    if self.buffer and not self._configobj.blocking:
+                    if self.buffer and self._pushflag:
                         self.push_buffer()
 
                     continue
@@ -362,9 +365,9 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         moreinfo('Fetching links for url', self._url)
  
         priority_indx = 0
-
+        
         for url_obj in self.links:
-            
+
             # Check for status flag to end loop
             if self._endflag: break
             if not url_obj: continue
@@ -390,39 +393,35 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                 # print 'Violates rules %s ...' % url_obj.get_full_url()
                 continue
 
-            if self._configobj.fastmode:
-                # Thread is going to push data, set status to locked...
-                self._status = 2
+            # Thread is going to push data, set status to locked...
+            self._status = 2
             
-                priority_indx += 1
-                self.apply_url_priority( url_obj )
-
-                url_obj.set_index()
-                SetUrlObject(url_obj)
-                
-                # If not using url server, push data to
-                # queue, otherwise send data to url server.
-                # - New in 1.4 alpha2
-                if not self._configobj.urlserver:
-                    # Fix for hanging threads - Use a local buffer
-                    # to store url objects, if they could not be
-                    # adde to queue.
-                    if not self._crawlerqueue.push( url_obj, "crawler" ):
-                        if not self._configobj.blocking:
-                            self.buffer.append(url_obj)
-                else:
-                    # Serialize url object
-                    try:
-                        send_url(str(url_obj.index),
-                                 self._configobj.urlhost,
-                                 self._configobj.urlport)
-                    except:
-                        pass
-                # Thread was able to push data, set status to busy...
-                self._status = 1
+            priority_indx += 1
+            self.apply_url_priority( url_obj )
+            
+            url_obj.set_index()
+            SetUrlObject(url_obj)
+            
+            # If not using url server, push data to
+            # queue, otherwise send data to url server.
+            # - New in 1.4 alpha2
+            if not self._configobj.urlserver:
+                # Fix for hanging threads - Use a local buffer
+                # to store url objects, if they could not be
+                # adde to queue.
+                if not self._crawlerqueue.push( url_obj, "crawler" ):
+                    if self._pushflag:
+                        self.buffer.append(url_obj)
             else:
-                t=HarvestManUrlDownloader(self._index+1, url_obj, False)
-                t.action()
+                # Serialize url object
+                try:
+                    send_url(str(url_obj.index),
+                             self._configobj.urlhost,
+                             self._configobj.urlport)
+                except:
+                    pass
+            # Thread was able to push data, set status to busy...
+            self._status = 1
 
 class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
     """ This is the fetcher class, which downloads data for a url
@@ -501,7 +500,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             self._loops = 0
 
             while not self._endflag:
-                if self.buffer:
+                if self.buffer and self._pushflag:
                     self.push_buffer()
                     
                 # If url server is disabled, get data
@@ -510,7 +509,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 if not self._configobj.urlserver:
                     obj = self._crawlerqueue.get_url_data("fetcher" )
                     if not obj:
-                        if not self._configobj.blocking and self.buffer:
+                        if self.buffer and self._pushflag:
                             self.push_buffer()
                         continue
                         
@@ -552,7 +551,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         mgr = GetObject('datamanager')
         ruleschecker = GetObject('ruleschecker')
-
+        
         # Mod - Anand Jan 10 06 - moved duplicate download check here.
         if mgr.check_duplicate_download(self._urlobject):
             debug('Detected duplicate URL in process_url... %s' % self._url)
@@ -644,7 +643,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 # print '\tBASE URL=>',url_obj.url
             
             if not self._crawlerqueue.push((url_obj, urlobjlist), 'fetcher'):
-                if not self._configobj.blocking:                
+                if self._pushflag:                
                     self.buffer.append((url_obj, urlobjlist))
             else:
                 pass
@@ -659,21 +658,41 @@ class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
     # Created: 23 Sep 2004 for 1.4 version 
     def __init__(self, index, url_obj = None, isThread=True):
         HarvestManUrlFetcher.__init__(self, index, url_obj, isThread)
-
+        # HarvestManUrlCrawler.__init__(self, index, url_obj, isThread)        
+        self.set_url_object(url_obj)
+        
     def _initialize(self):
         HarvestManUrlFetcher._initialize(self)
+        HarvestManUrlCrawler._initialize(self)        
         self._role = 'downloader'
 
     def set_url_object(self, obj):
         HarvestManUrlFetcher.set_url_object(self, obj)
 
+    def set_url_object2(self, obj):
+        HarvestManUrlCrawler.set_url_object(self, obj)        
+
+    def exit_condition(self, caller):
+
+        # Exit condition for single thread case
+        if caller=='crawler':
+            return (self._crawlerqueue.data_q.qsize()==0)
+        elif caller=='fetcher':
+            return (self._crawlerqueue.url_q.qsize()==0)
+
+        return False
+
+    def is_exit_condition(self):
+
+        return (self.exit_condition('crawler') and self.exit_condition('fetcher'))
+    
     def action(self):
 
         if self._isThread:
             self._loops = 0
 
             while not self._endflag:
-                obj = self._crawlerqueue.get_url_data( "downloader" )
+                obj = self._crawlerqueue.get_url_data("downloader")
                 if not obj: continue
                 
                 self.set_url_object(obj)
@@ -689,19 +708,44 @@ class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
                 # Set status to zero to denote idle state                
                 self._status = 0
         else:
-            self.process_url()
-            self.crawl_url()
+            while True:
+                self.process_url()
+
+                # print self._crawlerqueue.data_q.qsize()
+                # print self._crawlerqueue.url_q.qsize()
+                
+                obj = self._crawlerqueue.get_url_data( "crawler" )
+                if obj: self.set_url_object2(obj)
+                    
+                self.crawl_url()
+
+                # If url server is disabled, get data
+                # from Queue, else query url server for
+                # new urls.
+                if not self._configobj.urlserver:
+                    obj = self._crawlerqueue.get_url_data("fetcher" )
+                    self.set_url_object(obj)
+                    
+                else:
+                    if self.receive_url() != 1:
+                        # Time gap helps to reduce
+                        # network errors.
+                        time.sleep(0.3)
+                        continue
+
+                if self.is_exit_condition(): break
 
     def process_url(self):
 
         # First process urls using fetcher's algorithm
         HarvestManUrlFetcher.process_url(self)
         # Then process using crawler's algorithm
-        HarvestManUrlCrawler.process_url(self)
+        # HarvestManUrlCrawler.process_url(self)
 
     def crawl_url(self):
         HarvestManUrlCrawler.crawl_url(self)
         
-
+    def receive_url(self):
+        HarvestManUrlFetcher.receive_url(self)
 
 

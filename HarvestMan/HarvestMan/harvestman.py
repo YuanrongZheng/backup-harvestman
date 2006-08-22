@@ -4,7 +4,7 @@
 """ HarvestMan - Multithreaded internet spider program
     using urllib2 and other python modules.
     
-    Version      - 1.4.5 final
+    Version      - 1.5 beta 1.
 
    Author: Anand B Pillai.
 
@@ -42,9 +42,10 @@
                                      line options and verification on M$ Windoze
                                      platform.
      Aug 19 2005                     1.4.5 final release.
+     Aug 22 2006          Anand      Changes for fixing single-thread mode.     
 """     
 
-__revision__ = '1.4.5'
+__revision__ = '1.5 b1'
 __author__ = 'Anand Pillai'
 
 import os, sys
@@ -78,7 +79,7 @@ class harvestMan(object):
         # project start page (on disk)
         self._projectstartpage = 'file://'
         # error file descriptor
-        self.USER_AGENT = "HarvestMan 1.4"
+        self.USER_AGENT = "HarvestMan 1.5"
         
     def finish(self):
         """ Actions to take after download is over """
@@ -205,8 +206,9 @@ class harvestMan(object):
         """ Clean up actions to do, say after
         an interrupt """
 
-        tq = GetObject('trackerqueue')
-        tq.terminate_threads()
+        if self._cfg.fastmode:
+            tq = GetObject('trackerqueue')
+            tq.terminate_threads()
 
     def __prepare(self):
         """ Do the basic things and get ready """
