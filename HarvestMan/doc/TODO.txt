@@ -5,15 +5,18 @@ FEATURE/FIX                                  |  STATUS
 downloaded files are still not localized     | such as http://www.oligopolywatch.com
 correctly.                                   | now localize correctly.
                                              |
-2. Memory consumption problem                | In next version.
-3. Scheduler to start crawling at a given    | In next version.
+2. Memory consumption problem                | Fixed with changes in urlqueue
+                                             | and using binaries. 
+3. Scheduler to start crawling at a given    | Later.
 time.                                        |
-4. Ability to pick up and add URLs from/to   | In next version.
+4. Ability to pick up and add URLs from/to   | Later.
 a URL database.                              |
-5. Thread checkpointing and data migration   | In next version.
+5. Thread checkpointing and data migration   |  1.5 - Anand.
 for crawlers.                                |
-6. Cache creation using C extensions.        | In next version.
-7. A basic UI.                               | In next version.
+6. Cache creation using C extensions.        |  Vaibhav ? 
+7. Developer API                             |  1.5 - Anand
+8. Crawling language-specific pages          |  Vaibhav ?
+9. A basic UI.                               |  Much much later. 
 ---------------------------------------------------------------------------------------
 
 
