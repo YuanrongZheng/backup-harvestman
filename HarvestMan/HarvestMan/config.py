@@ -208,7 +208,7 @@ class HarvestManStateObject(dict):
         # Values => 'pickled' or 'dbm'        
         self.cachefileformat='pickled' 
         # 1. Testing the code (no browse page)
-        self.testing = True
+        self.testing = False 
         # 2. Testing the browse page (no crawl)
         self.testnocrawl = False
         self.nocrawl = False

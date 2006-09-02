@@ -171,7 +171,7 @@ HARVESTMAN_BROWSER_TABLE2= """\
     <BR>
     <BR>
     <H6 ALIGN=\"RIGHT\">
-    <I>Mirror and index made by HARVESTMan Internet Spider [ABP &amp; NK 2003]</I>
+    <I>Mirror and index made by HarvestMan Web Crawler [ABP 2006]</I>
     </H6>
 <!-- ==================== Start epilogue ==================== -->
     </td>
