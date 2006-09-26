@@ -41,6 +41,9 @@
                                      handled inside <link.. type of tags. This bug
                                      was causing a number of web-page links to be
                                      reported as non-webpage links.
+
+   Sep 26 2006    Anand              Fixed EIAO ticket #194 - added support for
+                                     <area...> tags.
                                      
 """
 
@@ -71,7 +74,8 @@ class harvestManSimpleParser(SGMLParser):
                 'link' : (('href', 'normal'),),
                 'body' : (('background', 'image'),),
                 'script' : (('src', 'javascript'),),
-                'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet'))
+                'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet')),
+                'area' : (('href', 'normal'),)
                 }
 
     # Valid 'rel' values - Added Jan 10 06 -Anand
@@ -240,7 +244,7 @@ class harvestManSimpleParser(SGMLParser):
         if typ == 'image':
             if not (typ, link) in self.images:
                 # moredebug('Adding image ', link, typ)
-                #print 'Adding image ', link, typ
+                # print 'Adding image ', link, typ
                 self.images.append((typ, link))
         elif not (typ, link) in self.links:
                 # moredebug('Adding link ', link, typ)
@@ -316,15 +320,22 @@ class harvestManSimpleParser(SGMLParser):
         return self.base
     
 if __name__=="__main__":
+    import os
+    
     Initialize()
 
     cfg = GetObject('config')
     cfg.verbosity = 5
     
     p=harvestManSimpleParser()
-    p.feed(open('module-sgmllib.html').read())
-    pass
+    urls = ['http://www.fed-parl.be/']
 
+    for url in urls:
+       if os.system('wget %s -O index.html' % url ) == 0:
+           p.feed(open('index.html').read())
+           print p.links
+           pass
+                                   
 
 
 
