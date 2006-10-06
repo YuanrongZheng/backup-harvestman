@@ -19,7 +19,9 @@ July 30 2005      Added a few more xtensions to webpage types
                   which are missing.
 Jan 01 2006       jkleven change is_webpage to return "true"
                   if the URL looks like a form query
-Jan 10 2006      Anand    Converted from dos to unix format (removed Ctrl-Ms).               
+Jan 10 2006      Anand    Converted from dos to unix format (removed Ctrl-Ms).
+Oct 1 2006       Anand    Fixes for EIAO ticket #193 - added reduce_url
+                          method to take care of .. chars inside URLs.
 
 """
 
@@ -27,6 +29,7 @@ import os
 import re
 import mimetypes
 import copy
+import urlproc
 
 from common import *
 
@@ -98,7 +101,7 @@ class HarvestManUrlParser:
                        '%7B','%7D','%7C','%5C','%5E','%5B','%5D','%60')
     # Special string replacements
     special_strings_repl = (' ','~','+','"','<','>','#','%','{','}','|','\\','^','[',']','`')
-    
+
     def reset_IDX(cls):
         HarvestManUrlParser.IDX = 0
 
@@ -110,11 +113,13 @@ class HarvestManUrlParser:
             self.url = url[:-1]
         else:
             self.url = url
-        
+
+        # Process URL
+        self.url = urlproc.modify_url(self.url)
         # For saving original url
         # since self.url can get
         # modified
-        self.origurl = url
+        self.origurl = self.url
         self.typ = urltype.lower()
         self.cgi = cgi
         self.anchor = ''
@@ -274,6 +279,17 @@ class HarvestManUrlParser:
             
             # Split paths
             relpaths = self.url.split(self.URLSEP)
+            try:
+                idx = relpaths.index(self.DOTDOT)
+            except ValueError:
+                idx = -1
+                
+            # Only reduce if the URL itself does not start with
+            # .. - if it does our rpath algorithm takes
+            # care of it.
+            if idx > 0:
+                debug('Reducing URL %s...' % self.url)
+                relpaths = self.reduce_url(relpaths)
 
             # Build relative path by checking for "." and ".." strings
             self.rindex = 0
@@ -301,10 +317,27 @@ class HarvestManUrlParser:
                     if paths[-1] == '/':
                         paths = paths[:-1]
                     break
+            
         else:
             # Absolute path, so 'paths' is the part of it
             # minus the protocol part.
-            paths = self.url.replace(self.protocol, '')
+            paths = self.url.replace(self.protocol, '')            
+
+            # Split URL
+            items = paths.split(self.URLSEP)
+            
+            # If there are nonsense .. and . chars in the paths, remove
+            # them to construct a sane path.
+            try:
+                idx = items.index(self.DOTDOT)
+            except ValueError:
+                idx = -1            
+
+            if idx > 0:
+                items = self.reduce_url(items)
+                # Re-construct URL
+                paths = self.URLSEP.join(items)
+                print 'PATHS=>',paths
             
         # Now compute local directory/file paths
 
@@ -315,6 +348,21 @@ class HarvestManUrlParser:
         self.compute_dirpaths(paths)
         self.compute_domain_and_port()
 
+    def reduce_url(self, paths):
+        """ Remove nonsense .. chars from URL paths """
+        
+        for x in range(len(paths)):
+            path = paths[x]
+            try:
+                nextpath = paths[x+1]
+                if nextpath == '..':
+                    paths.pop(x+1)
+                    paths.remove(path)
+                    return self.reduce_url(paths)                
+            except IndexError:
+                return paths
+        
+        
     def compute_file_and_dir_paths(self):
         """ Compute file and directory paths """
 
@@ -374,7 +422,7 @@ class HarvestManUrlParser:
                     elif ritem == self.DOTDOT:
                         if len(pathstack) !=0:
                             pathstack.pop()
-
+            
                 self.dirpath  = pathstack + self.dirpath 
         
             # Support for NONSENSE relative paths such as
@@ -522,7 +570,7 @@ class HarvestManUrlParser:
                     cfg = GetObject('config')
                     if cfg.getqueryforms and self.form_re.search(self.get_full_url()):                 
                         return True
-             
+
         return False
 
     def is_stylesheet(self):
@@ -1033,46 +1081,49 @@ class HarvestManUrlParser:
 
     # ============ End - Set Methods =========== #
 
+
 if __name__=="__main__":
+    Initialize()
     # Test code
     global __TEST__
 
     __TEST__ = 1
-    hulist = [HarvestManUrlParser('http://www.yahoo.com/photos/my photo.gif'),
-              HarvestManUrlParser('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
-              HarvestManUrlParser('http://cwc2003.rediffblogs.com'),
-              HarvestManUrlParser('/sports/2003/jun/25beck1.htm',
-                                  'normal', 0, 'http://www.rediff.com', ''),
-              HarvestManUrlParser('ftp://ftp.gnu.org/pub/lpf.README'),
-              HarvestManUrlParser('http://www.python.org/doc/2.3b2/'),
-              HarvestManUrlParser('//images.sourceforge.net/div.png',
-                                  'image', 0, 'http://sourceforge.net', ''),
-              HarvestManUrlParser('http://pyro.sourceforge.net/manual/LICENSE'),
-              HarvestManUrlParser('python/test.htm', 'normal', 0,
-                                  'http://www.foo.com/bar/index.html', ''),
-              HarvestManUrlParser('/python/test.css', 'normal',
-                                  0, 'http://www.foo.com/bar/vodka/test.htm', ''),
-              HarvestManUrlParser('/visuals/standard.css', 'normal', 0,
-                                  'http://www.garshol.priv.no/download/text/perl.html',
-                                  'd:/websites'),
-              HarvestManUrlParser('www.fnorb.org/index.html', 'normal',
-                                  0, 'http://pyro.sourceforge.net',
-                                  'd:/websites'),
-              HarvestManUrlParser('http://profigure.sourceforge.net/index.html',
-                                  'normal', 0, 'http://pyro.sourceforge.net',
-                                  'd:/websites'),
-              HarvestManUrlParser('#anchor', 'anchor', 0, 
-                                  'http://www.foo.com/bar/index.html',
-                                  'd:/websites'),
-              HarvestManUrlParser('../icons/up.png', 'image', 0,
-                                  'http://www.python.org/doc/current/tut/node2.html',
-                                  ''),
-              HarvestManUrlParser('../eway/library/getmessage.asp?objectid=27015&moduleid=160',
-                                  'normal',0,'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160')
+    hulist = [ HarvestManUrlParser('http://www.yahoo.com/photos/my photo.gif'),
+               HarvestManUrlParser('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
+               HarvestManUrlParser('http://cwc2003.rediffblogs.com'),
+               HarvestManUrlParser('/sports/2003/jun/25beck1.htm',
+                                   'normal', 0, 'http://www.rediff.com', ''),
+               HarvestManUrlParser('ftp://ftp.gnu.org/pub/lpf.README'),
+               HarvestManUrlParser('http://www.python.org/doc/2.3b2/'),
+               HarvestManUrlParser('//images.sourceforge.net/div.png',
+                                   'image', 0, 'http://sourceforge.net', ''),
+               HarvestManUrlParser('http://pyro.sourceforge.net/manual/LICENSE'),
+               HarvestManUrlParser('python/test.htm', 'normal', 0,
+                                   'http://www.foo.com/bar/index.html', ''),
+               HarvestManUrlParser('/python/test.css', 'normal',
+                                   0, 'http://www.foo.com/bar/vodka/test.htm', ''),
+               HarvestManUrlParser('/visuals/standard.css', 'normal', 0,
+                                   'http://www.garshol.priv.no/download/text/perl.html',
+                                   'd:/websites'),
+               HarvestManUrlParser('www.fnorb.org/index.html', 'normal',
+                                   0, 'http://pyro.sourceforge.net',
+                                   'd:/websites'),
+               HarvestManUrlParser('http://profigure.sourceforge.net/index.html',
+                                   'normal', 0, 'http://pyro.sourceforge.net',
+                                   'd:/websites'),
+               HarvestManUrlParser('#anchor', 'anchor', 0, 
+                                   'http://www.foo.com/bar/index.html',
+                                   'd:/websites'),
+               HarvestManUrlParser('../icons/up.png', 'image', 0,
+                                   'http://www.python.org/doc/current/tut/node2.html',
+                                   ''),
+               HarvestManUrlParser('../eway/library/getmessage.asp?objectid=27015&moduleid=160',
+                                   'normal',0,'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'),
+               HarvestManUrlParser('fileadmin/dz.gov.si/templates/../../../index.php',
+                                   'normal',0,'http://www.dz-rs.si')]
                                   
-              ]
-
-
+                                  
+    
 
     for hu in hulist:
         print 'Full filename = ', hu.get_full_filename()
@@ -1092,4 +1143,6 @@ if __name__=="__main__":
         print 'Relative filename = ', hu.get_relative_filename()
         print 'Anchor url     = ', hu.get_anchor_url()
         print 'Anchor tag     = ', hu.get_anchor()
+        print
         
+

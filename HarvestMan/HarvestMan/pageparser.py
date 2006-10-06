@@ -44,6 +44,9 @@
 
    Sep 26 2006    Anand              Fixed EIAO ticket #194 - added support for
                                      <area...> tags.
+   Sep 29 2006    Anand              Partial fix for ticket #193 by adding support for
+                                     META REFRESH tag - lack of this was causing
+                                     www.um.lublin.pl to fail.
                                      
 """
 
@@ -75,7 +78,8 @@ class harvestManSimpleParser(SGMLParser):
                 'body' : (('background', 'image'),),
                 'script' : (('src', 'javascript'),),
                 'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet')),
-                'area' : (('href', 'normal'),)
+                'area' : (('href', 'normal'),),
+                'meta' : (('CONTENT','normal'),('content','normal'))
                 }
 
     # Valid 'rel' values - Added Jan 10 06 -Anand
@@ -210,7 +214,30 @@ class harvestManSimpleParser(SGMLParser):
                         pass
 
                 try:
-                    if tag != 'applet':
+                    if tag == 'meta':
+                        # Handle meta tag only for refresh
+                        foundtyp = d.get('http-equiv','').lower()
+                        if foundtyp.lower() == 'refresh':
+                            link = d.get(key,'')
+                            if not link: continue
+                            # This will be of the form of either
+                            # a time-gap (CONTENT="600") or a time-gap
+                            # with a URL (CONTENT="0; URL=<url>")
+                            items = link.split(';')
+                            if len(items)==1:
+                                # Only a time-gap, skip it
+                                continue
+                            elif len(items)==2:
+                                # Second one should be a URL
+                                reqd = items[1]
+                                if (reqd.find('URL') != -1 or reqd.find('url') != -1) and reqd.find('=') != -1:
+                                    link = reqd.split('=')[1].strip()
+                                else:
+                                    continue
+                        else:
+                            continue
+
+                    elif tag != 'applet':
                         link = d[key]
                     else:
                         link += d[key]
@@ -219,13 +246,11 @@ class harvestManSimpleParser(SGMLParser):
                                 if link[-1] != '/':
                                     link += '/'
                             continue                                
-
                 except KeyError:
                     continue
 
                 # see if this link is to be filtered
                 if self.filter_link(link):
-                    debug('Filtering link ', link)
                     continue
 
                 # anchor links in a page should not be saved        
@@ -326,14 +351,16 @@ if __name__=="__main__":
 
     cfg = GetObject('config')
     cfg.verbosity = 5
+    cfg.forms = True
     
     p=harvestManSimpleParser()
-    urls = ['http://www.fed-parl.be/']
+    urls = ['http://www.fed-parl.be/', 'http://www.nbb.be/']
 
     for url in urls:
        if os.system('wget %s -O index.html' % url ) == 0:
            p.feed(open('index.html').read())
            print p.links
+           p.reset()
            pass
                                    
 

@@ -26,6 +26,7 @@ import time
 import math
 import threading
 import random
+import exceptions
 
 from sgmllib import SGMLParseError
 
@@ -149,7 +150,10 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
     def run(self):
         """ The overloaded run method of threading.Thread class """
 
-        self.action()
+        try:
+            self.action()
+        except exceptions.AttributeError, e:
+            print e
 
     def terminate(self):
         """ Kill this crawler thread """
@@ -347,7 +351,10 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
     def crawl_url(self):
         """ Crawl a web page, recursively downloading its links """
 
-        if not self._urlobject.is_webpage(): return None
+        if not self._urlobject.is_webpage():
+            print 'Not a webpage =>',self._urlobject.get_full_url()
+            
+            return None
         if not self._download: return None
         
         # Rules checker object
@@ -367,6 +374,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         priority_indx = 0
         
         for url_obj in self.links:
+            # print 'URL=>',url_obj.get_full_url()
 
             # Check for status flag to end loop
             if self._endflag: break

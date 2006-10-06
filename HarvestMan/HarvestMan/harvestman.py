@@ -64,6 +64,8 @@ import datamgr
 # Utils module
 import utils
 import time
+import exceptions
+
 # Url server
 import urlserver
 
@@ -350,8 +352,12 @@ class harvestMan(object):
                 GetObject('datamanager').conditional_cache_set()
                 self.clean_up()
 
-        # Clean up actions    
-        self.finish()       
+        # Clean up actions
+        try:
+            self.finish()
+        except (Exception, exceptions.AttributeError), e:
+            # To catch errors at interpreter shutdown
+            pass
                 
     def report_garbage_collection(self):
         """ Diagnosis report on garbage collection """

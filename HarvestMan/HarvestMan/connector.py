@@ -789,10 +789,12 @@ class HarvestManUrlConnector:
     def get_content_length(self):
 
         d = self.get_http_headers()
-        
+
         for k in d:
             if k.lower() == 'content-length':
-                return d[k]
+                # Sometimes this could be two numbers
+                # separated by commas.
+                return d[k].split(',')[0].strip()
 
         else:
             return len(self.__data)
@@ -800,11 +802,12 @@ class HarvestManUrlConnector:
     def check_content_length(self):
 
         # check for min & max file size
-        length = int(self.get_content_length())
-        if length <= self._cfg.maxfilesize:
-            return True
-
-        return False
+        try:
+            length = int(self.get_content_length())
+        except:
+            length = 0
+            
+        return (length <= self._cfg.maxfilesize)
         
     def get_content_type(self):
 

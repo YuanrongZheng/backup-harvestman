@@ -35,8 +35,9 @@
                                   3. Comprehensive duplicate download check algorithm using
                                   an added dictionary of fetcher status holding their current
                                   urls.
-                                  
- 
+                                   
+  Sep 29 2006      Anand          Removed all 'interns' after adding urlproc module since
+                                  intern works only with strs not unicode strings.
 """
 import os, sys
 import time
@@ -128,15 +129,15 @@ class harvestManDataManager(object):
 
         d = self._projectcache
         
-        if d.has_key(intern(url)):
+        if d.has_key(url):
             # Value itself is a dictionary
-            content = d[intern(url)]
+            content = d[url]
             if content:
-                fileloc = content[intern('location')]
-                if not content.has_key(intern('data')):
+                fileloc = content['location']
+                if not content.has_key('data'):
                     return ret
                 else:
-                    url_data = content[intern('data')]
+                    url_data = content['data']
                     if url_data:
                         # Write file
                         extrainfo("Updating file from cache=>", fileloc)
@@ -172,14 +173,14 @@ class harvestManDataManager(object):
         # Jan 10 06 - Anand, Created by moving code from is_url_cache_uptodate
         # Update all cache keys
         cachekey = {}
-        cachekey[intern('checksum')] = bin_crypt(digeststr)
-        cachekey[intern('location')] = filename
-        cachekey[intern('content-length')] = contentlen
-        cachekey[intern('updated')] = True
+        cachekey['checksum'] = bin_crypt(digeststr)
+        cachekey['location'] = filename
+        cachekey['content-length'] = contentlen
+        cachekey['updated'] = True
         if self._cfg.datacache:
             cachekey['data'] = urldata
 
-        self._projectcache[intern(url)] = cachekey
+        self._projectcache[url] = cachekey
 
     def update_cache_for_url2(self, url, filename, lmt, urldata):
         """ Second method to update the cache information for the URL 'url'
@@ -188,13 +189,13 @@ class harvestManDataManager(object):
         # Jan 10 06 - Anand, Created by moving code from is_url_uptodate.
         # Update all cache keys
         cachekey = {}
-        cachekey[intern('location')] = filename
-        cachekey[intern('last-modified')] = lmt
-        cachekey[intern('updated')] = True
+        cachekey['location'] = filename
+        cachekey['last-modified'] = lmt
+        cachekey['updated'] = True
         if self._cfg.datacache:
             cachekey['data'] = urldata            
                 
-        self._projectcache[intern(url)] = cachekey
+        self._projectcache[url] = cachekey
                               
     def is_url_cache_uptodate(self, url, filename, contentlen, urldata):
         """ Check with project cache and find out if the
@@ -229,21 +230,21 @@ class harvestManDataManager(object):
         cachekey = {}
         d = self._projectcache
         
-        if d.has_key(intern(url)):
-            cachekey = d[intern(url)]
-            cachekey[intern('updated')]=False
+        if d.has_key(url):
+            cachekey = d[url]
+            cachekey['updated']=False
 
-            fileloc = cachekey[intern('location')]
+            fileloc = cachekey['location']
             if os.path.exists(fileloc) and os.path.abspath(fileloc) == os.path.abspath(filename):
                 fileverified=True
             
-            if cachekey.has_key(intern('checksum')):
+            if cachekey.has_key('checksum'):
                 # This value is stored hex encrypted in the cache file
                 # (and hence the dictionary). In order to compare, we need
                 # to decrypt it, (or we need to compare it with the encrypted
                 # copy of the file digest, as we are doing now).
                 
-                cachemd5 = bin_decrypt(cachekey[intern('checksum')])
+                cachemd5 = bin_decrypt(cachekey['checksum'])
                 if binascii.hexlify(cachemd5) == binascii.hexlify(digest1) and fileverified:
                     uptodate=True
 
@@ -271,16 +272,16 @@ class harvestManDataManager(object):
 
         d = self._projectcache
         
-        if d.has_key(intern(url)):
-            cachekey = d[intern(url)]
+        if d.has_key(url):
+            cachekey = d[url]
 
-            cachekey[intern('updated')]=False
+            cachekey['updated']=False
 
-            fileloc = cachekey[intern('location')]
+            fileloc = cachekey['location']
             if os.path.exists(fileloc) and os.path.abspath(fileloc) == os.path.abspath(filename):
                 fileverified=True
 
-            if cachekey.has_key(intern('last-modified')):
+            if cachekey.has_key('last-modified'):
                 # Get current modified time
                 cmt = cachekey['last-modified']
                 # If the latest page has a modified time greater than this
@@ -319,9 +320,9 @@ class harvestManDataManager(object):
         # update, else not.
         needsupdate=False
         for cachekey in self._projectcache.values():
-            if cachekey.has_key(intern('updated')):
-                if cachekey[intern('updated')]:
-                    needsupdate=cachekey[intern('updated')]
+            if cachekey.has_key('updated'):
+                if cachekey['updated']:
+                    needsupdate=cachekey['updated']
                     break
 
         return needsupdate
