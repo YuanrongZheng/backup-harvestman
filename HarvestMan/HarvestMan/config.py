@@ -192,7 +192,7 @@ class HarvestManStateObject(dict):
         self.threadpoolsize=10
         self.renamefiles=0
         self.fetchlevel=0
-        self.browsepage=1 
+        self.browsepage=0
         self.htmlparser=0
         self.checkfiles=1
         self.cookies=1
