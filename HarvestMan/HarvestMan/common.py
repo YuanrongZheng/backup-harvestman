@@ -24,6 +24,7 @@ import weakref
 import os, sys
 import socket
 import binascii
+import copy
 
 from config import HarvestManStateObject
 from logger import HarvestManLogger
@@ -160,6 +161,13 @@ else:
 # Single instance of the global lookup object
 RegisterObj = Registry()
 
+def GetState():
+    """ Return a snapshot of the current state of this
+    object and its containing threads for serializing """
+        
+    d = {}
+    d['urlmappings'] = RegisterObj.urlmappings
+    return copy.deepcopy(d)
 
 def GetObject(objkey):
     """ Get the registered instance of the HarvestMan program
@@ -185,6 +193,25 @@ def GetUrlObject(key):
         return obj
     else:
         return None
+
+def SetState(obj):
+
+    if obj.has_key('urlmappings'):
+        global RegisterObj
+        RegisterObj.urlmappings = obj.get('urlmappings').copy()
+        # print RegisterObj.urlmappings
+        return 0
+    else:
+        return -1
+
+def ResetState():
+    
+    global RegisterObj
+    RegisterObj.urlmappings = {}
+    # Reset config object
+    cfg = HarvestManStateObject()
+    RegisterObj.config = cfg
+    # Do not reset logger yet
     
 def SetObject(obj):
     """ Set the instance <value> of the HarvestMan program object in

@@ -51,6 +51,7 @@ __author__ = 'Anand Pillai'
 import os, sys
 from sgmllib import SGMLParseError
 from shutil import copy
+import cPickle, pickle
 
 # Our modules
 # Url queue module
@@ -65,6 +66,7 @@ import datamgr
 import utils
 import time
 import exceptions
+import threading
 
 # Url server
 import urlserver
@@ -86,6 +88,10 @@ class harvestMan(object):
     def finish(self):
         """ Actions to take after download is over """
 
+        # Disable tracebacks
+        sys.excepthook = None
+        sys.tracebacklimit = 0
+        
         # Localise file links
         # This code sits in the data manager class
         dmgr = GetObject('datamanager')
@@ -100,10 +106,56 @@ class harvestMan(object):
         GetObject('datamanager').clean_up()
         # Clean up lists inside rules module
         GetObject('ruleschecker').clean_up()        
-        # FIXME: Better way to signal global module that
-        # we are done.
-        Finish()
-            
+        Cleanup()
+        # Shutdown logging at the end
+        while count(threading.enumerate())>1:
+            time.sleep(1.0)
+
+        debug('Shutting down logger...')
+        GetObject('logger').shutdown()
+
+        # If this was started from a runfile,
+        # remove it.
+        if self._cfg.runfile:
+            try:
+                os.remove(self._cfg.runfile)
+            except OSError, e:
+                moreinfo('Error removing runfile %s.' % self._cfg.runfile)
+
+        # Disable trace-backs
+        sys.excepthook = None                
+        
+    def save_current_state(self):
+        """ Save state of objects to disk so program
+        can be restarted from saved state """
+
+        # Top-level state dictionary
+        state = {}
+        # All state objects are dictionaries
+
+        # Get state of queue & tracker threads
+        state['trackerqueue'] = GetObject('trackerqueue').get_state()
+        # Get state of datamgr
+        state['datamanager'] = GetObject('datamanager').get_state()
+        # Get state of urlthreads 
+        p = GetObject('datamanager')._urlThreadPool
+        if p: state['threadpool'] = p.get_state()
+        state['ruleschecker'] = GetObject('ruleschecker').get_state()
+
+        # Get common state
+        state['common'] = GetState()
+        # Get config object
+        state['configobj'] = GetObject('config').copy()
+        
+        # Dump with time-stamp
+        fname = '.harvestman_saves#' + str(int(time.time()))
+        moreinfo('Saving run-state to file %s...' % fname)
+        try:
+            cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
+            moreinfo('Saved run-state to file %s.' % fname)
+        except pickle.PicklingError, e:
+            print e
+        
     def welcome_message(self):
         """ Print a welcome message """
         
@@ -175,43 +227,61 @@ class harvestMan(object):
             else:
                 extrainfo("Successfully started url server.")
         
-    def register_project_objects(self):
-        """ Creates the objects for this project """
-        
-        pass
-
+    
     def start_project(self):
         """ Start the current project """
 
         # crawls through a site using http/ftp/https protocols
         if self._cfg.project:
-            info('Starting project',self._cfg.project,'...')
+            if not self._cfg.resuming:
+                info('Starting project',self._cfg.project,'...')
+            else:
+                info('Re-starting project',self._cfg.project,'...')                
             
             # Write the project file
             if not self._cfg.fromprojfile:
                 projector = utils.HarvestManProjectManager()
                 projector.write_project()
-        
-        info('Starting download of url',self._cfg.url,'...')
+
+        if not self._cfg.resuming:
+            info('Starting download of url',self._cfg.url,'...')
+        else:
+            pass
+            
 
         # Read the project cache file, if any
         if self._cfg.pagecache:
             GetObject('datamanager').read_project_cache()
 
         tracker_queue = GetObject('trackerqueue')
-        # Configure tracker manager for this project
-        if tracker_queue.configure():
-            # start the project
-            tracker_queue.crawl()
+
+        if not self._cfg.resuming:
+            # Configure tracker manager for this project
+            if tracker_queue.configure():
+                # start the project
+                tracker_queue.crawl()
+        else:
+            tracker_queue.restart()
 
     def clean_up(self):
         """ Clean up actions to do, say after
         an interrupt """
 
+        # Disable tracebacks
+        sys.excepthook = None
+        sys.tracebacklimit = 0
+
         if self._cfg.fastmode:
             tq = GetObject('trackerqueue')
             tq.terminate_threads()
 
+        # If there was a runfile,remove it
+        if self._cfg.runfile:
+            try:
+                os.remove(self._cfg.runfile)
+            except OSError, e:
+                moreinfo('Error removing current runfile %s.' % self._cfg.runfile)
+                
     def __prepare(self):
         """ Do the basic things and get ready """
 
@@ -222,6 +292,18 @@ class harvestMan(object):
         SetUserAgent(self.USER_AGENT)
 
         self._cfg = GetObject('config')
+
+        # Create user's .harvestman directory
+        homedir = os.environ.get('HOME')
+        if homedir and os.path.isdir(homedir):
+            harvestman_dir = os.path.join(homedir, '.harvestman')
+            self._cfg.userdir = harvestman_dir
+            
+            if not os.path.isdir(harvestman_dir):
+                try:
+                    os.makedirs(harvestman_dir)
+                except OSError, e:
+                    print e
 
     def setdefaultlocale(self):
         """ Set the default locale """
@@ -267,24 +349,21 @@ class harvestMan(object):
             # in locale module
             self.setdefaultlocale()
             return False
-        
+
     def run_projects(self):
         """ Run the HarvestMan projects specified in the config file """
 
-        # Prepare myself
-        self.__prepare()
-        
         # Get program options
-        self._cfg.get_program_options()
+        if not self._cfg.resuming:
+            self._cfg.get_program_options()
+            
+        self.register_common_objects()
 
         # Set locale - To fix errors with
         # regular expressions on non-english web
         # sites.
         self.set_locale()
 
-        self.register_common_objects()
-
-        # Welcome messages
         if self._cfg.verbosity:
             self.welcome_message()
 
@@ -339,35 +418,167 @@ class harvestMan(object):
         # Open stream to log file
         SetLogFile()
         
-        # Set project objects
-        self.register_project_objects()
-
         try:
             if not self._cfg.testnocrawl:
                 self.start_project()
-        except (KeyboardInterrupt, EOFError):
-            if not self._cfg.ignorekbinterrupt:
+        except (KeyboardInterrupt, EOFError, Exception):
+            if not self._cfg.ignoreinterrupts:
                 # dont allow to write cache, since it
                 # screws up existing cache.
                 GetObject('datamanager').conditional_cache_set()
+                self.save_current_state()
                 self.clean_up()
 
         # Clean up actions
         try:
             self.finish()
-        except (Exception, exceptions.AttributeError), e:
+        except Exception, e:
             # To catch errors at interpreter shutdown
             pass
-                
-    def report_garbage_collection(self):
-        """ Diagnosis report on garbage collection """
 
-        # TODO
+    def reset_state(self):
+        """ Reset state of certain objects/modules """
+
+        # common
+        ResetState()
+        # Reset self._cfg
+        self._cfg = GetObject('config')
+        
+    def restore_state(self, state_file):
+        """ Restore state of some objects from a previous run """
+
+        try:
+            state = cPickle.load(open(state_file))
+            # This has six keys - configobj, threadpool, ruleschecker,
+            # datamanager, common and trackerqueue.
+
+            # First update config object
+            cfg = state.get('configobj')
+            if cfg:
+                for key,val in cfg.items():
+                    self._cfg[key] = val
+            else:
+                # Corrupted object ?
+                return -1
+
+            # Open stream to log file
+            SetLogFile()
+
+            # Update common
+            ret = SetState(state.get('common'))
+            if ret == -1:
+                moreinfo("Error restoring state in 'common' module - cannot proceed further!")
+                return -1
+            else:
+                moreinfo("Restored state in 'common' module.")
+            
+            # Now update trackerqueue
+            tq = GetObject('trackerqueue')
+            ret = tq.set_state(state.get('trackerqueue'))
+            if ret == -1:
+                moreinfo("Error restoring state in 'urlqueue' module - cannot proceed further!")
+                return -1
+            else:
+                moreinfo("Restored state in urlqueue module.")
+            
+            # Now update datamgr
+            dm = GetObject('datamanager')
+            ret = dm.set_state(state.get('datamanager'))
+            if ret == -1:
+                moreinfo("Error restoring state in 'datamgr' module - cannot proceed further!")
+                return -1
+            else:
+                moreinfo("Restored state in datamgr module.")                
+            
+            # Update threadpool if any
+            pool = None
+            if state.has_key('threadpool'):
+                pool = dm._urlThreadPool
+                ret = pool.set_state(state.get('threadpool'))
+                moreinfo('Restored state in urlthread module.')
+            
+            # Update ruleschecker
+            rules = GetObject('ruleschecker')
+            ret = rules.set_state(state.get('ruleschecker'))
+            moreinfo('Restored state in rules module.')
+            
+            return 0
+        except (pickle.UnpicklingError, AttributeError, IndexError, EOFError), e:
+            return -1
+        
+    def run_saved_state(self):
+
+        self.register_common_objects()
+
+        # Set locale - To fix errors with
+        # regular expressions on non-english web
+        # sites.
+        self.set_locale()
+        
+        # See if there is a file named .harvestman_saves#...
+        # in current dir
+        files = []
+        for f in os.listdir('.'):
+            if f.startswith('.harvestman_saves#'):
+                files.append(f)
+
+        # Get the last dumped file
+        if files:
+            runfile = max(files)
+            res = raw_input('Found HarvestMan save file %s. Do you want to re-run it ? [y/n]' % runfile)
+            if res.lower()=='y':
+                if self.restore_state(runfile)==0:
+                    self._cfg.resuming = True
+                    self._cfg.runfile = runfile
+
+                    if self._cfg.verbosity:
+                        self.welcome_message()
+        
+                    try:
+                        if not self._cfg.testnocrawl:
+                            self.start_project()
+                    except (KeyboardInterrupt, EOFError, Exception):
+                        if not self._cfg.ignoreinterrupts:
+                            # dont allow to write cache, since it
+                            # screws up existing cache.
+                            GetObject('datamanager').conditional_cache_set()
+                            # Disable tracebacks
+                            sys.excepthook = None
+                            self.save_current_state()
+                            self.clean_up()
+
+                    try:
+                        self.finish()
+                    except Exception, e:
+                        # To catch errors at interpreter shutdown
+                        pass
+                else:
+                    print 'Could not re-run saved state, defaulting to standard configuration...'
+                    self._cfg.resuming = False
+                    # Reset state
+                    self.reset_state()
+                    return -1
+            else:
+                print 'OK, falling back to default configuration...'
+                return -1
+        else:
+            return -1
         pass
+    
+    def main(self):
+
+        # Prepare myself
+        self.__prepare()
+        # See if a crash file is there, then try to load it and run
+        # program from crashed state.
+        if self.run_saved_state() == -1:
+            # No such crashed state or user refused to run
+            # from crashed state. So do the usual run.
+            self.run_projects()
+        
         
 if __name__=="__main__":
-    spider = harvestMan()
-    spider.run_projects()
+    harvestMan().main()
 
                
         

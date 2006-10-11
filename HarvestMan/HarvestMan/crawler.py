@@ -27,6 +27,7 @@ import math
 import threading
 import random
 import exceptions
+import sha
 
 from sgmllib import SGMLParseError
 
@@ -35,6 +36,8 @@ import urlparser
 import pageparser
 
 from datamgr import harvestManController
+
+AbError = exceptions.AttributeError
 
 class HarvestManUrlCrawlerException(Exception):
 
@@ -94,6 +97,8 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         self.buffer = MyDeque()
         # Flag for pushing to buffer
         self._pushflag = self._configobj.fastmode and (not self._configobj.blocking)
+        # Resume flag - for resuming from a saved state
+        self._resuming = False
         
     def __str__(self):
         return self.getName()
@@ -152,8 +157,18 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
 
         try:
             self.action()
-        except exceptions.AttributeError, e:
-            print e
+        except Exception, e:
+            if e.__class__ == HarvestManUrlCrawlerException:
+                raise
+            else:
+                # Now I am dead - so I need to tell the queue
+                # object to migrate my data and produce a new
+                # thread.
+                self._crawlerqueue.dead_thread_callback(self)
+                # Set my status to zero
+                self._status = 0
+                self.buffer= []
+                print e
 
     def terminate(self):
         """ Kill this crawler thread """
@@ -264,27 +279,31 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
     def action(self):
         
         if self._isThread:
-
-            self._loops = 0
+            
+            if not self._resuming:
+                self._loops = 0
 
             while not self._endflag:
-                if self.buffer and self._pushflag:
-                    self.push_buffer()
-                    
-                obj = self._crawlerqueue.get_url_data( "crawler" )
-                if not obj:
+
+                if not self._resuming:
                     if self.buffer and self._pushflag:
                         self.push_buffer()
+                    
+                    obj = self._crawlerqueue.get_url_data( "crawler" )
 
-                    continue
+                    if not obj:
+                        if self.buffer and self._pushflag:
+                            self.push_buffer()
+
+                        continue
                 
-                self.set_url_object(obj)
+                    self.set_url_object(obj)
 
-                # Set status to one to denote busy state
-                self._status = 1
+                    # Set status to one to denote busy state
+                    self._status = 1
 
-                # Inserting a random sleep
-                time.sleep(random.random()*0.3)
+                    # Inserting a random sleep
+                    time.sleep(random.random()*0.3)
                 
                 # Do a crawl to generate new objects
                 # only after trying to push buffer
@@ -300,6 +319,9 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                 time.sleep(random.random()*0.3)
                 # Set status to zero to denote idle state                
                 self._status = 0
+                # If I had resumed from a saved state, set resuming flag
+                # to false
+                self._resuming = False
         else:
             self.process_url()
             self.crawl_url()
@@ -352,9 +374,9 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         """ Crawl a web page, recursively downloading its links """
 
         if not self._urlobject.is_webpage():
-            print 'Not a webpage =>',self._urlobject.get_full_url()
-            
+            moreinfo('Not a webpage =>',self._urlobject.get_full_url())
             return None
+        
         if not self._download: return None
         
         # Rules checker object
@@ -447,6 +469,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         # objects so that they don't get
         # dereferenced!
         self._tempobj = None
+        # For sha digests
+        self._sh = sha.new()
 
     def set_url_object(self, obj):
 
@@ -505,37 +529,42 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
     def action(self):
         
         if self._isThread:
-            self._loops = 0
+
+            if not self._resuming:
+                self._loops = 0            
 
             while not self._endflag:
-                if self.buffer and self._pushflag:
-                    self.push_buffer()
-                    
-                # If url server is disabled, get data
-                # from Queue, else query url server for
-                # new urls.
-                if not self._configobj.urlserver:
-                    obj = self._crawlerqueue.get_url_data("fetcher" )
-                    if not obj:
-                        if self.buffer and self._pushflag:
-                            self.push_buffer()
-                        continue
-                        
-                    if not self.set_url_object(obj):
-                        continue
-                    
-                else:
-                    if self.receive_url() != 1:
-                        # Time gap helps to reduce
-                        # network errors.
-                        time.sleep(0.3)
-                        continue
-                
-                # Set status to busy 
-                self._status = 1
 
-                # Inserting a random sleep
-                time.sleep(random.random()*0.3)
+                if not self._resuming:
+                    if self.buffer and self._pushflag:
+                        self.push_buffer()
+
+                    # If url server is disabled, get data
+                    # from Queue, else query url server for
+                    # new urls.
+                    if not self._configobj.urlserver:
+                        obj = self._crawlerqueue.get_url_data("fetcher" )
+                        # print 'OBJ=>',obj
+                        if not obj:
+                            if self.buffer and self._pushflag:
+                                self.push_buffer()
+                            continue
+
+                        if not self.set_url_object(obj):
+                            continue
+
+                    else:
+                        if self.receive_url() != 1:
+                            # Time gap helps to reduce
+                            # network errors.
+                            time.sleep(0.3)
+                            continue
+
+                    # Set status to busy 
+                    self._status = 1
+
+                    # Inserting a random sleep
+                    time.sleep(random.random()*0.3)
                 
                 # Process to generate new objects
                 # only after trying to push buffer
@@ -549,6 +578,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 # Sleep for some random time
                 time.sleep(random.random()*0.3)                
                 self._status = 0
+                # Set resuming flag to False
+                self._resuming = False
         else:
             self.process_url()
             self.crawl_url()
@@ -568,10 +599,21 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         moreinfo('Downloading file for url', self._url)
         data = mgr.download_url(self, self._urlobject)
 
+        # Rules checker object
+        ruleschecker = GetObject('ruleschecker')
+
         # Add webpage links in datamgr, if we managed to
         # download the url
 
         if self._urlobject.is_webpage() and data:
+            # Check if this page was already crawled
+            url = self._urlobject.get_full_url()
+            self._sh.update(data)
+            
+            if ruleschecker.check_duplicate_content(self._urlobject, self._sh.hexdigest()):
+                extrainfo('Skipped URL %s => duplicate content' % url)
+                return 
+            
             # MOD: Need to localise <base href="..." links if any
             # so add a NULL entry. (Nov 30 2004 - Refer header)
             mgr.update_links(self._urlobject.get_full_filename(), [])
@@ -622,9 +664,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             # not later.
 
             urlobjlist = []
-
-            # Rules checker object
-            ruleschecker = GetObject('ruleschecker')
 
             # print 'CURRENT URL=>',url_obj.get_full_url()
             

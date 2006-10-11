@@ -19,6 +19,7 @@ import crawler
 import time
 import threading
 import sys, os
+import copy
 
 from common import *
 
@@ -64,7 +65,6 @@ class HarvestManCrawlerQueue(object):
         self._lastblockedtime = 0
         self._numfetchers = 0
         self._numcrawlers = 0
-        self.__qsize = 0
         self._baseUrlObj = None
         # Time to wait for a data operation on the queue
         # before stopping the project with a timeout.
@@ -81,7 +81,113 @@ class HarvestManCrawlerQueue(object):
         self.buffer = []
         # Event object for exit condition
         # self.exitobj = threading.Event()
+
+    def get_state(self):
+
+        # Return state of this object,
+        # it's queues and the threads it contain
+        d = {}
+        d['_pushes'] = self._pushes
+        d['_lockedinst'] = self._lockedinst
+        d['_lasttimestamp'] = self._lasttimestamp
+        d['_requests'] = self._requests
+        d['_lastblockedtime'] = self._lastblockedtime
+        d['buffer'] = self.buffer
+        d['_baseUrlObj'] = self._baseUrlObj
         
+        # For the queues, get their contents
+        q1 = self.url_q.queue
+        # This is an index of priorities and url indices
+        d['url_q'] = q1
+        q2 = self.data_q.queue
+        d['data_q'] = q2
+
+        # Thread dictionary
+        tdict = {}
+        
+        # For threads get their information
+        for t in self._trackers:
+            d2 = {}
+            d2['_status'] = t._status
+            d2['_loops'] = t._loops          
+            
+            d2['_url'] = t._url
+            d2['_urlobject'] = t._urlobject
+            d2['buffer'] = t.buffer
+            d2['role'] = t.get_role()
+            if t.get_role() == 'crawler':
+                d2['links'] = t.links
+            elif t.get_role() == 'fetcher':
+                pass
+
+            tdict[t._index] = d2
+            
+        d['threadinfo'] = tdict
+        
+        return copy.deepcopy(d)
+
+    def set_state(self, state):
+        """ Set state to a previous saved state """
+
+        # Get base url object
+        self._baseUrlObj = state.get('_baseUrlObj')
+        print 'Base URL OBJ=>',self._baseUrlObj
+        # If base url object is None, we cannot proceed
+        # so return -1
+        if self._baseUrlObj is None:
+            return -1
+        
+        # Set state for simple data-members
+        self._pushes = state.get('_pushes',0)
+        self._lockedinst = state.get('_lockedinst', 0)
+        self._lasttimestamp = state.get('_lasttimestamp', time.time())
+        self._requests = state.get('_requests', 0)
+        self._lastblockedtime = state.get('_lastblockedtime', 0)
+        self.buffer = state.get('buffer', [])
+
+        # Set state for queues
+        self.url_q.queue = state.get('url_q', MyDeque())
+        # print self.url_q.queue
+        
+        self.data_q.queue = state.get('data_q', MyDeque())
+        # print self.data_q.queue
+
+        # If both queues are empty, we don't have anything to do
+        if len(self.url_q.queue)==0 and len(self.data_q.queue)==0:
+            moreinfo('Size of data/url queues are zero, nothing to re-run')
+            return -1
+        
+        cfg = GetObject('config')
+        self._configobj = cfg
+        
+        if cfg.fastmode:
+            # Create threads and set their state
+            for idx,tdict in state.get('threadinfo').items():
+                role = tdict.get('role')
+                t = None
+                
+                if role == 'fetcher':
+                    t = crawler.HarvestManUrlFetcher(idx, None)
+                    self._numfetchers += 1
+                elif role == 'crawler':
+                    t = crawler.HarvestManUrlCrawler(idx, None)
+                    t.links = tdict.get('links')
+                    self._numcrawlers += 1
+
+                if t:
+                    t._status = tdict.get('_status')
+                    t._loops = tdict.get('_loops')
+                    t._url = tdict.get('_url')
+                    t._urlobject = tdict.get('_urlobject')
+                    t.buffer = tdict.get('buffer')
+                    if t._urlobject: t._resuming = True
+                    
+                    self.add_tracker(t)
+                    t.setDaemon(True)
+
+            # Set base tracker
+            self._basetracker = self._trackers[0]
+
     def increment_lock_instance(self, val=1):
         self._lockedinst += val
 
@@ -149,6 +255,33 @@ class HarvestManCrawlerQueue(object):
             if count==numstops:
                 break
 
+    def restart(self):
+        """ Alternate method to start from a previous restored state """
+
+        # Start harvestman controller thread
+        import datamgr
+        
+        self._controller = datamgr.harvestManController()
+        self._controller.start()
+
+        # Start base tracker
+        self._basetracker.start()
+        time.sleep(2.0)
+        
+        for t in self._trackers[1:]:
+            try:
+                t.start()
+            except AssertionError, e:
+                print e
+                pass
+
+        time.sleep(2.0)
+        self.mainloop()        
+        # Set flag to 1 to denote that downloading is finished.
+        self._flag = 1
+            
+        self.stop_threads(noexit = True)
+        
     def crawl(self):
         """ Starts crawling for this project """
 
@@ -434,7 +567,47 @@ class HarvestManCrawlerQueue(object):
             return True
         
         return False        
+
+    def dead_thread_callback(self, t):
+        """ Call back function called by a thread if it
+        dies with an exception. This class then creates
+        a fresh thread, migrates the data of the dead
+        thread to it """
+
+        # First find out the type
+        role = t.get_role()
+        new_t = None
         
+        if role == 'fetcher':
+            new_t = crawler.HarvestManUrlFetcher(t.get_index(), None)
+        elif role == 'crawler':
+            new_t = crawler.HarvestManUrlCrawler(t.get_index(), None)
+
+        # Migrate data and start thread
+        if new_t:
+            new_t._status = t._status
+            new_t._url = t._url
+            new_t._urlobject = t._urlobject
+            new_t._loops = t._loops
+            new_t.buffer = t.buffer[:]
+            # If this is a crawler get links also
+            if role == 'crawler':
+                new_t.links = t.links[:]
+
+            # Replace dead thread in the list
+            idx = self._trackers.index(t)
+            self._trackers[idx] = new_t
+            new_t._resuming = True
+            new_t.start()
+        else:
+            # Could not make new thread, so decrement
+            # count of threads.
+            if role == 'fetcher':
+                self._numfetchers -= 1
+            elif role == 'crawler':
+                self._numcrawlers -= 1
+                
+                
     def push(self, obj, role):
         """ Push trackers to the queue """
 
@@ -472,6 +645,12 @@ class HarvestManCrawlerQueue(object):
                     time.sleep(0.5)
                     
         self._pushes += 1
+        #if self._pushes==10:
+        #    # print 'NUM=>',len(threading.enumerate())
+        #    raise MemoryError, 'Out of memory!'
+        #elif self._pushes>10:
+        #    print 'NUM=>',len(threading.enumerate())
+            
         self._lasttimestamp = time.time()
 
         return status

@@ -158,31 +158,46 @@ class HarvestManLogger(object):
                     break
         else:
             pass
-            
+
     def info(self, msg, *args):
         """ Perform logging at the INFO level """
-        
-        (self._severity>=1) and self._logger.debug(self.__getMessage(msg, *args))
+
+        try:
+            (self._severity>=1) and self._logger.debug(self.__getMessage(msg, *args))
+        except ValueError, e:
+            pass
 
     def moreinfo(self, msg, *args):
         """ Perform logging at the MOREINFO level """
-        
-        (self._severity>=2) and self._logger.debug(self.__getMessage(msg, *args))
 
+        try:
+            (self._severity>=2) and self._logger.debug(self.__getMessage(msg, *args))
+        except ValueError, e:
+            pass
+        
     def extrainfo(self, msg, *args):
         """ Perform logging at the EXTRAINFO level """
-        
-        (self._severity>=3) and self._logger.debug(self.__getMessage(msg, *args))
 
+        try:
+            (self._severity>=3) and self._logger.debug(self.__getMessage(msg, *args))
+        except ValueError, e:
+            pass
+        
     def debug(self, msg, *args):
         """ Perform logging at the DEBUG level """
-        
-        (self._severity>=4) and self._logger.debug(self.__getMessage(msg, *args))
 
+        try:
+            (self._severity>=4) and self._logger.debug(self.__getMessage(msg, *args))
+        except ValueError, e:
+            pass
+        
     def moredebug(self, msg, *args):
         """ Perform logging at the MOREDEBUG level """
-        
-        (self._severity>=5) and self._logger.debug(self.__getMessage(msg, *args))
+
+        try:
+            (self._severity>=5) and self._logger.debug(self.__getMessage(msg, *args))
+        except ValueError, e:
+            pass
 
     def getDefaultLogger(cls):
         """ Return the default logger instance """

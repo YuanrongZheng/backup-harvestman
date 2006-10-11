@@ -6,15 +6,17 @@
     <projects combine="0">
       
       <project skip="0">
-        <!--- <url>http://www.miex.org/python/</url> -->
 
-        <url>http://www.python.org/doc/peps</url>
+        <!--- <url>http://www.rpath.com/technology/techoverview/</url> -->
         <!--- <name>pybooks</name> -->
         <!--- <name>pydoc</name> -->
         <!--- <name>pypeps</name> -->
 
-        <!--- <url>http://www.python.org/doc/current/tut/tut.html</url> -->
-        <name>pydoc3</name>
+        <!--- <url>http://www.belgium.be</url>  -->
+        <!--- <name>belgium</name>  -->
+        <url>http://www.austria.gv.at/</url> 
+        <name>austria</name>
+
         <basedir>~/websites</basedir>
         <verbosity value="3"/>
       </project>
@@ -44,7 +46,7 @@
         <cookies value="1"/>
       </types> 
       <cache status="1">
-        <datacache value="1"/>
+        <datacache value="0"/>
       </cache>
       <misc>
         <retries value="1"/>
@@ -67,7 +69,7 @@
       <limits>
         <maxextservers value="0"/>
         <maxextdirs value="0"/>
-        <maxfiles value="5000"/>
+        <maxfiles value="100"/>
         <maxfilesize value="5048576000"/>
         <connections value="2"/>
         <requests value="2"/>
@@ -90,7 +92,7 @@
       <workers status="1" size="10" timeout="200"/>
       <trackers value="10"/>
       <locale>C</locale>
-      <fastmode value="0"/>
+      <fastmode value="1"/>
     </system>
     
     <files>
@@ -101,11 +103,11 @@
     </files>
     
     <indexer>
-      <localise value="2"/>
+      <localise value="0"/>
     </indexer>
     
     <display>
-      <browsepage value="1"/>
+      <browsepage value="0"/>
     </display>
     
   </config>

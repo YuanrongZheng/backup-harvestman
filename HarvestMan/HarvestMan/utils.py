@@ -254,33 +254,43 @@ class HarvestManSerializer(object):
 class HarvestManCacheManager(object):
     """ Utility class to read/write project cache files """
 
-    def __init__(self, filename):
-        self.__cachefilename = filename
-        pass
+    def __init__(self, directory):
+        self.__cachedir = directory
 
     def read_project_cache(self):
         """ Try to read the project cache file """
 
         # Get cache filename
-        if not os.path.exists(self.__cachefilename):
+        if not os.path.exists(self.__cachedir):
             moreinfo("Project cache not found")
             return None
 
         cfg = GetObject('config')
-        if cfg.cachefileformat == 'pickled':
-            return self.__read_pickled_cache_file()
-        elif cfg.cachefileformat == 'dbm':
-            return self.__read_dbm_cache_file()
+        return self.__read_pickled_cache()
 
-    def __read_pickled_cache_file(self):
+    def __read_pickled_cache(self):
 
-        cache_obj = None
+        cache_obj = {}
         try:
             pickler = HarvestManSerializer()
-            cache_obj = pickler.load(self.__cachefilename)
-            for d in cache_obj.values():
-                if 'data' in d and d['data']:
-                    d['data']=zlib.decompress(d['data'])
+            for f in os.listdir(self.__cachedir):
+                if f.endswith('.hmc'):
+                    fullpath = os.path.join(self.__cachedir, f)
+                    # This is the cache dictionary for a domain
+                    # The domain name is the bin_decrypted form
+                    # of the filename with .hmc removed.
+                    domain_cache = pickler.load(fullpath)
+                    
+                    for d in domain_cache.values():
+                        if 'data' in d and d['data']:
+                            try:
+                                d['data']=zlib.decompress(d['data'])
+                            except zlib.error, e:
+                                pass
+
+                    # Add this to cache obj
+                    domain = bin_decrypt(f.replace('.hmc',''))
+                    cache_obj[domain] = domain_cache
             
         except HarvestManSerializerError, e:
             print e
@@ -288,33 +298,19 @@ class HarvestManCacheManager(object):
 
         return cache_obj
 
-    def __read_dbm_cache_file(self):
-
-        cache_obj = shelve.open(self.__cachefilename)
-        return cache_obj    
-
     def write_project_cache(self, cache_obj, format):
 
-        cachedir = os.path.dirname(self.__cachefilename)
         try:
-            if not os.path.isdir(cachedir):
-                if not os.path.exists(cachedir):
-                    os.makedirs(cachedir)
-                    extrainfo('Created cache directory => ', cachedir)
+            if not os.path.isdir(self.__cachedir):
+                if not os.path.exists(self.__cachedir):
+                    os.makedirs(self.__cachedir)
+                    extrainfo('Created cache directory => ', self.__cachedir)
         except OSError, e:
             debug('OS Exception ', e)
             return -1
 
-        # If file already exists, shred it
-        if os.path.exists(self.__cachefilename):
-            try:
-                os.remove(self.__cachefilename)
-            except OSError, e:
-                print e
-                return -1
-
         # Copy a readme.txt file to the cache directory
-        readmefile = os.path.join(cachedir, "Readme.txt")
+        readmefile = os.path.join(self.__cachedir, "Readme.txt")
         try:
             fs=open(readmefile, 'w')
             fs.write(HARVESTMAN_CACHE_README)
@@ -323,44 +319,34 @@ class HarvestManCacheManager(object):
             debug(str(e))
 
         if format == 'pickled':
-            return self.__write_pickled_cache_file(cache_obj)
-        elif format == 'dbm':
-            return self.__write_dbm_cache_file(cache_obj)
+            return self.__write_pickled_cache(cache_obj)
 
         return -1
 
-    def __write_pickled_cache_file(self, cache_obj):
+    def __write_pickled_cache(self, cache_obj):
 
+        # Cache object is a dictionary of domain
+        # names as keys and url dictionaries as
+        # values. From 1.5 version onwards, we are
+        # writing a separate cache file for every
+        # domain.
+        
         try:
-            for d in cache_obj.values():
-                if 'data' in d and d['data']:
-                    d['data']=zlib.compress(d['data'])
-
-            pickler = HarvestManSerializer()
-            pickler.dump( cache_obj, self.__cachefilename)
+            pickler = HarvestManSerializer()            
+            for domain, urldict in cache_obj.items():
+                for url in urldict.keys():
+                    cachekey = urldict[url]
+                    if 'data' in cachekey and cachekey['data']:
+                        cachekey['data']=zlib.compress(cachekey['data'])
+                # Filename is encrypted form of domain name + .hmc
+                cachefilename = os.path.join(self.__cachedir, bin_crypt(domain) + '.hmc')
+                pickler.dump( urldict, cachefilename)
+                
         except HarvestManSerializerError, e:
             print e
             return -1
 
         return 0
-
-    def __write_dbm_cache_file(self, cacheobj):
-
-        try:
-            for d in cacheobj.values():
-                if 'data' in d and d['data']:
-                    d['data']=zlib.compress(d['data'])        
-        
-            shelf = shelve.open(self.__cachefilename)
-            for url,values in cacheobj.items():
-                shelf[url] = values
-
-            shelf.close()
-
-            return 0
-        except Exception, e:
-            print e
-            return -1
 
 class HarvestManProjectManager(object):
     """ Utility class to read/write project files """

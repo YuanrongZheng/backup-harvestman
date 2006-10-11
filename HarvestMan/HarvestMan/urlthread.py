@@ -43,7 +43,9 @@ import os, sys
 import math
 import time
 import threading
+import copy
 
+from collections import deque
 from Queue import Queue, Full, Empty
 from common import *
 
@@ -95,10 +97,20 @@ class harvestManUrlThread(threading.Thread):
 
         return self.__downloadstatus
 
+    def set_status(self, status):
+        """ Set the download status of this thread """
+
+        self.__downloadstatus = status
+
     def is_busy(self):
         """ Get busy status for this thread """
 
         return self.__busyflag
+
+    def set_busy_flag(self, flag):
+        """ Set busy status for this thread """
+
+        self.__busyflag = flag
 
     def join(self):
         """ The thread's join method to be called
@@ -116,11 +128,20 @@ class harvestManUrlThread(threading.Thread):
     def stop(self):
         """ Stop this thread """
 
+        # If download was not completed, push-back object
+        # to the pool.
+        if self.__downloadstatus==0 and self.__urlobject:
+            # print 'Pushing back urlobject for url %s...' % self.__urlobject.get_full_url()
+            self.__pool.push(self.__urlobject)
+            
         self.__endflag = True
 
     def download(self, url_obj):
         """ Download this url """
 
+        # Set download status
+        self.__downloadstatus = 0
+        
         url = url_obj.get_full_url()
         server = url_obj.get_domain()
 
@@ -143,9 +164,9 @@ class harvestManUrlThread(threading.Thread):
 
         # Set this as download status
         self.__downloadstatus = res
-
+        
         # get error flag from connector
-        self.__error=conn.get_error()
+        self.__error = conn.get_error()
 
         del conn
         
@@ -208,6 +229,21 @@ class harvestManUrlThread(threading.Thread):
 
         return self.__urlobject
 
+    def set_urlobject(self, urlobject):
+          
+            
+        self.__urlobject = urlobject
+        
+    def get_start_time(self):
+        """ Return the start time of current download """
+
+        return self.__starttime
+
+    def set_start_time(self, starttime):
+        """ Return the start time of current download """
+
+        self.__starttime = starttime
+    
     def get_elapsed_time(self):
         """ Get the time taken for this thread """
 
@@ -256,6 +292,60 @@ class harvestManUrlThreadPool(Queue):
         self.buffer = []
         Queue.__init__(self, self.__numthreads + 5)
 
+    def get_state(self):
+        """ Return a snapshot of the current state of this
+        object and its containing threads for serializing """
+        
+        d = {}
+        d['buffer'] = self.buffer
+        d['queue'] = self.queue
+        
+        tdict = {}
+        
+        for t in self.__threads:
+            d2 = {}
+            d2['__urlobject'] = t.get_urlobject()
+            d2['__busyflag'] = t.is_busy()
+            d2['__downloadstatus'] = t.get_status()
+            d2['__starttime'] = t.get_start_time()
+
+            tdict[t.getName()]  = d2
+
+        d['threadinfo'] = tdict
+        # print d
+        
+        return copy.deepcopy(d)
+
+    def set_state(self, state):
+        """ Set state to a previous saved state """
+
+        cfg = GetObject('config')
+        # Maximum number of threads spawned
+        self.__numthreads = cfg.threadpoolsize
+        self.__timeout = cfg.timeout
+        
+        self.buffer = state.get('buffer',[])
+        self.queue = state.get('queue', deque([]))
+        
+        for name,tdict in state.get('threadinfo').items():
+            fetcher = harvestManUrlThread(name, self.__timeout, self)
+            fetcher.set_urlobject(tdict.get('__urlobject'))
+            fetcher.set_busy_flag(tdict.get('__busyflag', False))
+            fetcher.set_status(tdict.get('__downloadstatus', 0))
+            fetcher.set_start_time(tdict.get('__starttime', 0))            
+            
+            fetcher.setDaemon(True)
+            self.__threads.append(fetcher)
+            
+    def start_threads(self):
+        """ Start threads if they are not running """
+
+        for t in self.__threads:
+            try:
+                t.start()
+            except AssertionError, e:
+                pass
+            
     def spawn_threads(self):
         """ Start the download threads """
 

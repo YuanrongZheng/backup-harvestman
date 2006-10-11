@@ -18,7 +18,6 @@
 """
 
 import sys
-import md5
 import socket
 import time
 import threading as tg
@@ -913,13 +912,13 @@ class HarvestManUrlConnector:
         if self._cfg.cachefound:
             if lmt != -1:
                 url, filename = urlobj.get_full_url(), urlobj.get_full_filename()
-                update, fileverified = dmgr.is_url_uptodate(url, filename, lmt, self.__data)
+                update, fileverified = dmgr.is_url_uptodate(urlobj, filename, lmt, self.__data)
                 # No need to download
                 if update and fileverified:
                     extrainfo("Project cache is uptodate =>", url)
                     return 3
             else:
-                update, fileverified = dmgr.is_url_cache_uptodate(url, filename, datalen, self.__data)
+                update, fileverified = dmgr.is_url_cache_uptodate(urlobj, filename, datalen, self.__data)
                 # No need to download
                 if update and fileverified:
                     extrainfo("Project cache is uptodate =>", url)
@@ -929,16 +928,16 @@ class HarvestManUrlConnector:
             # the downloaded files, instruct data manager to
             # write file from the cache.
             if update and not fileverified:
-                if dmgr.write_file_from_cache(url):
+                if dmgr.write_file_from_cache(urlobj):
                     return 4
         else:
             # Modified this logic - Anand Jan 10 06            
             # If cache is not found, update cache information
             # straight away.
             if timestr:
-                dmgr.wrapper_update_cache_for_url2(url, filename, lmt, self.__data)
+                dmgr.wrapper_update_cache_for_url2(urlobj, filename, lmt, self.__data)
             else:
-                dmgr.wrapper_update_cache_for_url(url, filename, datalen, self.__data)
+                dmgr.wrapper_update_cache_for_url(urlobj, filename, datalen, self.__data)
             
         if dmgr.create_local_directory(urlobj) == 0:
             extrainfo('Writing file ', filename)
@@ -965,29 +964,6 @@ class HarvestManUrlConnector:
             print 'Error in fetching data from ',url ,'\n'
 
         return 0
-
-    def verify_checksum(self, filename):
-        """ Verify data written to file using md5 checksum """
-
-        m1=md5.new()
-        m1.update(self.__data)
-        mdigest1=m1.digest()
-        mdigest2=''
-
-        m2=md5.new()
-        try:
-            m2.update(open(filename, 'rb').read())
-        except:
-            return 0
-
-        mdigest2=m2.digest()
-        # compare the 2 digests
-        if mdigest1 == mdigest2:
-            # file was written correctly
-            return 1
-        else:
-            # there was an error in writing the file
-            return 0
 
     def get_data(self):
         return self.__data

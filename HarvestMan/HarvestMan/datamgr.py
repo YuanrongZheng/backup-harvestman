@@ -38,13 +38,18 @@
                                    
   Sep 29 2006      Anand          Removed all 'interns' after adding urlproc module since
                                   intern works only with strs not unicode strings.
+   Oct 8  2006     Anand          Major changes in cache reading/writing. Instead of writing
+                                  a single cache file, we dump separate cache files for
+                                  every domain. Also, changed to use sha module instead of
+                                  md5 to get digests.
 """
 import os, sys
 import time
 import math
 import binascii
 import re
-import md5
+import sha
+import copy
 
 import threading as tg
 # Utils
@@ -87,7 +92,29 @@ class harvestManDataManager(object):
             self._urlThreadPool.spawn_threads()
         else:
             self._urlThreadPool = None
+        # Sha object
+        self._sh = sha.new()
+        
+    def get_state(self):
+        """ Return a snapshot of the current state of this
+        object and its containing threads for serializing """
+        
+        d = {}
+        d['_numfailed'] = self._numfailed
+        d['_downloaddict'] = self._downloaddict.copy()
+        d['_linksdict'] = self._linksdict.copy()
+        d['_bytes'] = self._bytes
 
+        return copy.deepcopy(d)
+
+    def set_state(self, state):
+        """ Set state to a previous saved state """
+        
+        self._numfailed = state.get('_numfailed', 0)
+        self._downloaddict = state.get('_downloaddict', self._downloaddict)
+        self._linksdict = state.get('_linksdict', {})
+        self._bytes = state.get('_bytes', 0L)
+        
     def get_proj_cache_filename(self):
         """ Return the cache filename for the current project """
 
@@ -101,6 +128,16 @@ class harvestManDataManager(object):
         else:
             return ''
 
+    def get_proj_cache_directory(self):
+        """ Return the cache directory for the current project """
+
+        # Note that this function does not actually build the cache directory.
+        # Get the cache file path
+        if self._cfg.projdir and self._cfg.project:
+            return os.path.join(self._cfg.projdir, "hm-cache")
+        else:
+            return ''        
+
     def get_links_dictionary(self):
         return self._linksdict
 
@@ -109,25 +146,25 @@ class harvestManDataManager(object):
 
         # Get cache filename
         moreinfo('Reading Project Cache...')
-        cachereader = utils.HarvestManCacheManager(self.get_proj_cache_filename())
+        cachereader = utils.HarvestManCacheManager(self.get_proj_cache_directory())
         obj = cachereader.read_project_cache()
 
         if obj:
             self._projectcache = obj
             self._cfg.cachefound = 1
         else:
-            print 'Cache not found, setting cachefound to zero...'
+            # print 'Cache not found, setting cachefound to zero...'
             self._cfg.cachefound = 0
 
-    def write_file_from_cache(self, url):
+    def write_file_from_cache(self, urlobj):
         """ Write file from url cache. This
         works only if the cache dictionary of this
         url has a key named 'data' """
 
         # New feature in 1.4
         ret = False
-
-        d = self._projectcache
+        
+        d = self._projectcache.get(urlobj.get_full_domain(), {})
         
         if d.has_key(url):
             # Value itself is a dictionary
@@ -151,28 +188,31 @@ class harvestManDataManager(object):
                                 
         return ret
 
-    def wrapper_update_cache_for_url(self, url, filename, contentlen, urldata):
+    def wrapper_update_cache_for_url(self, urlobj, filename, contentlen, urldata):
         """ Wrapper for update_cache_for_url which is called from connector module """
 
         # Created this method - Anand Jan 10 06
-        m1=md5.new()
-        if urldata: m1.update(urldata)
-        digest1=m1.digest()
-        return self.update_cache_for_url(url, filename, contentlen, urldata, digest1)
+        if urldata: self._sh.update(urldata)
+        digest1 = self._sh.hexdigest()
+        return self.update_cache_for_url(urlobj, filename, contentlen, urldata, digest1)
 
-    def wrapper_update_cache_for_url2(self, url, filename, lmt, urldata):
+    def wrapper_update_cache_for_url2(self, urlobj, filename, lmt, urldata):
         """ Wrapper for update_cache_for_url2 which is called from connector module """
 
         # Created this method - Anand Jan 10 06
-        return self.update_cache_for_url2(url, filename, lmt, urldata)
+        return self.update_cache_for_url2(urlobj, filename, lmt, urldata)
                                       
-    def update_cache_for_url(self, url, filename, contentlen, urldata, digeststr):
+    def update_cache_for_url(self, urlobj, filename, contentlen, urldata, digeststr):
         """ Method to update the cache information for the URL 'url'
         associated to file 'filename' on the disk """
 
+        url = urlobj.get_full_url()
+        domain = urlobj.get_full_domain()
+        
         # Jan 10 06 - Anand, Created by moving code from is_url_cache_uptodate
         # Update all cache keys
         cachekey = {}
+
         cachekey['checksum'] = bin_crypt(digeststr)
         cachekey['location'] = filename
         cachekey['content-length'] = contentlen
@@ -180,24 +220,34 @@ class harvestManDataManager(object):
         if self._cfg.datacache:
             cachekey['data'] = urldata
 
-        self._projectcache[url] = cachekey
+        d = self._projectcache.get(domain, {})
+        d[url] = cachekey
+        
+        self._projectcache[domain] = d
 
-    def update_cache_for_url2(self, url, filename, lmt, urldata):
+    def update_cache_for_url2(self, urlobj, filename, lmt, urldata):
         """ Second method to update the cache information for the URL 'url'
         associated to file 'filename' on the disk """
 
+        url = urlobj.get_full_url()
+        domain = urlobj.get_full_domain()
+        
         # Jan 10 06 - Anand, Created by moving code from is_url_uptodate.
         # Update all cache keys
         cachekey = {}
+
         cachekey['location'] = filename
         cachekey['last-modified'] = lmt
         cachekey['updated'] = True
         if self._cfg.datacache:
             cachekey['data'] = urldata            
-                
-        self._projectcache[url] = cachekey
+
+        d = self._projectcache.get(domain, {})
+        d[url] = cachekey
+        
+        self._projectcache[domain] = d                
                               
-    def is_url_cache_uptodate(self, url, filename, contentlen, urldata):
+    def is_url_cache_uptodate(self, urlobj, filename, contentlen, urldata):
         """ Check with project cache and find out if the
         content needs update """
 
@@ -211,24 +261,27 @@ class harvestManDataManager(object):
 
         # Return True if cache is uptodate(no update needed)
         # and Fals if cache is out-of-date(update needed)
-        # NOTE: We are using an comparison of the md5 checksum of
-        # the file's data with the md5 checksum of the cache file.
+        # NOTE: We are using an comparison of the sha checksum of
+        # the file's data with the sha checksum of the cache file.
         if contentlen==0:
             return (False, False)
 
-        m1=md5.new()
-        # Anand 10/1/06 - Fix: need to update md5 object with data to
+        # Anand 10/1/06 - Fix: need to update sha object with data to
         # get digest! (This line somehow has got deleted)
-        if urldata: m1.update(urldata)
-        digest1=m1.digest()
+        if urldata: self._sh.update(urldata)
+        digest1 = self._sh.hexdigest()
         
         # Assume that cache is not uptodate apriori
         uptodate=False
         fileverified=False
 
         # Reference to dictionary in the cache list
+        domain = urlobj.get_full_domain()        
         cachekey = {}
-        d = self._projectcache
+        
+        d = self._projectcache.get(domain, {})
+
+        url = urlobj.get_full_url()
         
         if d.has_key(url):
             cachekey = d[url]
@@ -244,17 +297,17 @@ class harvestManDataManager(object):
                 # to decrypt it, (or we need to compare it with the encrypted
                 # copy of the file digest, as we are doing now).
                 
-                cachemd5 = bin_decrypt(cachekey['checksum'])
-                if binascii.hexlify(cachemd5) == binascii.hexlify(digest1) and fileverified:
+                cachesha = bin_decrypt(cachekey['checksum'])
+                if binascii.hexlify(cachesha) == binascii.hexlify(digest1) and fileverified:
                     uptodate=True
 
         if not uptodate:
             # Modified this logic - Anand Jan 10 06            
-            self.update_cache_for_url(url, filename, contentlen, urldata, digest1)
+            self.update_cache_for_url(urlobj, filename, contentlen, urldata, digest1)
 
         return (uptodate, fileverified)
 
-    def is_url_uptodate(self, url, filename, lmt, urldata):
+    def is_url_uptodate(self, urlobj, filename, lmt, urldata):
         """ New function to check whether the url cache is out
         of date by comparing last modified time """
 
@@ -268,9 +321,12 @@ class harvestManDataManager(object):
         fileverified=False
 
         # Reference to dictionary in the cache list
+        domain = urlobj.get_full_domain()                
         cachekey = {}
 
-        d = self._projectcache
+        d = self._projectcache.get(domain, {})
+        # Cache dictionary is indexed by domain names
+        url = urlobj.get_full_url()
         
         if d.has_key(url):
             cachekey = d[url]
@@ -292,7 +348,7 @@ class harvestManDataManager(object):
         # If cache is not updated, update all cache keys
         if not uptodate:
             # Modified this logic - Anand Jan 10 06                        
-            self.update_cache_for_url2(url, filename, lmt, urldata)
+            self.update_cache_for_url2(urlobj, filename, lmt, urldata)
 
         return (uptodate, fileverified)
 
@@ -319,18 +375,20 @@ class harvestManDataManager(object):
         # value for 'updated' set to True, the cache needs
         # update, else not.
         needsupdate=False
-        for cachekey in self._projectcache.values():
-            if cachekey.has_key('updated'):
-                if cachekey['updated']:
-                    needsupdate=cachekey['updated']
-                    break
+        for urldict in self._projectcache.values():
+            for cachekey in urldict.values():
+                if cachekey.has_key('updated'):
+                    if cachekey['updated']:
+                        needsupdate=cachekey['updated']
+                        return needsupdate
 
         return needsupdate
 
     def post_download_setup(self):
         """ Actions to perform after project is complete """
 
-
+        # print self._projectcache.values()
+        
         if self._cfg.retryfailed:
             self._numfailed = len(self._downloaddict['_failedurls'])
             moreinfo(' ')
@@ -359,9 +417,11 @@ class harvestManDataManager(object):
         if self._cfg.urlheaders:
             self.add_headers_to_cache()
 
+        # print self._projectcache.values()
+        
         # Write cache file
         if self._cfg.pagecache and self.does_cache_need_update():
-            cachewriter = utils.HarvestManCacheManager( self.get_proj_cache_filename() )
+            cachewriter = utils.HarvestManCacheManager( self.get_proj_cache_directory() )
             cachewriter.write_project_cache(self._projectcache, self._cfg.cachefileformat)
 
         # localise downloaded file's links, dont do if jit localisation
@@ -745,9 +805,12 @@ class harvestManDataManager(object):
                     url = urlobj.get_full_url()
                     # Get headers
                     headers = urlobj.get_url_content_info()
-                    if headers and self._projectcache.has_key(url):
-                        d = self._projectcache[url]
-                        d['headers'] = headers
+                    if headers:
+                        dom = urlobj.get_full_domain()
+                        if self._projectcache.has_key(dom):
+                            urldict = self._projectcache[dom]
+                            d = urldict[url]
+                            d['headers'] = headers
         
     def dump_headers(self):
         """ Dump the headers of the web pages

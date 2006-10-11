@@ -205,14 +205,14 @@ class HarvestManStateObject(dict):
         self.javascript = True
         self.javaapplet = True
         self.connections=5
-        # Values => 'pickled' or 'dbm'        
+        # Values => 'pickled' only
         self.cachefileformat='pickled' 
         # 1. Testing the code (no browse page)
         self.testing = False 
         # 2. Testing the browse page (no crawl)
         self.testnocrawl = False
         self.nocrawl = False
-        self.ignorekbinterrupt = False
+        self.ignoreinterrupts = False
         self.subdomain = False
         self.getqueryforms = False
         self.requests = 5
@@ -240,16 +240,12 @@ class HarvestManStateObject(dict):
         self.maxfilesize=1048576
         # Minimum file size is 0 bytes
         self.minfilesize=0
-        # config file format
         self.format = 'xml'
-        # 1.4.5 b1 - Option to
-        # not create directories
-        # for urls
         self.rawsave = False
-        # 1.4.5 final - To indicate
-        # that the configuration was
-        # read from a project file
         self.fromprojfile = False
+        # For running from previous states.
+        self.resuming = False
+        self.runfile = None
         
     def _init2(self):
         
@@ -871,7 +867,16 @@ class HarvestManStateObject(dict):
         """ Opens the configuration file and parses it """
 
         cfgfile = self.configfile
-
+        if not os.path.isfile(cfgfile):
+            # Try in $HOME/.harvestman directory
+            if self.userdir:
+                cfgfile = os.path.join(self.userdir, 'config.xml')
+                if os.path.isfile(cfgfile):
+                    print 'Using configuration file %s...' % cfgfile
+                    self.configfile = cfgfile
+        else:
+            print 'Using configuration file %s...' % cfgfile
+            
         # If configuration is an xml file, parse it using
         # xml parser.
         if ((os.path.splitext(cfgfile))[1]).lower() == '.xml':
@@ -883,7 +888,10 @@ class HarvestManStateObject(dict):
             cf=open(cfgfile, 'r')
         except IOError:
             print 'Fatal error: Cannot find config file', cfgfile
-            msg1 = "\nCreate or copy a config file to this directory"
+            if self.userdir:
+                msg1 = "\nCreate or copy a config file to this directory or to %s" % self.userdir
+            else:
+                msg1 = "\nCreate or copy a config file to this directory"                
             msg2 = "\nor run the program with the -C option to use \na different config file"
             sys.exit("".join((msg1,msg2)))
             

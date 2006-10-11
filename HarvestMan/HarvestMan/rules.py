@@ -35,6 +35,7 @@ import socket
 import re
 import os
 import time
+import copy
 
 import robotparser
 
@@ -60,7 +61,9 @@ class harvestManRulesChecker(object):
         self._robots  = {}
         self._robocache = []
         self._logger = GetObject('logger')
-
+        # For hash sums of page data
+        self._pagehash = {}
+        
         # Configure robotparser object if rep rule is specified
         self._configobj = GetObject('config')
         # Create junk filter if specified
@@ -69,6 +72,40 @@ class harvestManRulesChecker(object):
         else:
             self.junkfilter = None
 
+    def get_state(self):
+        """ Return a snapshot of the current state of this
+        object and its containing threads for serializing """
+        
+        d = {}
+        d['_links'] = self._links[:]
+        d['_sourceurls'] = self._sourceurls[:]
+        d['_filter'] = self._filter[:]
+        d['_extservers'] = self._extservers[:]
+        d['_extdirs'] = self._extdirs[:]
+        # d['_robots'] = self._robots.copy()
+        d['_robocache'] = self._robocache[:]
+        d['_pagehash'] = self._pagehash.copy()
+
+        return copy.deepcopy(d)
+
+    def set_state(self, state):
+        """ Set state to a previous saved state """
+
+        self._links = state.get('_links',[])
+        self._sourceurls = state.get('_sourceurls', [])
+        self._filter = state.get('_filter', [])
+        self._extservers = state.get('_extservers', [])
+        self._extdirs = state.get('_extdirs', [])
+        self._robocache = state.get('_robocache', [])                
+        self._pagehash = state.get('_pagehash', {})
+
+        self._configobj = GetObject('config')
+        # Create junk filter if specified
+        if self._configobj.junkfilter:
+            self.junkfilter = JunkFilter()
+        else:
+            self.junkfilter = None
+        
     def violates_basic_rules(self, urlObj):
         """ Check the basic rules for this url object,
         This function returns True if the url object
@@ -791,6 +828,20 @@ class harvestManRulesChecker(object):
             self._sourceurls.append(surl)
             return False
 
+    def check_duplicate_content(self, urlobj, datahash):
+        """ Check if content for this URL is already there """
+
+        # Note - we allow same content from different domains
+        
+        if datahash in self._pagehash:
+            # Check if earlier page was from this domain
+            dom = self._pagehash[datahash]
+            return (dom == urlobj.get_domain())
+        else:
+            # print 'Adding datahash => %s for DOM %s' % (datahash, urlobj.get_domain())
+            self._pagehash[datahash] = urlobj.get_domain()
+            return False
+        
     def get_stats(self):
         """ Return statistics as a 3 tuple. This returns
         a 3 tuple of number of links, number of servers, and
