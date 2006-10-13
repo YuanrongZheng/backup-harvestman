@@ -514,6 +514,7 @@ class harvestManUrlThreadPool(Queue):
                 del t
             except HarvestManUrlThreadInterrupt, e:
                 extrainfo(str(e))
+                pass
 
     def remove_finished_threads(self):
         """ Clean up all threads that have completed """

@@ -69,7 +69,7 @@
       <limits>
         <maxextservers value="0"/>
         <maxextdirs value="0"/>
-        <maxfiles value="100"/>
+        <maxfiles value="5000"/>
         <maxfilesize value="5048576000"/>
         <connections value="2"/>
         <requests value="2"/>

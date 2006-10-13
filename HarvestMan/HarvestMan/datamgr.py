@@ -42,6 +42,8 @@
                                   a single cache file, we dump separate cache files for
                                   every domain. Also, changed to use sha module instead of
                                   md5 to get digests.
+   Oct 13 2006     Anand          Removed data lock since it is not required - Python GIL
+                                  automatically locks byte operations.
 """
 import os, sys
 import time
@@ -85,7 +87,6 @@ class harvestManDataManager(object):
         self._bytes = 0L
         # Redownload flag
         self._redownload = False
-        self._dataLock = tg.Condition(tg.RLock())        
         # Url thread group class for multithreaded downloads
         if self._cfg.usethreads and self._cfg.fastmode:
             self._urlThreadPool = harvestManUrlThreadPool()
@@ -511,6 +512,7 @@ class harvestManDataManager(object):
     def update_file_stats(self, urlObject, status):
         """ Add the passed information to the saved file list """
 
+        # print 'I am updating file stats=>',tg.currentThread()
         if not urlObject: return -1
 
         # Bug: we should be getting this url as rooturl and not
@@ -542,6 +544,8 @@ class harvestManDataManager(object):
         if not filename in lookuplist:
             lookuplist.append( filename )
 
+        # print 'I am done updating file stats=>',tg.currentThread()
+        
         return 0
     
     def update_links(self, filename, urlobjlist):
@@ -650,22 +654,14 @@ class harvestManDataManager(object):
                     if res==1:
                         moreinfo("Saved to",filename)
 
-                    try:
-                        self._dataLock.acquire()
-                        self.update_file_stats( urlobj, res )
-                    finally:
-                        self._dataLock.release()
+                    self.update_file_stats( urlobj, res )
 
                     data = conn.get_data()
                     
                 else:
                     fetchurl = urlobj.get_full_url()
                     extrainfo( "Failed to download url", fetchurl)
-                    try:
-                        self._dataLock.acquire()
-                        self.update_failed_files(urlobj)
-                    finally:
-                        self._dataLock.release()
+                    self.update_failed_files(urlobj)
                         
                 del conn
             else:
@@ -1072,7 +1068,7 @@ class harvestManDataManager(object):
         # Write stats to a stats file
         statsfile = self._cfg.project + '.hst'
         statsfile = os.path.abspath(os.path.join(self._cfg.projdir, statsfile))
-        print 'Writing stats file ', statsfile , '...'
+        print '\nWriting stats file ', statsfile , '...'
         # Append to files contents
         sf=open(statsfile, 'a')
 

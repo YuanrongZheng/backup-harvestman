@@ -79,8 +79,9 @@ class HarvestManCrawlerQueue(object):
             
         # Local buffer - new in 1.4.5
         self.buffer = []
-        # Event object for exit condition
-        # self.exitobj = threading.Event()
+        # Condition object for exit condition checking
+        # loop - to halt exit condition check, acquire this lock
+        self._cond = threading.Condition(threading.Lock())
 
     def get_state(self):
 
@@ -98,9 +99,9 @@ class HarvestManCrawlerQueue(object):
         # For the queues, get their contents
         q1 = self.url_q.queue
         # This is an index of priorities and url indices
-        d['url_q'] = q1
+        d['url_q'] = copy.deepcopy(q1)
         q2 = self.data_q.queue
-        d['data_q'] = q2
+        d['data_q'] = copy.deepcopy(q2)
 
         # Thread dictionary
         tdict = {}
@@ -243,17 +244,13 @@ class HarvestManCrawlerQueue(object):
             numstops = 3
         
         while 1:
-            time.sleep(1.0)
-
-            # self.exitobj.wait()
-            
             if self.is_exit_condition():
                 count += 1
-
-            # self.exitobj.clear()
             
             if count==numstops:
                 break
+
+            time.sleep(1.0)
 
     def restart(self):
         """ Alternate method to start from a previous restored state """
@@ -420,6 +417,7 @@ class HarvestManCrawlerQueue(object):
 
         blocked = 0
         for t in self._trackers:
+            # print t,t.has_work()
             if not t.has_work(): blocked += 1
 
         return blocked
@@ -534,9 +532,6 @@ class HarvestManCrawlerQueue(object):
             moreinfo('(Time since last data operation was', timediff, 'seconds)')
             need_to_exit = True
 
-        # Wait on the need to exit condition
-        # if need_to_exit:
-        #    self.exitobj.set()
 
         return need_to_exit
         
@@ -589,7 +584,7 @@ class HarvestManCrawlerQueue(object):
             new_t._url = t._url
             new_t._urlobject = t._urlobject
             new_t._loops = t._loops
-            new_t.buffer = t.buffer[:]
+            new_t.buffer = copy.deepcopy(t.buffer)
             # If this is a crawler get links also
             if role == 'crawler':
                 new_t.links = t.links[:]
@@ -599,6 +594,9 @@ class HarvestManCrawlerQueue(object):
             self._trackers[idx] = new_t
             new_t._resuming = True
             new_t.start()
+            print 'New thread=>',new_t
+            print 'Status=>',new_t._status
+            time.sleep(2.0)
         else:
             # Could not make new thread, so decrement
             # count of threads.
@@ -734,41 +732,3 @@ class HarvestManCrawlerQueue(object):
         self._trackers = []
         self._basetracker = None
 
-    def recycle_thread(self, tracker):
-        """ Recycle and regenerate a tracker thread """
-
-        # Not used in 1.4.5 - Need to look into
-        # this as a part of thread checkpointing
-        # in next version.
-        
-        # Get the type of thread
-        role = tracker.get_role()
-        # Get its url object and index
-        urlobj, idx = tracker.get_url_object(), tracker.get_index()
-        links = []
-        
-        # Kill the thread and remove it
-        # from the list
-        try:
-            self._trackers.remove(tracker)
-            tracker.terminate()
-        except:
-            pass
-
-        # Create a new tracker
-        if role == 'fetcher':
-            new_thread = crawler.HarvestManUrlFetcher(idx, None, True)
-        elif role == 'crawler':
-            new_thread = crawler.HarvestManUrlCrawler(idx, None, True)            
-            links = tracker.links
-            
-        self._trackers.append(new_thread)
-        new_thread.start()
-
-        if urlobj:
-            if role=='fetcher':
-                self.buffer.append(urlobj)
-            elif role=='crawler':
-                self.buffer.append((urlobj,links))
-        else:
-            pass

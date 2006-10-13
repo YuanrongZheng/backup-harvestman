@@ -164,10 +164,13 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
                 # Now I am dead - so I need to tell the queue
                 # object to migrate my data and produce a new
                 # thread.
+                self._crawlerqueue._cond.acquire()
                 self._crawlerqueue.dead_thread_callback(self)
+                self._crawlerqueue._cond.release()                
                 # Set my status to zero
-                self._status = 0
-                self.buffer= []
+                # self._status = 0
+                # self.buffer= []
+                print 'STATUS=>',self._status
                 print e
 
     def terminate(self):
@@ -203,6 +206,8 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         """ Let others know whether I am working
         or idling """
 
+        # print self,'=>',self._status
+        
         # Fix: Check length of local buffer also
         # before returning.
         if self._status != 0 or len(self.buffer):
@@ -394,7 +399,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         moreinfo('Fetching links for url', self._url)
  
         priority_indx = 0
-        
+
         for url_obj in self.links:
             # print 'URL=>',url_obj.get_full_url()
 
