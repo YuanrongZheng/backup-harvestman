@@ -508,7 +508,20 @@ class harvestManDataManager(object):
             self._downloaddict['_failedurls'].append(urlObject)
 
         return 0
-    
+
+    def remove_file_from_stats(self, filename, typ=0):
+        """ Removed passed file from stats data structures """
+
+        # typ mapping
+        # 0 => saved files
+        if typ==0:
+            lookuplist = self._downloaddict['_savedfiles']
+            if filename in lookuplist:
+                lookuplist.remove(filename)
+                return True
+
+        return False
+        
     def update_file_stats(self, urlObject, status):
         """ Add the passed information to the saved file list """
 

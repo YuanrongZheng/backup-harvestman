@@ -65,7 +65,6 @@ import datamgr
 # Utils module
 import utils
 import time
-import exceptions
 import threading
 
 # Url server
@@ -89,8 +88,8 @@ class harvestMan(object):
         """ Actions to take after download is over """
 
         # Disable tracebacks
-        sys.excepthook = None
-        sys.tracebacklimit = 0
+        # sys.excepthook = None
+        # sys.tracebacklimit = 0
         
         # Localise file links
         # This code sits in the data manager class
@@ -106,24 +105,9 @@ class harvestMan(object):
         GetObject('datamanager').clean_up()
         # Clean up lists inside rules module
         GetObject('ruleschecker').clean_up()        
-        Cleanup()
+
         # Shutdown logging at the end
-        while count(threading.enumerate())>1:
-            time.sleep(1.0)
-
-        debug('Shutting down logger...')
-        GetObject('logger').shutdown()
-
-        # If this was started from a runfile,
-        # remove it.
-        if self._cfg.runfile:
-            try:
-                os.remove(self._cfg.runfile)
-            except OSError, e:
-                moreinfo('Error removing runfile %s.' % self._cfg.runfile)
-
-        # Disable trace-backs
-        sys.excepthook = None                
+        Finish()
         
     def save_current_state(self):
         """ Save state of objects to disk so program
@@ -199,13 +183,23 @@ class harvestMan(object):
         if self._cfg.urlserver:
             import socket
 
-            host, port = self._cfg.urlhost, self._cfg.urlport
-            # Initialize server
-            try:
-                server = urlserver.harvestManUrlServer(host, port)
-            except socket.error, (errno, errmsg):
-                msg = 'Error starting url server => '+errmsg
-                sys.exit(msg)
+            flag, count, errmsg = 0, 0, ''
+
+            # Try 10 attempts
+            while flag == 0 and count<10:
+                host, port = self._cfg.urlhost, self._cfg.urlport
+                # Initialize server
+                try:
+                    server = urlserver.harvestManUrlServer(host, port)
+                    flag = 1
+                    info("Url server bound to port %d" % port)
+                    break
+                except socket.error, (errno, errmsg):
+                    self._cfg.urlport += 1
+                    count += 1
+
+            if flag==0:
+                sys.exit('Error starting url server => '+errmsg)
                 
             # Register It
             SetObject(server)
@@ -276,11 +270,11 @@ class harvestMan(object):
             tq.terminate_threads()
 
         # If there was a runfile,remove it
-        if self._cfg.runfile:
-            try:
-                os.remove(self._cfg.runfile)
-            except OSError, e:
-                moreinfo('Error removing current runfile %s.' % self._cfg.runfile)
+        #if self._cfg.runfile:
+        #    try:
+        #        os.remove(self._cfg.runfile)
+        #    except OSError, e:
+        #        moreinfo('Error removing current runfile %s.' % self._cfg.runfile)
                 
     def __prepare(self):
         """ Do the basic things and get ready """
@@ -304,6 +298,12 @@ class harvestMan(object):
                     os.makedirs(harvestman_dir)
                 except OSError, e:
                     print e
+
+        # Get program options
+        if not self._cfg.resuming:
+            self._cfg.get_program_options()
+
+        self.register_common_objects()
 
     def setdefaultlocale(self):
         """ Set the default locale """
@@ -352,12 +352,6 @@ class harvestMan(object):
 
     def run_projects(self):
         """ Run the HarvestMan projects specified in the config file """
-
-        # Get program options
-        if not self._cfg.resuming:
-            self._cfg.get_program_options()
-            
-        self.register_common_objects()
 
         # Set locale - To fix errors with
         # regular expressions on non-english web
@@ -507,8 +501,6 @@ class harvestMan(object):
             return -1
         
     def run_saved_state(self):
-
-        self.register_common_objects()
 
         # Set locale - To fix errors with
         # regular expressions on non-english web

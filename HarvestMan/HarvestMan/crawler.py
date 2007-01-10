@@ -17,6 +17,7 @@
                          in process_url method of Fetcher class.
 
     Aug 22 2006  Anand    Changes for fixing single-thread mode.
+    Nov 9 2006   Anand    Added support to download imported stylesheets.
 
 """
 
@@ -170,8 +171,8 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
                 # Set my status to zero
                 # self._status = 0
                 # self.buffer= []
-                print 'STATUS=>',self._status
-                print e
+                # print 'STATUS=>',self._status
+                print 'Error=>',str(e)
 
     def terminate(self):
         """ Kill this crawler thread """
@@ -378,6 +379,19 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
     def crawl_url(self):
         """ Crawl a web page, recursively downloading its links """
 
+        # Nov 9 2006
+        
+        # Commented this out to add support for imported
+        # stylesheets - we have to process the original stylesheet
+        # in crawl_url, so this check cannot be there since stylesheet
+        # is not a web-page. If this is found to cause problems later,
+        # uncomment the following three lines and add a check for
+        # is_stylesheet.
+        
+        #if not self._urlobject.is_webpage():
+        #    print 'Not a webpage =>',self._urlobject.get_full_url()
+        #    return None
+        
         if not self._urlobject.is_webpage():
             moreinfo('Not a webpage =>',self._urlobject.get_full_url())
             return None
@@ -474,8 +488,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         # objects so that they don't get
         # dereferenced!
         self._tempobj = None
-        # For sha digests
-        self._sh = sha.new()
 
     def set_url_object(self, obj):
 
@@ -609,21 +621,24 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         # Add webpage links in datamgr, if we managed to
         # download the url
+        url_obj = self._urlobject
 
         if self._urlobject.is_webpage() and data:
+
+            urlobjlist = []
+            
             # Check if this page was already crawled
             url = self._urlobject.get_full_url()
-            self._sh.update(data)
+            sh = sha.new()
+            sh.update(data)
             
-            if ruleschecker.check_duplicate_content(self._urlobject, self._sh.hexdigest()):
+            if ruleschecker.check_duplicate_content(self._urlobject, sh.hexdigest()):
                 extrainfo('Skipped URL %s => duplicate content' % url)
-                return 
+                return -1
             
             # MOD: Need to localise <base href="..." links if any
             # so add a NULL entry. (Nov 30 2004 - Refer header)
             mgr.update_links(self._urlobject.get_full_filename(), [])
-            url_obj = self._urlobject
-            
             self._status = 2
             
             extrainfo("Parsing web page", self._url)
@@ -655,6 +670,23 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             except (SGMLParseError, IOError), e:
                 debug(str(e))
 
+            # Check for NOINDEX flag...
+            if not self.wp.can_index:
+                extrainfo('URL %s defines META Robots NOINDEX flag, deleting its file...' % self._url)
+                fname = self._urlobject.get_full_filename()
+                if os.path.isfile(fname):
+                    try:
+                        os.remove(fname)
+                        extrainfo('Removed file %s.' % fname)
+                        mgr.remove_file_from_stats(fname)
+                    except OSError, e:
+                        debug(str(e))
+
+            # Check for NOFOLLOW tag
+            if not self.wp.can_follow:
+                extrainfo('URL %s defines META Robots NOFOLLOW flag, not following its children...' % self._url)
+                return -1
+                
             links = self.wp.links
             # Put images first!
             if self._configobj.images:
@@ -662,6 +694,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             
             # Fix for hanging threads - Append objects
             # to local buffer if queue was full.
+
+            # Rules checker object
+            ruleschecker = GetObject('ruleschecker')
 
             # Mod in 1.4.1 - Make url objects right here
             # and push them... this fixes bugs in localising
@@ -697,11 +732,41 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             if not self._crawlerqueue.push((url_obj, urlobjlist), 'fetcher'):
                 if self._pushflag:                
                     self.buffer.append((url_obj, urlobjlist))
-            else:
-                pass
-                    
+
             # Update links called here
             mgr.update_links(url_obj.get_full_filename(), urlobjlist)
+
+        elif self._urlobject.is_stylesheet() and data:
+
+            urlobjlist  = []
+            url_obj = self._urlobject.get_base_urlobject()
+            
+            # Parse stylesheet to find @import links
+            imported_sheets = mgr.parse_style_sheet(data)
+            # Add these links to the queue
+            for url in imported_sheets:
+                if not url: continue
+
+                try:
+                    child_urlobj =  urlparser.HarvestManUrlParser(url,
+                                                                 'stylesheet',
+                                                                 False,
+                                                                 self._urlobject)
+                    urlobjlist.append(child_urlobj)                   
+                except urlparser.HarvestManUrlParserError:
+                    continue
+                
+            if not self._crawlerqueue.push((self._urlobject, urlobjlist), 'fetcher'):
+                if self._pushflag:                
+                    self.buffer.append((self._urlobject, urlobjlist))
+
+            # Update links called here
+            mgr.update_links(self._urlobject.get_full_filename(), urlobjlist)
+
+        else:
+            # Dont do anything
+            return None
+
 
 class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
     """ This is a mixin class which does both the jobs of crawling webpages

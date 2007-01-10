@@ -95,6 +95,9 @@ class harvestManSimpleParser(SGMLParser):
         self.base = None
         # anchor links flag
         self._anchors = True
+        # For META robots tag
+        self.can_index = True
+        self.can_follow = True
         SGMLParser.__init__(self)
         
     def save_anchors(self, value):
@@ -215,7 +218,8 @@ class harvestManSimpleParser(SGMLParser):
 
                 try:
                     if tag == 'meta':
-                        # Handle meta tag only for refresh
+                        print 'D=>',d
+                        # Handle meta tag for refresh
                         foundtyp = d.get('http-equiv','').lower()
                         if foundtyp.lower() == 'refresh':
                             link = d.get(key,'')
@@ -235,7 +239,18 @@ class harvestManSimpleParser(SGMLParser):
                                 else:
                                     continue
                         else:
-                            continue
+                            # Handle robots meta tag
+                            name = d.get('name','').lower()
+                            if name=='robots':
+                                robots = d.get('content','').lower()
+                                # Split to ','
+                                contents = [item.strip() for item in robots.split(',')]
+                                # Check for nofollow
+                                self.can_follow = not ('nofollow' in contents)
+                                # Check for noindex
+                                self.can_index = not ('noindex' in contents)
+                            else:
+                                continue
 
                     elif tag != 'applet':
                         link = d[key]
@@ -333,6 +348,8 @@ class harvestManSimpleParser(SGMLParser):
         self.images = []
         self.base_href = False
         self.base_url = ''
+        self.can_index = True
+        self.can_follow = True
         
     def base_url_defined(self):
         """ Return whether this url had a
@@ -343,7 +360,7 @@ class harvestManSimpleParser(SGMLParser):
 
     def get_base_url(self):
         return self.base
-    
+
 if __name__=="__main__":
     import os
     

@@ -290,7 +290,7 @@ def Finish():
     cfg=RegisterObj.config
     # Stop url server if it is running
     if cfg.urlserver:
-        extrainfo('Stoppping url server at port %d...' % cfg.urlport)
+        info('Stoppping url server at port %d...' % cfg.urlport)
         async_t= RegisterObj.asyncorethread
         if async_t:
             try:
@@ -309,7 +309,15 @@ def Finish():
     
     # Reset url object indices
     RegisterObj.urlmappings.clear()
-    
+
+    # If this was started from a runfile,
+    # remove it.
+    if cfg.runfile:
+        try:
+            os.remove(cfg.runfile)
+        except OSError, e:
+            moreinfo('Error removing runfile %s.' % cfg.runfile)
+            
     # inform user of config file errors
     if RegisterObj.userdebug:
         print "Some errors were found in your configuration, please correct them!"
