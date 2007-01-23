@@ -19,6 +19,8 @@
     Aug 22 2006  Anand    Changes for fixing single-thread mode.
     Nov 9 2006   Anand    Added support to download imported stylesheets.
 
+    Jan 2007     Anand    Support for META robot tags.
+    
 """
 
 import os, sys
@@ -37,8 +39,6 @@ import urlparser
 import pageparser
 
 from datamgr import harvestManController
-
-AbError = exceptions.AttributeError
 
 class HarvestManUrlCrawlerException(Exception):
 
@@ -168,11 +168,8 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
                 self._crawlerqueue._cond.acquire()
                 self._crawlerqueue.dead_thread_callback(self)
                 self._crawlerqueue._cond.release()                
-                # Set my status to zero
-                # self._status = 0
-                # self.buffer= []
-                # print 'STATUS=>',self._status
-                print 'Error=>',str(e)
+
+                extrainfo('Tracker thread %s has died due to error %s' % (str(self), str(e)))
 
     def terminate(self):
         """ Kill this crawler thread """
@@ -668,41 +665,37 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
                 self.wp.close()
             except (SGMLParseError, IOError), e:
-                debug(str(e))
+                extrainfo('SGML parse error:',str(e))
+                extrainfo('Error in parsing web-page %s' % self._url)
 
-            # Check for NOINDEX flag...
-            if not self.wp.can_index:
-                extrainfo('URL %s defines META Robots NOINDEX flag, deleting its file...' % self._url)
-                fname = self._urlobject.get_full_filename()
-                if os.path.isfile(fname):
-                    try:
-                        os.remove(fname)
-                        extrainfo('Removed file %s.' % fname)
-                        mgr.remove_file_from_stats(fname)
-                    except OSError, e:
-                        debug(str(e))
+            # Check for NOINDEX flag...do this only after checking robots flag
+            if self._configobj.robots:
+                if not self.wp.can_index:
+                    extrainfo('URL %s defines META Robots NOINDEX flag, deleting its file...' % self._url)
+                    fname = self._urlobject.get_full_filename()
+                    if os.path.isfile(fname):
+                        try:
+                            os.remove(fname)
+                            extrainfo('Removed file %s.' % fname)
+                            mgr.remove_file_from_stats(fname)
+                        except OSError, e:
+                            debug(str(e))
 
-            # Check for NOFOLLOW tag
-            if not self.wp.can_follow:
-                extrainfo('URL %s defines META Robots NOFOLLOW flag, not following its children...' % self._url)
-                return -1
+                # Check for NOFOLLOW tag
+                if not self.wp.can_follow:
+                    extrainfo('URL %s defines META Robots NOFOLLOW flag, not following its children...' % self._url)
+                    return -1
                 
             links = self.wp.links
             # Put images first!
             if self._configobj.images:
                 links += self.wp.images
-            
+
             # Fix for hanging threads - Append objects
             # to local buffer if queue was full.
 
             # Rules checker object
             ruleschecker = GetObject('ruleschecker')
-
-            # Mod in 1.4.1 - Make url objects right here
-            # and push them... this fixes bugs in localising
-            # links, since we call update_links here and
-            # not later.
-
             urlobjlist = []
 
             # print 'CURRENT URL=>',url_obj.get_full_url()
@@ -738,6 +731,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         elif self._urlobject.is_stylesheet() and data:
 
+            # To download stylesheets imported in other stylesheets
             urlobjlist  = []
             url_obj = self._urlobject.get_base_urlobject()
             

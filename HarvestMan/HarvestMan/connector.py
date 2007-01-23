@@ -850,6 +850,7 @@ class HarvestManUrlConnector:
             return 0
 
         try:
+            extrainfo('Writing file ', filename)
             f=open(filename, 'wb')
             f.write(self.__data)
             f.close()
@@ -940,7 +941,6 @@ class HarvestManUrlConnector:
                 dmgr.wrapper_update_cache_for_url(urlobj, filename, datalen, self.__data)
             
         if dmgr.create_local_directory(urlobj) == 0:
-            extrainfo('Writing file ', filename)
             retval=self.__write_url( filename )
         else:
             extrainfo("Error in getting data for", url)

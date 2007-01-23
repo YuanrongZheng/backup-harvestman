@@ -47,6 +47,8 @@
    Sep 29 2006    Anand              Partial fix for ticket #193 by adding support for
                                      META REFRESH tag - lack of this was causing
                                      www.um.lublin.pl to fail.
+
+   Jan 2007       Anand              Complete support for META robot tags implemented.
                                      
 """
 
@@ -218,7 +220,7 @@ class harvestManSimpleParser(SGMLParser):
 
                 try:
                     if tag == 'meta':
-                        print 'D=>',d
+                        # print 'D=>',d
                         # Handle meta tag for refresh
                         foundtyp = d.get('http-equiv','').lower()
                         if foundtyp.lower() == 'refresh':
@@ -371,14 +373,16 @@ if __name__=="__main__":
     cfg.forms = True
     
     p=harvestManSimpleParser()
-    urls = ['http://www.fed-parl.be/', 'http://www.nbb.be/']
+    #urls = ['http://www.fed-parl.be/', 'http://www.nbb.be/']
 
-    for url in urls:
-       if os.system('wget %s -O index.html' % url ) == 0:
-           p.feed(open('index.html').read())
-           print p.links
-           p.reset()
-           pass
+    p.feed(open('highlow.htm').read())
+    
+    #for url in urls:
+    #   if os.system('wget %s -O index.html' % url ) == 0:
+    #       p.feed(open('index.html').read())
+    #       print p.links
+    #       p.reset()
+    #       pass
                                    
 
 

@@ -175,6 +175,8 @@ class harvestManUrlThread(threading.Thread):
 
         if res != 0:
             extrainfo('Finished download of ', url)
+        else:
+            extrainfo('Failed to download URL',url)
 
     def run(self):
         """ Run this thread """
