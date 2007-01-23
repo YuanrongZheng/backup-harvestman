@@ -81,10 +81,11 @@ options:
     -t, --timelimit=TIME        Run the program for the specified time TIME.
 
     -s, --urlserver=yes/no      Enable/disable urlserver running on port 3081.
-    -S, --subdomain=yes/no      Enable/disable subdomain setting. If this is
-                                enabled, servers with the same base server name
-                                such as http://img.foo.com and http://pager.foo.com
-                                will be considered as distinct servers. 
+    -S, --savesessions=yes/no   Enable/disable session saver feature. If enabled,
+                                crashed sessions are automatically saved to disk and
+                                the program gives you the option of resuming them
+                                later.
+                                
     
     -R, --robots=yes/no         Enable/disable Robot Exclusion Protocol.
     -u, --urlfilter=FILTER      Use regular expression FILTER for filtering urls.
