@@ -42,7 +42,10 @@
                                      line options and verification on M$ Windoze
                                      platform.
      Aug 19 2005                     1.4.5 final release.
-     Aug 22 2006          Anand      Changes for fixing single-thread mode.     
+     Aug 22 2006          Anand      Changes for fixing single-thread mode.
+     Jan 23 2007          Anand      Changes to copy config file to ~/.harvestman/conf
+                                     folder on POSIX systems. This file is also looked for
+                                     if config.xml not found in curdir.
 """     
 
 __revision__ = '1.5 b1'
@@ -66,6 +69,8 @@ import datamgr
 import utils
 import time
 import threading
+# Shutil module
+import shutil
 
 # Url server
 import urlserver
@@ -113,6 +118,11 @@ class harvestMan(object):
         """ Save state of objects to disk so program
         can be restarted from saved state """
 
+        # If savesession is disabled, return
+        if not self._cfg.savesessions:
+            extrainfo('Session save feature is disabled.')
+            return
+        
         # Top-level state dictionary
         state = {}
         # All state objects are dictionaries
@@ -144,7 +154,7 @@ class harvestMan(object):
         """ Print a welcome message """
         
         print 'Starting %s...' % self._cfg.progname
-        print 'Copyright (C) 2004-2005, Anand Pillai'
+        print 'Copyright (C) 2004, Anand B Pillai'
         print 'WWW: http://harvestman.freezope.org'
         print ' '
 
@@ -269,13 +279,6 @@ class harvestMan(object):
             tq = GetObject('trackerqueue')
             tq.terminate_threads()
 
-        # If there was a runfile,remove it
-        #if self._cfg.runfile:
-        #    try:
-        #        os.remove(self._cfg.runfile)
-        #    except OSError, e:
-        #        moreinfo('Error removing current runfile %s.' % self._cfg.runfile)
-                
     def __prepare(self):
         """ Do the basic things and get ready """
 
@@ -287,17 +290,32 @@ class harvestMan(object):
 
         self._cfg = GetObject('config')
 
-        # Create user's .harvestman directory
-        homedir = os.environ.get('HOME')
-        if homedir and os.path.isdir(homedir):
-            harvestman_dir = os.path.join(homedir, '.harvestman')
-            self._cfg.userdir = harvestman_dir
-            
-            if not os.path.isdir(harvestman_dir):
-                try:
-                    os.makedirs(harvestman_dir)
-                except OSError, e:
-                    print e
+        # Create user's .harvestman directory on POSIX
+        if os.name == 'posix':
+            homedir = os.environ.get('HOME')
+            if homedir and os.path.isdir(homedir):
+                harvestman_dir = os.path.join(homedir, '.harvestman')
+                harvestman_conf_dir = os.path.join(harvestman_dir, 'conf')
+                
+                self._cfg.userdir = harvestman_dir
+                self._cfg.userconfdir = harvestman_conf_dir
+                
+                if not os.path.isdir(harvestman_dir):
+                    try:
+                        info('Looks like you are running HarvestMan for the first time in this system')
+                        info('Doing initial setup...')
+                        info('Creating .harvestman directory in %s...' % homedir)
+                        os.makedirs(harvestman_dir)
+                        info('Creating "conf" sub-directory in %s...' % harvestman_dir)
+                        os.makedirs(harvestman_conf_dir)
+                        # Copy config.xml to $HOMEDIR/.harvestman/config folder if found
+                        if os.path.isfile('config.xml'):
+                            info('Copying current config file to %s...' % harvestman_conf_dir)
+                            shutil.copy2('config.xml',harvestman_conf_dir)
+                        info('Done.')
+                            
+                    except OSError, e:
+                        print e
 
         # Get program options
         if not self._cfg.resuming:
@@ -502,6 +520,11 @@ class harvestMan(object):
         
     def run_saved_state(self):
 
+        # If savesession is disabled, return
+        if not self._cfg.savesessions:
+            extrainfo('Session save feature is disabled, ignoring save files')
+            return -1
+        
         # Set locale - To fix errors with
         # regular expressions on non-english web
         # sites.

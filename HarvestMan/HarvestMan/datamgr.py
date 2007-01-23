@@ -1096,7 +1096,7 @@ class harvestManDataManager(object):
         infostr +='fatal:'+str(fatal)+','
         infostr +='elapsed:'+str(fetchtime)+','
         infostr +='fps:'+str(fps)+','
-        infostr +='bps:'+str(bps)+','
+        infostr +='kbps:'+str(bps)+','
         infostr +='timestamp:'+tstamp
         infostr +='\n'
 

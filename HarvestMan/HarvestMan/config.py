@@ -31,6 +31,8 @@
                               images=1 and html=1
     Jan 10 2006      Anand    Converted from dos to unix format (removed
                               Ctrl-Ms).
+    Jan 23 2007      Anand    Added code to check config in $HOME/.harvestman.
+                              Added control-var for session saving feature.
 """
 
 PROG_HELP = """\
@@ -236,8 +238,8 @@ class HarvestManStateObject(dict):
         self.junkfilterpatterns = True
         self.urltreefile = ''
         self.urllistfile = ''
-        # Maximum file size is 1MB
-        self.maxfilesize=1048576
+        # Default maximum file size is 5MB
+        self.maxfilesize=5242880
         # Minimum file size is 0 bytes
         self.minfilesize=0
         self.format = 'xml'
@@ -246,6 +248,8 @@ class HarvestManStateObject(dict):
         # For running from previous states.
         self.resuming = False
         self.runfile = None
+        # Control var for session-saver feature.
+        self.savesessions = True
         
     def _init2(self):
         
@@ -323,6 +327,7 @@ class HarvestManStateObject(dict):
                             'system.workers' : ('usethreads', 'int'),
                             'system.threadpoolsize' : ('threadpoolsize', 'int'),
                             'system.fastmode' : ('fastmode', 'int'),
+                            'system.savesessions': ('savesessions', 'int'),
 
                             'indexer.localise' : ('localise', 'int'),
 
@@ -406,6 +411,7 @@ class HarvestManStateObject(dict):
                          'trackers_value' : ('maxtrackers','int'),
                          'locale' : ('locale','str'),
                          'fastmode_value': ('fastmode','int'),
+                         'savesessions_value': ('savesessions','int'),
                          'localise_value' : ('localise','int'),
                          'browsepage_value' : ('browsepage','int'),
                          }
@@ -609,16 +615,16 @@ class HarvestManStateObject(dict):
         # -h => prints help
         # -v => prints version info
 
-        soptions = 'hvNp:c:b:C:P:V:t:f:l:w:r:n:d:T:R:u:Y:U:W:s:V:M:S:'
+        soptions = 'hvNp:c:b:C:P:t:f:l:w:r:n:d:T:R:u:Y:U:W:s:V:M:S:'
         longoptions = [ "configfile=", "projectfile=",
                         "project=", "help","nocrawl",
                         "version", "basedir=",
                         "verbosity=", "depth=","urlfilter=",
                         "maxthreads=","maxfiles=","timelimit=",
-                        "retry=","connections=","subbdomain=",
+                        "retry=","connections=",
                         "localize=","fetchlevel=","proxy=",
                         "proxyuser=","proxypass=","urlserver=",
-                        "cache=","urlslist=","urltree="
+                        "cache=","urlslist=","urltree=","savesessions="
                         ]
 
         arguments = sys.argv[1:]
@@ -702,8 +708,6 @@ class HarvestManStateObject(dict):
                 if self.check_value(value): self.set_option_xml('proxypasswd', self.process_value(value))
             elif option in ('-s', '--urlserver'):
                 if self.check_value(value): self.set_option_xml('urlserver_status', self.process_value(value))
-            elif option in ('-S', '--subdomain'):
-                if self.check_value(value): self.set_option_xml('subdomain_value', self.process_value(value))                
                 
             elif option in ('-c', '--cache'):
                 if self.check_value(value): self.set_option_xml('cache_status', self.process_value(value))
@@ -711,6 +715,8 @@ class HarvestManStateObject(dict):
                 if self.check_value(value): self.set_option_xml('connections_value', self.process_value(value))
             elif option in ('-V','--verbosity'):
                 if self.check_value(value): self.set_option_xml('verbosity_value', self.process_value(value))
+            elif option in ('-S', '--savesessions'):
+                if self.check_value(value): self.set_option_xml('savesessions_value', self.process_value(value))                                
             else:
                 print 'Ignoring invalid option ', option
 
@@ -868,12 +874,15 @@ class HarvestManStateObject(dict):
 
         cfgfile = self.configfile
         if not os.path.isfile(cfgfile):
-            # Try in $HOME/.harvestman directory
-            if self.userdir:
-                cfgfile = os.path.join(self.userdir, 'config.xml')
+            print 'Configuration file %s not found...' % cfgfile
+            # Try in $HOME/.harvestman/conf directory
+            if self.userconfdir:
+                cfgfile = os.path.join(self.userconfdir, 'config.xml')
                 if os.path.isfile(cfgfile):
                     print 'Using configuration file %s...' % cfgfile
                     self.configfile = cfgfile
+                else:
+                    print 'Configuration file %s not found...' % cfgfile
         else:
             print 'Using configuration file %s...' % cfgfile
             
