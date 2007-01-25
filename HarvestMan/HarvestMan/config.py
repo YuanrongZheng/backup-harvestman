@@ -36,21 +36,29 @@
 """
 
 PROG_HELP = """\
-
 %(appname)s %(version)s %(maturity)s: A multithreaded web crawler.
 
 Usage: %(appname)s [options] URL
 
-%(appname)s has two modes of working in the command-line.
+There are three major modes of running HarvestMan.
 
-In the default mode, %(appname)s works like a crawler. If you
-pass one of the -N or --nocrawl options, %(appname)s only downloads
-the url and saves it to the disk, similar to wget.
+In the default mode, %(appname)s works as a crawler.
+
+With the -N or --nocrawl option, %(appname)s only downloads
+the url and saves it to the disk, similar to wget. 
+
+With the -m or --simulate option, %(appname)s performs crawling,
+but no files are downloaded. In this mode, caching is turned
+off automatically and no project directories are created.
 
 options:
 
     -h, --help:                 Show this message and exit
     -v, --version               Print version information and exit
+    -m, --simulate              Simulates crawling with the given configuration, but
+                                does not perform any actual downloads.
+    -N, --nocrawl               Only download the passed url (wget-like behaviour).
+    
 
     -p, --project=PROJECT       Set the (optional) project name to PROJECT. 
     -b, --basedir=BASEDIR       Set the (optional) base directory to BASEDIR.
@@ -61,8 +69,6 @@ options:
 
     -f, --fetchlevel=LEVEL      Set the fetch-level of this project to LEVEL. Ranges
                                 from 0-4.
-    -N, --nocrawl               Only download the passed url (wget-like behaviour).
-    
     -l, --localize=yes/no       Localize urls after download.
     -r, --retry=NUM             Set the number of retry attempts for failed urls to NUM.
     -Y, --proxy=PROXYSERVER     Enable and set proxy to PROXYSERVER (host:port).
@@ -84,7 +90,7 @@ options:
     -S, --savesessions=yes/no   Enable/disable session saver feature. If enabled,
                                 crashed sessions are automatically saved to disk and
                                 the program gives you the option of resuming them
-                                later.
+                                later. 
                                 
     
     -R, --robots=yes/no         Enable/disable Robot Exclusion Protocol.
@@ -93,11 +99,13 @@ options:
     --urlslist=FILE             Dump a list of urls to file FILE.
     --urltree=FILE              Dump a file containing hierarchy of urls to FILE.
 
+
 Mail bug reports and suggestions to <abpillai@gmail.com>.
 """
 
 import os, sys
 import getopt
+import xmlparser
 
 from common import *
 
@@ -251,6 +259,8 @@ class HarvestManStateObject(dict):
         self.runfile = None
         # Control var for session-saver feature.
         self.savesessions = True
+        # Control var for simulation feature
+        self.simulate = False
         
     def _init2(self):
         
@@ -329,7 +339,7 @@ class HarvestManStateObject(dict):
                             'system.threadpoolsize' : ('threadpoolsize', 'int'),
                             'system.fastmode' : ('fastmode', 'int'),
                             'system.savesessions': ('savesessions', 'int'),
-
+                            'system.simulate': ('simulate', 'int'),
                             'indexer.localise' : ('localise', 'int'),
 
                             'files.configfile' : ('configfile', 'str'),   
@@ -413,6 +423,7 @@ class HarvestManStateObject(dict):
                          'locale' : ('locale','str'),
                          'fastmode_value': ('fastmode','int'),
                          'savesessions_value': ('savesessions','int'),
+                         'simulate_value': ('simulate', 'int'),
                          'localise_value' : ('localise','int'),
                          'browsepage_value' : ('browsepage','int'),
                          }
@@ -618,7 +629,7 @@ class HarvestManStateObject(dict):
 
         soptions = 'hvNp:c:b:C:P:t:f:l:w:r:n:d:T:R:u:Y:U:W:s:V:M:S:'
         longoptions = [ "configfile=", "projectfile=",
-                        "project=", "help","nocrawl",
+                        "project=", "help","nocrawl","simulate",
                         "version", "basedir=",
                         "verbosity=", "depth=","urlfilter=",
                         "maxthreads=","maxfiles=","timelimit=",
@@ -638,8 +649,12 @@ class HarvestManStateObject(dict):
             self.set_option_xml('url',self.process_value(args[0]))
             args.pop(0)
             for idx in range(0,len(args),2):
-                item, value = args[idx], args[idx+1]
-                optlist.append((item,value))
+                try:
+                    item, value = args[idx], args[idx+1]
+                    optlist.append((item,value))
+                except IndexError:
+                    # Perhaps this chap is a flag
+                    optlist.append((args[idx],''))
 
         # print optlist
         
@@ -654,8 +669,10 @@ class HarvestManStateObject(dict):
             elif option in ('-C', '--configfile'):
                 if self.check_value(value):
                     self.set_option('files.configfile', self.process_value(value))
-                    # No need to parse further values
-                    return -1
+                    # Parse config file and load values
+                    self.parse_config_file()
+                    # Continue parsing and take rest of options from cmd line
+                    
             elif option in ('-P', '--projectfile'):
                 if self.check_value(value):
                     self.set_option('files.projectfile', self.process_value(value))
@@ -666,7 +683,7 @@ class HarvestManStateObject(dict):
                     if projector.read_project() == 0:
                         # No need to parse further values
                         return 0
-
+            
             elif option in ('-b', '--basedir'):
                 if self.check_value(value): self.set_option_xml('basedir', self.process_value(value))
             elif option in ('-p', '--project'):
@@ -717,7 +734,9 @@ class HarvestManStateObject(dict):
             elif option in ('-V','--verbosity'):
                 if self.check_value(value): self.set_option_xml('verbosity_value', self.process_value(value))
             elif option in ('-S', '--savesessions'):
-                if self.check_value(value): self.set_option_xml('savesessions_value', self.process_value(value))                                
+                if self.check_value(value): self.set_option_xml('savesessions_value', self.process_value(value))
+            elif option in ('-m','--simulate',):
+                self.set_option_xml('simulate_value', 1)
             else:
                 print 'Ignoring invalid option ', option
 
@@ -821,7 +840,7 @@ class HarvestManStateObject(dict):
         # Fix url error
         for x in range(len(self.urls)):
             url = self.urls[x]
-
+            
             # If null url, return
             if not url: continue
 
@@ -846,7 +865,7 @@ class HarvestManStateObject(dict):
 
 
             self.urls[x] = url
-
+            
             # If project is not set, set it to domain
             # name of the url.
             project = None
@@ -887,60 +906,8 @@ class HarvestManStateObject(dict):
         else:
             print 'Using configuration file %s...' % cfgfile
             
-        # If configuration is an xml file, parse it using
-        # xml parser.
-        if ((os.path.splitext(cfgfile))[1]).lower() == '.xml':
-            import xmlparser
-            return xmlparser.parse_xml_config_file(self, cfgfile)
+        return xmlparser.parse_xml_config_file(self, cfgfile)
         
-        # open config file
-        try:
-            cf=open(cfgfile, 'r')
-        except IOError:
-            print 'Fatal error: Cannot find config file', cfgfile
-            if self.userdir:
-                msg1 = "\nCreate or copy a config file to this directory or to %s" % self.userdir
-            else:
-                msg1 = "\nCreate or copy a config file to this directory"                
-            msg2 = "\nor run the program with the -C option to use \na different config file"
-            sys.exit("".join((msg1,msg2)))
-            
-        # Parsing config file
-        while 1:
-            l=cf.readline()
-            if l=='': break
-            # strip '\n' from the string
-            l = l.replace('\n','')
-            # replace tabs with spaces
-            l = l.replace('\t', '    ')
-            index = l.find(' ')
-            if index == -1: continue
-            str1 = l[:index]
-            # Any line beginning with a '#' is a comment.
-            if str1[0] == '#': continue
-
-            # Mod: From v (1.2alpha) the config file format
-            # is changed. We also support ';;' as the comment
-            # character (it is the default now)
-            if str1[:2] == ';;': continue
-            # Get value string
-            str2 = l[(index+1):]
-            # Modification: Allow comments in the config line also
-            # Egs: URL http://www.python.org # The url for download
-            for s in ('#', ';;'):
-                hashidx = str2.find(s)
-                if hashidx != -1:
-                    str2 = str2[:hashidx]
-
-            # strip any leading spaces
-            str2 = str2.strip()
-            if str1 in self.Options().keys():
-                self.set_option(str1, str2)
-            else:
-                print 'Invalid config option', str1
-
-        return 1
-
     def get_program_options(self):
         """ This function gets the program options from
         the config file or command line """

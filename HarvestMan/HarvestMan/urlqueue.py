@@ -238,10 +238,7 @@ class HarvestManCrawlerQueue(object):
         # the crawl method.
         count=0
 
-        if self._configobj.nocrawl:
-            numstops = 1
-        else:
-            numstops = 3
+        numstops = 3
         
         while 1:
             if self.is_exit_condition():
@@ -325,37 +322,31 @@ class HarvestManCrawlerQueue(object):
             self._basetracker.setDaemon(True)
             self._basetracker.start()
 
-            # For simple downloads using nocrawl option
-            # there is no need to start more than one
-            # thread. The following one line is the core
-            # of the nocrawl mode, apart from a few
-            # changes in datamgr and config.
-            if not self._configobj.nocrawl:
-                while self._basetracker.get_status() != 0:
-                    time.sleep(0.1)
+            while self._basetracker.get_status() != 0:
+                time.sleep(0.1)
 
-                for x in range(1, self._configobj.maxtrackers):
-                    
-                    # Back to equality among threads
-                    if x % 2==0:
-                        t = crawler.HarvestManUrlFetcher(x, None)
-                    else:
-                        t = crawler.HarvestManUrlCrawler(x, None)
-                    
-                    self.add_tracker(t)
-                    t.setDaemon(True)
-                    t.start()
+            for x in range(1, self._configobj.maxtrackers):
 
-                for t in self._trackers:
-                    
-                    if t.get_role() == 'fetcher':
-                        self._numfetchers += 1
-                    elif t.get_role() == 'crawler':
-                        self._numcrawlers += 1
+                # Back to equality among threads
+                if x % 2==0:
+                    t = crawler.HarvestManUrlFetcher(x, None)
+                else:
+                    t = crawler.HarvestManUrlCrawler(x, None)
 
-                # bug: give the threads some time to start,
-                # otherwise we exit immediately sometimes.
-                time.sleep(2.0)
+                self.add_tracker(t)
+                t.setDaemon(True)
+                t.start()
+
+            for t in self._trackers:
+
+                if t.get_role() == 'fetcher':
+                    self._numfetchers += 1
+                elif t.get_role() == 'crawler':
+                    self._numcrawlers += 1
+
+            # bug: give the threads some time to start,
+            # otherwise we exit immediately sometimes.
+            time.sleep(2.0)
 
             self.mainloop()
             

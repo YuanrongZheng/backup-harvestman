@@ -247,7 +247,9 @@ def SetLogFile():
     # if logfile: RegisterObj.logger.setLogFile(logfile)
     if logfile:
         RegisterObj.logger.setLogSeverity(RegisterObj.config.verbosity)
-        RegisterObj.logger.addLogHandler('FileHandler',logfile)
+        # If simulation is turned off, add file-handle
+        if not RegisterObj.config.simulate:
+            RegisterObj.logger.addLogHandler('FileHandler',logfile)
 
 def SetUserAgent(user_agent):
     """ Set the user agent """

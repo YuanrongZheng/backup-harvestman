@@ -46,6 +46,9 @@
      Jan 23 2007          Anand      Changes to copy config file to ~/.harvestman/conf
                                      folder on POSIX systems. This file is also looked for
                                      if config.xml not found in curdir.
+     Jan 25 2007          Anand      Simulation feature added. Also modified config.py
+                                     to allow reading cmd line arguments when passing
+                                     a config file using -C option.
 """     
 
 __revision__ = '1.5 b1'
@@ -71,6 +74,7 @@ import time
 import threading
 # Shutil module
 import shutil
+import glob
 
 # Url server
 import urlserver
@@ -141,8 +145,12 @@ class harvestMan(object):
         # Get config object
         state['configobj'] = GetObject('config').copy()
         
-        # Dump with time-stamp
+        # Dump with time-stamp - on POSIX dump this to the
+        # user's .harvestman/sessions directory. 
         fname = '.harvestman_saves#' + str(int(time.time()))
+        if os.name == 'posix':
+            fname = os.path.join(self._cfg.usersessiondir, fname)
+            
         moreinfo('Saving run-state to file %s...' % fname)
         try:
             cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
@@ -242,8 +250,8 @@ class harvestMan(object):
             else:
                 info('Re-starting project',self._cfg.project,'...')                
             
-            # Write the project file
-            if not self._cfg.fromprojfile:
+            # Write the project file 
+            if not self._cfg.fromprojfile and not self._cfg.simulate:
                 projector = utils.HarvestManProjectManager()
                 projector.write_project()
 
@@ -296,9 +304,11 @@ class harvestMan(object):
             if homedir and os.path.isdir(homedir):
                 harvestman_dir = os.path.join(homedir, '.harvestman')
                 harvestman_conf_dir = os.path.join(harvestman_dir, 'conf')
+                harvestman_sessions_dir = os.path.join(harvestman_dir, 'sessions')
                 
                 self._cfg.userdir = harvestman_dir
                 self._cfg.userconfdir = harvestman_conf_dir
+                self._cfg.usersessiondir = harvestman_sessions_dir
                 
                 if not os.path.isdir(harvestman_dir):
                     try:
@@ -312,6 +322,8 @@ class harvestMan(object):
                         if os.path.isfile('config.xml'):
                             info('Copying current config file to %s...' % harvestman_conf_dir)
                             shutil.copy2('config.xml',harvestman_conf_dir)
+                        info('Creating "sessions" sub-directory in %s...' % harvestman_dir)
+                        os.makedirs(harvestman_sessions_dir)                        
                         info('Done.')
                             
                     except OSError, e:
@@ -383,26 +395,24 @@ class harvestMan(object):
             # Get all project related vars
             url = self._cfg.urls[x]
 
-            if not self._cfg.nocrawl:
-                project = self._cfg.projects[x]
-                verb = self._cfg.verbosities[x]
-                tout = self._cfg.projtimeouts[x]
-                basedir = self._cfg.basedirs[x]
+            project = self._cfg.projects[x]
+            verb = self._cfg.verbosities[x]
+            tout = self._cfg.projtimeouts[x]
+            basedir = self._cfg.basedirs[x]
 
-                if not url or not project or not basedir:
-                    info('Invalid config options found!')
-                    if not url: info('Provide a valid url')
-                    if not project: info('Provide a valid project name')
-                    if not basedir: info('Provide a valid base directory')
-                    continue
+            if not url or not project or not basedir:
+                info('Invalid config options found!')
+                if not url: info('Provide a valid url')
+                if not project: info('Provide a valid project name')
+                if not basedir: info('Provide a valid base directory')
+                continue
             
             # Set the current project vars
             self._cfg.url = url
-            if not self._cfg.nocrawl:
-                self._cfg.project = project
-                self._cfg.verbosity = verb
-                self._cfg.projtimeout = tout
-                self._cfg.basedir = basedir
+            self._cfg.project = project
+            self._cfg.verbosity = verb
+            self._cfg.projtimeout = tout
+            self._cfg.basedir = basedir
                 
             self.run_project()
             
@@ -416,7 +426,7 @@ class harvestMan(object):
         
         if self._cfg.basedir:
             self._cfg.projdir = os.path.join( self._cfg.basedir, self._cfg.project )
-            if self._cfg.projdir:
+            if self._cfg.projdir and not self._cfg.simulate:
                 if not os.path.exists( self._cfg.projdir ):
                     os.makedirs(self._cfg.projdir)
 
@@ -517,6 +527,17 @@ class harvestMan(object):
             return 0
         except (pickle.UnpicklingError, AttributeError, IndexError, EOFError), e:
             return -1
+
+    def grab_url(self):
+        """ Download URL for the nocrawl option """
+
+        import urlparser
+        
+        connfact = GetObject('connectorfactory')
+        conn = connfact.create_connector(None)
+        urlobj = urlparser.HarvestManUrlParser(self._cfg.url)
+        print 'Connecting to %s...' % urlobj.get_full_domain()
+        ret = conn.url_to_file(urlobj.get_full_url(), urlobj.get_filename())
         
     def run_saved_state(self):
 
@@ -531,11 +552,12 @@ class harvestMan(object):
         self.set_locale()
         
         # See if there is a file named .harvestman_saves#...
-        # in current dir
-        files = []
-        for f in os.listdir('.'):
-            if f.startswith('.harvestman_saves#'):
-                files.append(f)
+        if os.name == 'posix':
+            sessions_dir = self._cfg.usersessiondir
+        elif os.name == 'nt':
+            sessions_dir = '.'
+
+        files = glob.glob(os.path.join(sessions_dir, '.harvestman_saves#*'))
 
         # Get the last dumped file
         if files:
@@ -584,9 +606,19 @@ class harvestMan(object):
 
         # Prepare myself
         self.__prepare()
+        # Print a message if running in simulation mode..
+        if self._cfg.simulate:
+            # Turn off caching, since no files are saved
+            self._cfg.pagecache = 0
+            print 'Simulation mode turned on. Crawl will be simulated and no files will be saved.'
+
+        # If this is nocrawl mode, just download the URL
+        if self._cfg.nocrawl:
+            self.grab_url()
+            
         # See if a crash file is there, then try to load it and run
         # program from crashed state.
-        if self.run_saved_state() == -1:
+        elif self.run_saved_state() == -1:
             # No such crashed state or user refused to run
             # from crashed state. So do the usual run.
             self.run_projects()

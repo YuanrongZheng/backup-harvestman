@@ -7,15 +7,8 @@
       
       <project skip="0">
 
-        <!--- <url>http://www.rpath.com/technology/techoverview/</url> -->
-        <!--- <name>pybooks</name> -->
-        <!--- <name>pydoc</name> -->
-        <!--- <name>pypeps</name> -->
-
-        <!--- <url>http://www.belgium.be</url>  -->
-        <!--- <name>belgium</name>  -->
-        <url>http://www.austria.gv.at/</url> 
-        <name>austria</name>
+        <url>http://www.python.org/doc</url>
+        <name>pydoc</name>
 
         <basedir>~/websites</basedir>
         <verbosity value="3"/>
@@ -93,6 +86,7 @@
       <trackers value="10"/>
       <locale>C</locale>
       <fastmode value="1"/>
+      <savesessions value="1"/>
     </system>
     
     <files>

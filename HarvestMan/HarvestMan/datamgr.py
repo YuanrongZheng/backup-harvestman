@@ -1057,7 +1057,11 @@ class harvestManDataManager(object):
 
         self._cfg = GetObject('config')
 
-        info('HarvestMan mirror',self._cfg.project,'completed in',fetchtime,'seconds.')
+        if self._cfg.simulate:
+            info("HarvestMan crawl simulation of",self._cfg.project,"completed in",fetchtime,"seconds.")
+        else:
+            info('HarvestMan mirror',self._cfg.project,'completed in',fetchtime,'seconds.')
+            
         if nlinks: info(nlinks,fns[0],'scanned in',nservers,fns[1],'.')
         else: info('No links parsed.')
         if nfiles: info(nfiles,fns[2],'written.')
@@ -1078,32 +1082,34 @@ class harvestManDataManager(object):
 
         format='%b %d %Y '+tz+' %H:%M:%S'
         tstamp=time.strftime(format, s)
-        # Write stats to a stats file
-        statsfile = self._cfg.project + '.hst'
-        statsfile = os.path.abspath(os.path.join(self._cfg.projdir, statsfile))
-        print '\nWriting stats file ', statsfile , '...'
-        # Append to files contents
-        sf=open(statsfile, 'a')
 
-        # Write url, file count, links count, time taken,
-        # files per second, failed file count & time stamp
-        infostr='url:'+self._cfg.url+','
-        infostr +='files:'+str(nfiles)+','
-        infostr +='links:'+str(nlinks)+','
-        infostr +='dirs:'+str(ndirs)+','
-        infostr +='failed:'+str(numfailed)+','
-        infostr +='refetched:'+str(nretried)+','
-        infostr +='fatal:'+str(fatal)+','
-        infostr +='elapsed:'+str(fetchtime)+','
-        infostr +='fps:'+str(fps)+','
-        infostr +='kbps:'+str(bps)+','
-        infostr +='timestamp:'+tstamp
-        infostr +='\n'
+        if not self._cfg.simulate:
+            # Write stats to a stats file
+            statsfile = self._cfg.project + '.hst'
+            statsfile = os.path.abspath(os.path.join(self._cfg.projdir, statsfile))
+            print '\nWriting stats file ', statsfile , '...'
+            # Append to files contents
+            sf=open(statsfile, 'a')
 
-        sf.write(infostr)
-        sf.close()
-
-        print 'Done.'
+            # Write url, file count, links count, time taken,
+            # files per second, failed file count & time stamp
+            infostr='url:'+self._cfg.url+','
+            infostr +='files:'+str(nfiles)+','
+            infostr +='links:'+str(nlinks)+','
+            infostr +='dirs:'+str(ndirs)+','
+            infostr +='failed:'+str(numfailed)+','
+            infostr +='refetched:'+str(nretried)+','
+            infostr +='fatal:'+str(fatal)+','
+            infostr +='elapsed:'+str(fetchtime)+','
+            infostr +='fps:'+str(fps)+','
+            infostr +='kbps:'+str(bps)+','
+            infostr +='timestamp:'+tstamp
+            infostr +='\n'
+            
+            sf.write(infostr)
+            sf.close()
+            
+            print 'Done.'
 
     def dump_urltree(self, urlfile):
         """ Dump url tree to a file """

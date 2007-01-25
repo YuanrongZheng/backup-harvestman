@@ -368,6 +368,7 @@ class HarvestManNetworkConnector(object):
             self.__proxydict['ftp'] = ftpproxystring
             self.__proxydict['https'] = httpsproxystring
 
+            
             proxy_support = urllib2.ProxyHandler(self.__proxydict)
             
             # build opener and install it
@@ -874,10 +875,14 @@ class HarvestManUrlConnector:
 
         res = self.connect(url, urlobj, True, self._cfg.retryfailed)
 
+        # If this is a simulation, skip it
+        if self._cfg.simulate:
+            return 6
+
         # If it was a rules violation, skip it
         if res==5:
             return res
-        
+
         dmgr=GetObject('datamanager')
         
         retval=0
@@ -951,14 +956,13 @@ class HarvestManUrlConnector:
         """ Save the contents of this url <url> to the file <filename>.
         This is a function used by the test code only """
 
-        self.connect( url )
-
+        ret = self.connect(url)
+            
         if self.__data:
-            print '*------------------------------------------------------------*\n'
             print 'Data fetched from ',url
             res=self.__write_url( filename )
             if res:
-                print 'Data wrote to file ', filename ,'\n'
+                print 'Data wrote to file',filename
                 return res
         else:
             print 'Error in fetching data from ',url ,'\n'
