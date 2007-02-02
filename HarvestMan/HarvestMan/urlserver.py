@@ -1,16 +1,14 @@
 # -- coding: latin-1
-""" HarvestManUrlServer - Asynchronous and Synchronous
-socket servers serving urls for HarvestMan. 
+""" urlserver.py - Asynchronous and Synchronous socket servers
+    serving urls for HarvestMan. This module is part of the
+    HarvestMan program.
 
-This file is part of the HarvestMan program.
+    Author : Anand B Pillai ( anandpillai at letterboxes dot org).
 
-Author : Anand B Pillai ( anandpillai at letterboxes dot org).
-Date: 25/10/2004.
 
-2 Nov 2004 - Added a threading class to run the asyncore loop.
-             This allows asyncore server to be run in a
-             separate thread.
-Jan 10 2006  Anand  Converted from dos to unix format (removed Ctrl-Ms).
+    Jan 10 2006  Anand  Converted from dos to unix format (removed Ctrl-Ms).
+
+   Copyright (C) 2006 Anand B Pillai.
 
 """
 
@@ -55,7 +53,7 @@ class AsyncoreThread(threading.Thread):
         self.flag=False
         self.map=None
 
-class harvestManSimpleUrlServer:
+class HarvestManSimpleUrlServer(object):
     """ A simple url server based upon SocketServer's
     threading TCP server """
 
@@ -91,7 +89,7 @@ class harvestManUrlHandler(SocketServer.BaseRequestHandler):
                 self.request.sendall("Recieved")
         self.request.close()
 
-class harvestManUrlServer(asyncore.dispatcher_with_send):
+class HarvestManUrlServer(asyncore.dispatcher_with_send):
     """ An asynchronous url server class for HarvestMan.
     This class can replace the url queue and work as a url
     server multiplexing several url requests simultaneously """
@@ -200,7 +198,7 @@ if __name__=="__main__":
     port = int(sys.argv[2])
 
     try:
-        harvestManUrlServer(host, port)
+        HarvestManUrlServer(host, port)
         t=AsyncoreThread()
         t.start()
         print 'Started...'

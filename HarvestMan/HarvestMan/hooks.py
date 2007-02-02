@@ -67,8 +67,8 @@ class HarvestManHooks(Singleton):
 HarvestManHooks.add_hook('crawler', 'process_url_hook_fetcher')
 # Hook which can replace the entire process_url method of the HarvestManUrlCrawler objects
 HarvestManHooks.add_hook('crawler', 'process_url_hook_crawler')
-# Hook which can replace the download action in process_url of HarvestManUrlFetcher objects
-HarvestManHooks.add_hook('crawler','download_url_hook_fetcher')
+# Hook which can replace the download action in datamgr
+HarvestManHooks.add_hook('datamgr','download_url_hook')
 
               
 def register_hook_function(context, func):

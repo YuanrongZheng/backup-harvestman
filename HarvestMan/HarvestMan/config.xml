@@ -64,8 +64,8 @@
         <maxextdirs value="0"/>
         <maxfiles value="5000"/>
         <maxfilesize value="5048576000"/>
-        <connections value="2"/>
-        <requests value="2"/>
+        <connections value="5"/>
+        <requests value="5"/>
         <timelimit value="-1"/>
       </limits>
       <rules>
@@ -85,7 +85,7 @@
       <workers status="1" size="10" timeout="200"/>
       <trackers value="10"/>
       <locale>C</locale>
-      <fastmode value="0"/>
+      <fastmode value="1"/>
       <savesessions value="1"/>
     </system>
     

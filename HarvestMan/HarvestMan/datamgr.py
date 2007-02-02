@@ -1,49 +1,16 @@
 # -- coding: latin-1
-""" HarvestManDataManager.py - Data manager module for HarvestMan.
+""" datamgr.py - Data manager module for HarvestMan.
     This software is part of the HarvestMan program.
 
-    Author: Anand B Pillai (anandpillai at letterboxes dot org).
+    Author: Anand B Pillai <abpillai@gmail.com>
     
-    Copyright (C) 2004-2005 Anand B Pillai.
-
-    Created July 29 2003      Anand  Modifications for 1.1 release.
-        (New module)
-
-  Modification History
-
-  Nov 30 2004        Anand       Many bug fixes in localizing links.
-                                 1) Fix for replacing <base href="..."> links
-                                    using regular expression.
-                                 2) Modified links replacement to use regular
-                                    expressions.
-                                 3) Use url's type instead of checking is_image()
-                                 to confirm image type.
-                                 
-  May 23 2005       Anand        Added the archival feature for archiving
-                                 project files in tarred bzipped/gzipped archives.
-
-                                 Added url header dump feature. Url headers
-                                 dumped in DBM format.
-
-  Oct 5 2005        Anand        (Re)added function terminator in harvestManController.
-                                  Fix for bug 005252.
-  Jan 8 2006        Anand         Added a flag for cache found in read_project_cache.
-                                  Cache checks are done only if this flag is true.
-  Jan 10 2006       Anand         Converted from dos to unix format (removed Ctrl-Ms).
-  Jan 10 2006       Anand         1. Bugfix for does_cache_need_update method.
-                                  2. Fixes for writing cache if originally cache was not loaded.
-                                  3. Comprehensive duplicate download check algorithm using
-                                  an added dictionary of fetcher status holding their current
-                                  urls.
-                                   
-  Sep 29 2006      Anand          Removed all 'interns' after adding urlproc module since
-                                  intern works only with strs not unicode strings.
-   Oct 8  2006     Anand          Major changes in cache reading/writing. Instead of writing
-                                  a single cache file, we dump separate cache files for
-                                  every domain. Also, changed to use sha module instead of
-                                  md5 to get digests.
-   Oct 13 2006     Anand          Removed data lock since it is not required - Python GIL
-                                  automatically locks byte operations.
+    Oct 13 2006     Anand          Removed data lock since it is not required - Python GIL
+                                   automatically locks byte operations.
+    
+    Feb 2 2007      Anand          Re-added function parse_style_sheet which went missing.
+    
+   Copyright (C) 2006 Anand B Pillai.
+    
 """
 import os, sys
 import time
@@ -61,7 +28,10 @@ from urlthread import harvestManUrlThreadPool
 from connector import *
 from common import *
 
-class harvestManDataManager(object):
+# Defining hookable functions
+__hooks__ = { 'download_url': 'HarvestManDataManager:download_url' }
+
+class HarvestManDataManager(object):
     """ The data manager cum indexer class """
 
     def __init__(self):
@@ -93,9 +63,11 @@ class harvestManDataManager(object):
             self._urlThreadPool.spawn_threads()
         else:
             self._urlThreadPool = None
-        # Sha object
-        self._sh = sha.new()
-        
+
+        # Regexp to parse stylesheet imports
+        self._importcss1 = re.compile(r'(\@import\s+\"?)(?!url)([\w.-:/]+)(\"?)', re.MULTILINE|re.UNICODE)
+        self._importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.UNICODE)           
+
     def get_state(self):
         """ Return a snapshot of the current state of this
         object and its containing threads for serializing """
@@ -142,6 +114,31 @@ class harvestManDataManager(object):
     def get_links_dictionary(self):
         return self._linksdict
 
+    def parse_style_sheet(self, data):
+        """ Parse stylesheet data and extract imported css links, if any """
+
+        # Return is a list of imported css links.
+        # This subroutine uses the specification mentioned at
+        # http://www.w3.org/TR/REC-CSS2/cascade.html#at-import
+        # for doing stylesheet imports.
+
+        # This takes care of @import "style.css" and
+        # @import url("style.css") syntax. Media types specified
+        # if any, are ignored.
+
+        # Matches for @import "style.css"
+        l1 = self._importcss1.findall(data)
+        # Matches for @import url("style.css")
+        l2 = self._importcss2.findall(data)
+
+        # The URL is the second item of the returned match tuple
+        csslinks = []
+        for item in (l1+l2):
+            if not item: continue
+            csslinks.append(item[1])
+
+        return csslinks
+    
     def read_project_cache(self):
         """ Try to read the project cache file """
 
@@ -193,8 +190,12 @@ class harvestManDataManager(object):
         """ Wrapper for update_cache_for_url which is called from connector module """
 
         # Created this method - Anand Jan 10 06
-        if urldata: self._sh.update(urldata)
-        digest1 = self._sh.hexdigest()
+        digest1 = ''
+        if urldata:
+            sh = sha.new()
+            sh.update(urldata)
+            digest1 = sh.hexdigest()
+            
         return self.update_cache_for_url(urlobj, filename, contentlen, urldata, digest1)
 
     def wrapper_update_cache_for_url2(self, urlobj, filename, lmt, urldata):
@@ -269,8 +270,11 @@ class harvestManDataManager(object):
 
         # Anand 10/1/06 - Fix: need to update sha object with data to
         # get digest! (This line somehow has got deleted)
-        if urldata: self._sh.update(urldata)
-        digest1 = self._sh.hexdigest()
+        digest1 = ''
+        if urldata:
+            sh = sha.new()
+            sh.update(urldata)
+            digest1 = sh.hexdigest()
         
         # Assume that cache is not uptodate apriori
         uptodate=False
@@ -630,10 +634,13 @@ class harvestManDataManager(object):
         # Modified - Anand Jan 10 06, added the caller thread
         # argument to this function for keeping a dictionary
         # containing URLs currently being downloaded by fetchers.
-        
+
+        no_threads = (not self._cfg.usethreads) or \
+                     urlobj.is_webpage() or \
+                     urlobj.is_stylesheet()
         try:
             data=""
-            if not self._cfg.usethreads or urlobj.is_webpage():
+            if no_threads:
                 # New logic - Update a local dictionary on the URLs
                 # each fetcher is in charge of
                 # Get the calling thread

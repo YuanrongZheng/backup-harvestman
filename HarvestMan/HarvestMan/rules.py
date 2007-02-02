@@ -1,24 +1,10 @@
 # -- coding: latin-1
-""" HarvestManRules.py - Rules checker module for HarvestMan.
+""" rules.py - Rules checker module for HarvestMan.
     This software is part of the HarvestMan program.
 
-    Copyright (C) 2004-2005 Anand B Pillai.
-
-    Author: Anand B Pillai (anandpillai at letterboxes dot org).    
+     Author: Anand B Pillai <abpillai@gmail.com>
 
     Modification History
-
-    Nov 24 2004         Anand   Added a junk filter class
-                                to filter out advertisement
-                                urls, images, banners etc.
-    Jan 5 2006          Anand   Bugfix: In __apply_rep, first we
-                                should check against whether
-                                the robots.txt file is there
-                                in filter list to speed up
-                                things.
-
-                                Fixed as a part of random walk
-                                bug. EIAO ticket #74.
 
    Jan 8 2006          Anand    Updated this file from EIAO
                                 repository to get fixes for robot
@@ -27,8 +13,10 @@
 
                                 Put ext check rules before robots
                                 check to speed up things.
-  Jan 10 2006          Anand    Converted from dos to unix format
+   Jan 10 2006          Anand    Converted from dos to unix format
                                 (removed Ctrl-Ms).
+
+   Copyright (C) 2006 Anand B Pillai.
                                 
 """
 import socket
@@ -43,7 +31,7 @@ from common import *
 # urlPathParser module
 import urlparser
 
-class harvestManRulesChecker(object):
+class HarvestManRulesChecker(object):
     """ Class which checks the download rules for urls. These
     rules include depth checks, robot.txt rules checks, filter
     checks, external server/directory checks, duplicate url

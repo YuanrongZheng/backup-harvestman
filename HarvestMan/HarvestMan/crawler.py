@@ -39,6 +39,13 @@ import pageparser
 
 from datamgr import harvestManController
 
+# Defining hookable functions
+# Hook name is the key and value is <class>:<function>
+
+__hooks__ = { 'process_url_hook_fetcher': 'HarvestManUrlFetcher:process_url',
+              'process_url_hook_crawler': 'HarvestManUrlCrawler:process_url' }
+              
+              
 class HarvestManUrlCrawlerException(Exception):
 
     def __init__(self, value):
@@ -385,12 +392,10 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         # is_stylesheet.
         
         #if not self._urlobject.is_webpage():
-        #    print 'Not a webpage =>',self._urlobject.get_full_url()
+        #    moreinfo('Not a webpage =>',self._urlobject.get_full_url())
         #    return None
-        
-        if not self._urlobject.is_webpage():
-            moreinfo('Not a webpage =>',self._urlobject.get_full_url())
-            return None
+
+        print 'Crawl url called for',self._url
         
         if not self._download: return None
         
@@ -425,7 +430,6 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
             url_obj.generation = self._urlobject.generation + 1
             typ = url_obj.get_type()
             
-            # New in 1.2 (rc3) - get javascript links (.js)
             if typ == 'javascript':
                 if not self._configobj.javascript:
                     continue
@@ -500,7 +504,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
     def receive_url(self):
         """ Receive urls from the asynchronous url server. """
 
-        # New method in 1.4 alpha2
         try:
             err = False
 
@@ -736,6 +739,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             
             # Parse stylesheet to find @import links
             imported_sheets = mgr.parse_style_sheet(data)
+            print 'Imported sheets=>',imported_sheets
+            
             # Add these links to the queue
             for url in imported_sheets:
                 if not url: continue
@@ -826,8 +831,9 @@ class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
                 
                 obj = self._crawlerqueue.get_url_data( "crawler" )
                 if obj: self.set_url_object2(obj)
-                    
-                self.crawl_url()
+
+                if self._urlobject.is_webpage():
+                    self.crawl_url()
 
                 # If url server is disabled, get data
                 # from Queue, else query url server for
@@ -849,8 +855,6 @@ class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
 
         # First process urls using fetcher's algorithm
         HarvestManUrlFetcher.process_url(self)
-        # Then process using crawler's algorithm
-        # HarvestManUrlCrawler.process_url(self)
 
     def crawl_url(self):
         HarvestManUrlCrawler.crawl_url(self)

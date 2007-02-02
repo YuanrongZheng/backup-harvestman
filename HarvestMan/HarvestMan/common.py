@@ -3,20 +3,14 @@
 This file is part of the HarvestMan software.
 For licensing information, see file LICENSE.TXT.
 
-Author: Anand B Pillai (anandpillai at letterboxes dot org).
+Author: Anand B Pillai <abpillai@gmail.com>
 
 Created: Jun 10 2003
 
-  Jun 14 2004         Anand          1.3.9 release.
-  Oct 25 2004         Anand          Added two methods for
-                                     testing url server.
-                                     ping method checks whether
-                                     server is alive & send_url
-                                     method sends a url to it.
- Jan 10 2006          Anand          Converted from dos to unix format
-                                     (removed Ctrl-Ms).
  Aug 17 2006          Anand          Modifications for the new logging
                                      module.
+
+Copyright (C) 2006 - Anand B Pillai.
 
 """
 
@@ -46,7 +40,6 @@ class Registry(object):
                      'datamanager',
                      'ruleschecker',
                      'connectorfactory',
-                     'cookiestore',
                      'trackerqueue',
                      'crawler',
                      'urlserver',
@@ -64,12 +57,11 @@ class Registry(object):
             self.mappings = { 'HarvestManStateObject' : 'config',
                               'HarvestManNetworkConnector' : 'connector',
                               'HarvestManUrlConnectorFactory' : 'connectorfactory',
-                              'harvestManDataManager' : 'datamanager',
-                              'harvestManRulesChecker' : 'ruleschecker',
+                              'HarvestManDataManager' : 'datamanager',
+                              'HarvestManRulesChecker' : 'ruleschecker',
                               'HarvestManCrawlerQueue' : 'trackerqueue',
-                              'harvestMan' : 'crawler',
-                              'CookieManager' : 'cookiestore',
-                              'harvestManUrlServer' : 'urlserver',
+                              'HarvestMan' : 'crawler',
+                              'HarvestManUrlServer' : 'urlserver',
                               'AsyncoreThread'      : 'asyncorethread',
                               'HarvestManLogger'    : 'logger',
                               }

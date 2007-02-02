@@ -82,7 +82,7 @@ import urlserver
 # Globals/lookup module
 from common import *
 
-class harvestMan(object):
+class HarvestMan(object):
     """ Top level application class """
 
     def __init__(self):
@@ -176,11 +176,11 @@ class harvestMan(object):
         GetObject('logger').verbosity = self._cfg.verbosity
         
         # Data manager object
-        dmgr = datamgr.harvestManDataManager()
+        dmgr = datamgr.HarvestManDataManager()
         SetObject(dmgr)
         
         # Rules checker object
-        ruleschecker = rules.harvestManRulesChecker()
+        ruleschecker = rules.HarvestManRulesChecker()
         # Create rules for filters
         ruleschecker.make_filters()
         
@@ -440,10 +440,11 @@ class harvestMan(object):
         # Open stream to log file
         SetLogFile()
         
-        try:
-            if not self._cfg.testnocrawl:
-                self.start_project()
-        except (KeyboardInterrupt, EOFError, Exception):
+        #try:
+        if not self._cfg.testnocrawl:
+            self.start_project()
+        except (KeyboardInterrupt, EOFError, Exception), e:
+            print 'Exception received=>',str(e)
             if not self._cfg.ignoreinterrupts:
                 # dont allow to write cache, since it
                 # screws up existing cache.
@@ -625,7 +626,7 @@ class harvestMan(object):
         
         
 if __name__=="__main__":
-    harvestMan().main()
+    HarvestMan().main()
 
                
         

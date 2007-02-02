@@ -668,7 +668,10 @@ class HarvestManCrawlerQueue(object):
         
         # Exit the system
         if not noexit:
-            sys.exit(0)
+            try:
+                sys.exit(0)
+            except Exception, e:
+                pass
 
     def terminate_threads(self):
         """ Kill all current running threads and
