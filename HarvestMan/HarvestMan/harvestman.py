@@ -440,9 +440,9 @@ class HarvestMan(object):
         # Open stream to log file
         SetLogFile()
         
-        #try:
-        if not self._cfg.testnocrawl:
-            self.start_project()
+        try:
+            if not self._cfg.testnocrawl:
+                self.start_project()
         except (KeyboardInterrupt, EOFError, Exception), e:
             print 'Exception received=>',str(e)
             if not self._cfg.ignoreinterrupts:
