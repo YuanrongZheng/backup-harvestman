@@ -938,6 +938,8 @@ class harvestManDataManager(object):
                 # replace '\\' with '/'
                 urlfilename = urlfilename.replace('\\','/')
 
+                extrainfo('Filename=>',urlfilename)
+                
                 newurl=''
                 oldurl=''
             

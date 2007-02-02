@@ -20,7 +20,6 @@
     Nov 9 2006   Anand    Added support to download imported stylesheets.
 
     Jan 2007     Anand    Support for META robot tags.
-    
 """
 
 import os, sys

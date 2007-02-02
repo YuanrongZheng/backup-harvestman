@@ -7,7 +7,7 @@
       
       <project skip="0">
 
-        <url>http://www.python.org/doc</url>
+        <url>http://www.python.org/doc/current/tut/tut.html</url>
         <name>pydoc</name>
 
         <basedir>~/websites</basedir>
@@ -85,7 +85,7 @@
       <workers status="1" size="10" timeout="200"/>
       <trackers value="10"/>
       <locale>C</locale>
-      <fastmode value="1"/>
+      <fastmode value="0"/>
       <savesessions value="1"/>
     </system>
     

@@ -44,15 +44,18 @@
 
    Sep 26 2006    Anand              Fixed EIAO ticket #194 - added support for
                                      <area...> tags.
-   Sep 29 2006    Anand              Partial fix for ticket #193 by adding support for
+   Sep 29 2006    Anand              Partial fix for EIAO ticket #193 by adding support for
                                      META REFRESH tag - lack of this was causing
                                      www.um.lublin.pl to fail.
 
    Jan 2007       Anand              Complete support for META robot tags implemented.
+                                     Requested by jim sloan of MCHS.
                                      
 """
 
 from sgmllib import SGMLParser
+from HTMLParser import HTMLParser
+
 from common import *
 import re
 
@@ -363,6 +366,12 @@ class harvestManSimpleParser(SGMLParser):
     def get_base_url(self):
         return self.base
 
+class harvestManComplexParser(HTMLParser, harvestManSimpleParser):
+
+    def handle_starttag(self, tag, attrs):
+        harvestManSimpleParser.unknown_starttag(tag, attrs)
+
+
 if __name__=="__main__":
     import os
     
@@ -372,17 +381,15 @@ if __name__=="__main__":
     cfg.verbosity = 5
     cfg.forms = True
     
-    p=harvestManSimpleParser()
-    #urls = ['http://www.fed-parl.be/', 'http://www.nbb.be/']
+    p = harvestManComplexParser()
+    urls = ['http://xerces.apache.org/xerces-j/apiDocs/index.html']
 
-    p.feed(open('highlow.htm').read())
-    
-    #for url in urls:
-    #   if os.system('wget %s -O index.html' % url ) == 0:
-    #       p.feed(open('index.html').read())
-    #       print p.links
-    #       p.reset()
-    #       pass
+    for url in urls:
+       if os.system('wget %s -O index.html' % url ) == 0:
+           p.feed(open('index.html').read())
+           #print p.links
+           #p.reset()
+           pass
                                    
 
 
