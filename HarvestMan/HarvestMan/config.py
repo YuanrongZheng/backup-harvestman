@@ -627,7 +627,7 @@ class HarvestManStateObject(dict):
         # -h => prints help
         # -v => prints version info
 
-        soptions = 'hvNp:c:b:C:P:t:f:l:w:r:n:d:T:R:u:Y:U:W:s:V:M:S:'
+        soptions = 'hmvNp:c:b:C:P:t:f:l:w:r:n:d:T:R:u:Y:U:W:s:V:M:S:'
         longoptions = [ "configfile=", "projectfile=",
                         "project=", "help","nocrawl","simulate",
                         "version", "basedir=",

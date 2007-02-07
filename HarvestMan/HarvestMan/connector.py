@@ -30,6 +30,9 @@ from common import *
 # HarvestManUrlParser module
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 
+__hooks__ = { 'save_url_hook': 'HarvestManUrlConnector:save_url' }
+
+
 __protocols__=["http", "ftp"]
 
 class MyRedirectHandler(urllib2.HTTPRedirectHandler):
@@ -874,10 +877,6 @@ class HarvestManUrlConnector:
         url = urlobj.get_full_url()
 
         res = self.connect(url, urlobj, True, self._cfg.retryfailed)
-
-        # If this is a simulation, skip it
-        if self._cfg.simulate:
-            return 6
 
         # If it was a rules violation, skip it
         if res==5:

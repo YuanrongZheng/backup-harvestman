@@ -49,6 +49,8 @@
      Jan 25 2007          Anand      Simulation feature added. Also modified config.py
                                      to allow reading cmd line arguments when passing
                                      a config file using -C option.
+     Feb 7 2007          Anand       Finished implementation of plugin feature. Crawl
+                                     simulator is now a plugin.
 """     
 
 __revision__ = '1.5 b1'
@@ -251,7 +253,7 @@ class HarvestMan(object):
                 info('Re-starting project',self._cfg.project,'...')                
             
             # Write the project file 
-            if not self._cfg.fromprojfile and not self._cfg.simulate:
+            if not self._cfg.fromprojfile:
                 projector = utils.HarvestManProjectManager()
                 projector.write_project()
 
@@ -426,7 +428,7 @@ class HarvestMan(object):
         
         if self._cfg.basedir:
             self._cfg.projdir = os.path.join( self._cfg.basedir, self._cfg.project )
-            if self._cfg.projdir and not self._cfg.simulate:
+            if self._cfg.projdir:
                 if not os.path.exists( self._cfg.projdir ):
                     os.makedirs(self._cfg.projdir)
 
@@ -602,16 +604,44 @@ class HarvestMan(object):
         else:
             return -1
         pass
-    
+
+    def process_plugins(self):
+        """ Load all plugin modules """
+
+        plugin_dir = os.path.abspath(os.path.join(os.path.dirname('__file__'), 'plugins'))
+        loaded = []
+        
+        if os.path.isdir(plugin_dir):
+            sys.path.append(plugin_dir)
+            for f in os.listdir(plugin_dir):
+                if f.endswith('.py') or f.endswith('.pyc'):
+                    module = os.path.splitext(f)[0]
+                    if module in loaded: continue    
+                    
+                    # Load plugins
+                    try:
+                        M = __import__(module)
+                        func = getattr(M, 'apply_plugin', None)
+                        if not func:
+                            print 'Invalid plugin module %s' % f
+                        else:
+                            loaded.append(module)
+                            try:
+                                print 'Applying plugin %s...' % f
+                                func()
+                            except Exception, e:
+                                print 'Error while trying to apply plugin %s' % f
+                                print 'Error is:',str(e)
+                    except ImportError, e:
+                        print 'Error importing plugin module %s' % f
+                        print 'Error is:',str(e)
+                        
     def main(self):
 
         # Prepare myself
         self.__prepare()
-        # Print a message if running in simulation mode..
-        if self._cfg.simulate:
-            # Turn off caching, since no files are saved
-            self._cfg.pagecache = 0
-            print 'Simulation mode turned on. Crawl will be simulated and no files will be saved.'
+        # Load plugins
+        self.process_plugins()
 
         # If this is nocrawl mode, just download the URL
         if self._cfg.nocrawl:
@@ -623,7 +653,8 @@ class HarvestMan(object):
             # No such crashed state or user refused to run
             # from crashed state. So do the usual run.
             self.run_projects()
-        
+
+
         
 if __name__=="__main__":
     HarvestMan().main()

@@ -42,8 +42,8 @@ from datamgr import harvestManController
 # Defining hookable functions
 # Hook name is the key and value is <class>:<function>
 
-__hooks__ = { 'process_url_hook_fetcher': 'HarvestManUrlFetcher:process_url',
-              'process_url_hook_crawler': 'HarvestManUrlCrawler:process_url' }
+__hooks__ = { 'fetcher_process_url_hook': 'HarvestManUrlFetcher:process_url',
+              'crawler_process_url_hook': 'HarvestManUrlCrawler:process_url' }
               
               
 class HarvestManUrlCrawlerException(Exception):
@@ -395,7 +395,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         #    moreinfo('Not a webpage =>',self._urlobject.get_full_url())
         #    return None
 
-        print 'Crawl url called for',self._url
+        # print 'Crawl url called for',self._url
         
         if not self._download: return None
         
@@ -739,7 +739,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             
             # Parse stylesheet to find @import links
             imported_sheets = mgr.parse_style_sheet(data)
-            print 'Imported sheets=>',imported_sheets
+            # print 'Imported sheets=>',imported_sheets
             
             # Add these links to the queue
             for url in imported_sheets:

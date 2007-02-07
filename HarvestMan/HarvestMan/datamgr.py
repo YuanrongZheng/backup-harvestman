@@ -29,7 +29,7 @@ from connector import *
 from common import *
 
 # Defining hookable functions
-__hooks__ = { 'download_url': 'HarvestManDataManager:download_url' }
+__hooks__ = { 'download_url_hook': 'HarvestManDataManager:download_url' }
 
 class HarvestManDataManager(object):
     """ The data manager cum indexer class """
