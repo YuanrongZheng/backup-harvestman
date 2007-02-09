@@ -3,6 +3,108 @@
 |                                                          |
 |           URL: http://harvestman.freezope.org            |
 *==========================================================*
+Version 1.5 b1
+Release Date: TBD
+
+Release Focus: Major Enhancements, Bug-fixes
+
+New Features
+============
+1. A new plugin architecture which allows to extend
+the program very easily by defining simple plugin modules.
+2. Integration with swish-e which allows HarvestMan to
+run as an external program for feeding content to swish-e.
+Swish-e support is implemented as a standard plugin.
+3. A simulate feature which allows to simulate crawls 
+without performing any actual downloads. Simulate feature
+is also implemented as plugin.
+4. A session-save & restore feature which allows to save
+state of HarvestMan in a session file upon crashes or manual
+kills. The program can then resume from this state on the
+next invocation.
+5. A thread check-pointing and migration feature which
+automatically moves data from threads which die to new
+threads which allows the program to handle exceptions very
+well.
+6. Command line options can be now mixed with a configuration
+file when using the -C option.
+7. Ability to parse stylesheets and download stylesheets which
+are imported in them.
+8. Support for META robot tags.
+9. Support for META REFRESH tags.
+
+Other Changes
+=============
+1. Rewrote logger module to use Python logging API.
+2. All print statements replaced to use logconsole
+method of the logger.
+3. No-crawl logic completely rewritten. It uses
+a separate flow of information from the regular
+crawler.
+4. Program now creates a ".harvestman" folder in user's 
+home directory on POSIX systems. Session files are saved
+under this directory. Also a copy of the config.xml
+file is stored there. The program tries to load this
+file if it cannot find a config.xml anywhere else.
+5. Replaced use of md5 module with sha module for
+checking digest sums since it is more secure.
+6. Removed lock objects in datamgr module since 
+operations on basic data types is automatically
+synchronized by the GIL.
+7. Removed strptime module since it is no longer used.
+8. Rewrote headers of all modules with correct module
+names, author information and copyright information.
+9. A __version__ and __author__ attribute added to all
+modules.
+10. Renamed certain classes which were starting with lower
+cases. All classes now start with upper-case letters.
+11. The following command line options have been added,
+removed or updated.
+
+  1. --subdomain, -S: Removed, -S is now used for savesessions option.
+  2. -m,--simulate: New option to simulate crawling.
+  3. -g,--plugin: New option to apply a given plugin.
+  4. -S,--savesession: New option to turn session saver feature on/off.
+ 
+12. Default value for maximum file size (for single file) increased
+to 5MB (was 1 MB earlier).
+13. Changed sleep times inside the loops of fetcher/crawler thread
+clases to random times ranging from 0 to 0.3 second. This allows
+for more better resource allocation and pooling.
+
+
+Bug-fixes
+=========
+1. Fixed 100% CPU utilization bug. Bug #005972
+2. Fixed bug in single-thread mode. 
+3. Fixed many bugs in urlparser module - Correctly interpreting
+URLs with entities (&amp; etc), resolving URLs with ".." inside
+them etc.
+4. Bug-fix in rules module to speed up rules checks
+5. Bug-fix to avoid exceptions thrown at program exit (interpreter 
+shutdown)
+6. Fixed a small bug in urlparser which was throwing a syntax
+warning for the __TEST__ global variable.
+7. Fixed a bug which was causing a fetcher thread to download
+the same content twice.
+8. As usual, localizing of URLs gets many bug-fixes :)
+9. Fixed a minor bug in datamgr which was incorrectly printing
+download rate stats as bps (should be kbps).
+
+
+Version 1.4.6 final
+Release Date: Sep 9 2005
+
+Release Focus: Minor bugfix
+
+Changes
+=======
+1. Fixed bugs in the setup.py and install scripts
+so that they work with Python 2.4.
+2. Updated py2exe install script. It works correctly
+with py2exe version 0.6.1 upwards.
+
+
 Version 1.4.5 final
 Release Date: Aug 19 2005
 

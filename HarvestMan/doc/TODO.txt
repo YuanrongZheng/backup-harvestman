@@ -11,12 +11,12 @@ correctly.                                   | now localize correctly.
 time.                                        |
 4. Ability to pick up and add URLs from/to   | Later.
 a URL database.                              |
-5. Thread checkpointing and data migration   |  1.5 - Anand.
+5. Thread checkpointing and data migration   | Done in current code.
 for crawlers.                                |
-6. Cache creation using C extensions.        |  Vaibhav ? 
-7. Developer API                             |  1.5 - Anand
-8. Crawling language-specific pages          |  Vaibhav ?
-9. A basic UI.                               |  Much much later. 
+6. Cache creation using C extensions.        | Done - but will not be used in 1.5
+7. Developer API                             | Not yet.
+8. Crawling language-specific pages          | Not yet
+9. A basic UI.                               | Much much later. 
 ---------------------------------------------------------------------------------------
 
 

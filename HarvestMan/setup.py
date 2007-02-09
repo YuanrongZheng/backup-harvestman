@@ -1,5 +1,5 @@
 # This module is part of the HarvestMan project and is Copyright 2004-2005
-# Anand B Pillai (anandpillai at letterboxes dot org).
+# Anand B Pillai (abpillai at gmail dot com)
 
 # Fixed a bug in function site_packages_dir - Use sys.path instead of
 # site.sitedirs since latter is not there in Python 2.4 - Anand 09/09/05
@@ -27,26 +27,11 @@ def make_data_files():
             data_list.append("".join(("doc/",f)))
         data_files.append((hdir, data_list))
 
-    if os.path.isdir("tidy"):
-        # Create list for tidy files next
-        tidydir = os.path.join(sitedir, "HarvestMan", "tidy")
-        tidypath = "HarvestMan/tidy/"
-        data_list = ["".join((tidypath, "cygtidy-0-99-0.dll"))]
-        data_files.append((tidydir, data_list))
-    
-        tidydir = os.path.join(tidydir, "pvt_ctypes")
-        data_list = ["".join((tidypath, "pvt_ctypes/README.ctypes")),
-                     "".join((tidypath, "pvt_ctypes/_ctypes.pyd")),
-                     "".join((tidypath, "pvt_ctypes/_ctypes.so")),
-                     "".join((tidypath, "pvt_ctypes/ctypes.zip"))]
-                 
-        data_files.append((tidydir, data_list))
-    
     return data_files
     
 setup(name="HarvestMan",
-      version="1.4.5 alpha1",
-      description="HarvestMan - Multithreaded Offline Browser/Web Crawler",
+      version="1.5 b1",
+      description="HarvestMan - Extensible multithreaded Offline Browser/Web Crawler",
       author="Anand B Pillai",
       author_email="abpillai_at_gmail_dot_com",
       url="http://harvestman.freezope.org/",
