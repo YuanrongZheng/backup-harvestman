@@ -246,10 +246,6 @@ class HarvestMan(object):
         """ Clean up actions to do, say after
         an interrupt """
 
-        # Disable tracebacks
-        sys.excepthook = None
-        sys.tracebacklimit = 0
-
         if self._cfg.fastmode:
             tq = GetObject('trackerqueue')
             tq.terminate_threads()

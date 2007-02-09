@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <HarvestMan xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-            xsi:schemaLocation="http://harvestman.freezope.org/schemas/HarvestMan.xsd">
+            xsi:schemaLocation="http://harvestmanontheweb.com/schemas/HarvestMan.xsd">
   <config version="3.0" xmlversion="1.0">
     <projects combine="0">
       
