@@ -797,7 +797,9 @@ class HarvestManStateObject(dict):
         # lookup.
         num=len(self.urls)
         if num==0:
-            sys.exit("Fatal Error: No URLs given, Aborting.")
+            msg = 'Fatal Error: No URLs given, Aborting.\nFor command-line options run with -h option'
+            sys.exit(msg)
+            
 
         # If swish plugin enabled, set verbosity to zero
         if self.swishplugin:

@@ -13,15 +13,15 @@ it in a local directory for offline browsing.
 
 This is version 1.5 beta 1.
 
-Author: Anand Pillai.
+Author: Anand B Pillai.
 
-Copyright: All software in this distribution is (C) Anand Pillai.
+Copyright: All software in this distribution is (C) Anand B Pillai.
 
 License: See the file LICENSE.TXT.
 
 WWW
 ---
-http://harvestman.freezope.org .
+http://harvestmanontheweb.com, http://harvestman.freezope.org
 
 Getting started 
 ---------------

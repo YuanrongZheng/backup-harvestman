@@ -6,7 +6,7 @@ currver=`python -c "import sys; v = sys.version_info; print ''.join((str(v[0]),'
 
 function sym_link
 {
-sitedir=`python -c "import sys; print [p for p in sys.path if p.find('site-packages')!= -1][0]"`
+sitedir=`python -c "import os; print os.path.join(os.path.dirname(os.__file__), 'site-packages')"`
 exepath=$sitedir/HarvestMan/harvestman.py
 if [ ! -f $exepath ]
 then

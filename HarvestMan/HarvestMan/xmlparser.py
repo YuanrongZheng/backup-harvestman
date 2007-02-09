@@ -21,6 +21,7 @@ Copyright (C) 2004 Anand B Pillai.
 __version__ = '1.5 b1'
 __author__ = 'Anand B Pillai'
 
+import os
 import xml.parsers.expat
 
 class ConfigParser(object):
@@ -100,6 +101,10 @@ def parse_xml_config_file(configobj, configfile):
     p.CharacterDataHandler = c.char_data
     p.EndElementHandler = c.end_element
 
+    if not os.path.isfile(configfile):
+        print 'Error: file %s does not exist' % configfile
+        return 0
+    
     try:
         p.Parse(open(configfile).read())
         return 1

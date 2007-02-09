@@ -262,11 +262,6 @@ class HarvestMan(object):
 
         self._cfg = GetObject('config')
 
-
-        # Get program options
-        if not self._cfg.resuming:
-            self._cfg.get_program_options()
-
         # Create user's .harvestman directory on POSIX
         if os.name == 'posix':
             homedir = os.environ.get('HOME')
@@ -297,6 +292,12 @@ class HarvestMan(object):
                             
                     except OSError, e:
                         logconsole(e)
+
+
+
+        # Get program options
+        if not self._cfg.resuming:
+            self._cfg.get_program_options()
 
         self.register_common_objects()
 
