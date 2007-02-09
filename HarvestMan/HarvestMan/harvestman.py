@@ -1,48 +1,20 @@
 #! /usr/bin/env python
 # -- coding: latin-1
-
-""" HarvestMan - Multithreaded internet spider program
-    using urllib2 and other python modules.
+""" HarvestMan - Extensible, modular and multithreaded Internet
+    spider program using urllib2 and other python modules. This is
+    the main module of HarvestMan.
     
     Version      - 1.5 beta 1.
 
-   Author: Anand B Pillai.
+    Author: Anand B Pillai <abpillai at gmail dot com>
 
- HARVESTMAN is totally free software. See the file LICENSE.txt for
- information on the terms and conditions of usage, and a DISCLAIMER
- of ALL WARRANTIES. The same license agreement applies to all other
- python software modules used in this program.
+    HARVESTMAN is free software. See the file LICENSE.txt for information
+    on the terms and conditions of usage, and a DISCLAIMER of ALL WARRANTIES.
 
  Modification History
- 
-  Oct 10 2003         Anand          1.3 a1 release.
-  Jan 2 2004          Anand          1.3.1 bug fix version.
-  Feb 24 2004         Anand          1.3.3 version release.
-  Apr 20 2004         Anand          1.3.4 version release.
-  Jun 14 2004         Anand          1.3.9 release.
-  Sep 20 2004         Anand          1.4 development. Added methods
-                                     to set locales. Patch release
-                                     P001391 to fix bug #B1095681194.6 .
-  Oct 20 2004         Anand          Fix for setting locales on Win32.
-  Oct 25 2004         Anand          Changes for url server support.
-                                     Added an exit handler.
-  Nov 3  2004         Anand          1.4 alpha 3 release.
-                                     * Url server run in a separate
-                                     thread.
-                                     * Changes in urltracker module
-                                     in storing url objects.
-                                     * Url server mode set as default.
-                                     * Error handling fixes.
-     Dec 17 2004                     1.4 final release.
-     May 18 2005                     1.4.5 development - alpha1 version.
-     July 13 2005                    1.4.5 development - alpha2 started.
-                                     Many bugfixes, thanks to Morten Olsen@EIAO.
-     August 1 2005                   Preparing for 1.4.5 beta 1. Most of the
-                                     stuff is done. Done testing new command
-                                     line options and verification on M$ Windoze
-                                     platform.
-     Aug 19 2005                     1.4.5 final release.
-     Aug 22 2006          Anand      Changes for fixing single-thread mode.
+
+    Created: Aug 2003
+
      Jan 23 2007          Anand      Changes to copy config file to ~/.harvestman/conf
                                      folder on POSIX systems. This file is also looked for
                                      if config.xml not found in curdir.
@@ -51,37 +23,31 @@
                                      a config file using -C option.
      Feb 7 2007          Anand       Finished implementation of plugin feature. Crawl
                                      simulator is now a plugin.
+     Feb 8 2007          Anand       Added swish-e integration as a plugin.
+
+   Copyright (C) 2004 Anand B Pillai.     
 """     
 
-__revision__ = '1.5 b1'
-__author__ = 'Anand Pillai'
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import os, sys
 from sgmllib import SGMLParseError
 from shutil import copy
 import cPickle, pickle
 
-# Our modules
-# Url queue module
 import urlqueue
-# Connector module
 import connector
-# Rules module
 import rules
-# Data manager module
 import datamgr
-# Utils module
 import utils
 import time
 import threading
-# Shutil module
 import shutil
 import glob
 
-# Url server
 import urlserver
 
-# Globals/lookup module
 from common import *
 
 class HarvestMan(object):
@@ -158,15 +124,14 @@ class HarvestMan(object):
             cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
             moreinfo('Saved run-state to file %s.' % fname)
         except pickle.PicklingError, e:
-            print e
+            logconsole(e)
         
     def welcome_message(self):
         """ Print a welcome message """
         
-        print 'Starting %s...' % self._cfg.progname
-        print 'Copyright (C) 2004, Anand B Pillai'
-        print 'WWW: http://harvestman.freezope.org'
-        print ' '
+        logconsole('Starting %s...' % self._cfg.progname)
+        logconsole('Copyright (C) 2004, Anand B Pillai')
+        logconsole(' ')
 
     def register_common_objects(self):
         """ Register common objects required by all projects """
@@ -292,13 +257,19 @@ class HarvestMan(object):
     def __prepare(self):
         """ Do the basic things and get ready """
 
-        # Initialize globals module. This initializes
-        # the config and logger objects.
-        Initialize()
-
+        # Init Config Object
+        InitConfig()
+        # Initialize logger object
+        InitLogger()
+        
         SetUserAgent(self.USER_AGENT)
 
         self._cfg = GetObject('config')
+
+
+        # Get program options
+        if not self._cfg.resuming:
+            self._cfg.get_program_options()
 
         # Create user's .harvestman directory on POSIX
         if os.name == 'posix':
@@ -329,11 +300,7 @@ class HarvestMan(object):
                         info('Done.')
                             
                     except OSError, e:
-                        print e
-
-        # Get program options
-        if not self._cfg.resuming:
-            self._cfg.get_program_options()
+                        logconsole(e)
 
         self.register_common_objects()
 
@@ -446,7 +413,7 @@ class HarvestMan(object):
             if not self._cfg.testnocrawl:
                 self.start_project()
         except (KeyboardInterrupt, EOFError, Exception), e:
-            print 'Exception received=>',str(e)
+            logconsole('Exception received=>',str(e))
             if not self._cfg.ignoreinterrupts:
                 # dont allow to write cache, since it
                 # screws up existing cache.
@@ -593,13 +560,13 @@ class HarvestMan(object):
                         # To catch errors at interpreter shutdown
                         pass
                 else:
-                    print 'Could not re-run saved state, defaulting to standard configuration...'
+                    logconsole('Could not re-run saved state, defaulting to standard configuration...')
                     self._cfg.resuming = False
                     # Reset state
                     self.reset_state()
                     return -1
             else:
-                print 'OK, falling back to default configuration...'
+                logconsole('OK, falling back to default configuration...')
                 return -1
         else:
             return -1
@@ -623,18 +590,18 @@ class HarvestMan(object):
                         M = __import__(module)
                         func = getattr(M, 'apply_plugin', None)
                         if not func:
-                            print 'Invalid plugin module %s' % f
+                            logconsole('Invalid plugin module %s, should define function "apply_plugin"!' % f)
                         else:
                             loaded.append(module)
                             try:
-                                print 'Applying plugin %s...' % f
+                                logconsole('Applying plugin %s...' % f)
                                 func()
                             except Exception, e:
-                                print 'Error while trying to apply plugin %s' % f
-                                print 'Error is:',str(e)
+                                logconsole('Error while trying to apply plugin %s' % f)
+                                logconsole('Error is:',str(e))
                     except ImportError, e:
-                        print 'Error importing plugin module %s' % f
-                        print 'Error is:',str(e)
+                        logconsole('Error importing plugin module %s' % f)
+                        logconsole('Error is:',str(e))
                         
     def main(self):
 
@@ -653,7 +620,6 @@ class HarvestMan(object):
             # No such crashed state or user refused to run
             # from crashed state. So do the usual run.
             self.run_projects()
-
 
         
 if __name__=="__main__":

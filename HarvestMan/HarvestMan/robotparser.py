@@ -1,8 +1,12 @@
 # -- coding: latin-1
-""" HarvestManRobotParser.py - Robot Exclusion Principle for python.
-    This software is part of the HarvestMan program.
+""" robotparser.py - Robot Exclusion Principle for python.
+    This module is part of the HarvestMan program.
 
-    Author: Anand B Pillai (anandpillai at letterboxes dot org).
+    This module is a modified version of robotparser.py supplied
+    with Python standard library. The author does not assert
+    any copyright on this module.
+
+    Author: Anand B Pillai (abpillai at gmail dot com).
     
     =============== Original Copyright ============================
     robotparser.py
@@ -18,8 +22,6 @@
 
     ================ End Original Copyright =========================
 
-    Feb 14 2004        Anand       fixed a typo.
-    Jun 14 2004         Anand   1.3.9 release.
     Jan 5 2006          Anand   Fix for EIAO ticket #74, small change
                                 in open of URLopener class, Also moved
                                 import of HarvestManUrlConnector to top.
@@ -28,10 +30,11 @@
                                 repository.
     Jan 10 2006          Anand   Converted from dos to unix format (removed Ctrl-Ms).
                                 
-    This module is a modified version of robotparser.py supplied
-    with the python standard distribution. For licensing information see the
-    file LICENSE.txt that is included in this distribution.
+
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import re,urlparse,urllib
 from connector import HarvestManUrlConnector

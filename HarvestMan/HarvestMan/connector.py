@@ -1,9 +1,9 @@
 # -- coding: latin-1
-""" HarvestManUrlConnector.py - Module to manage and retrieve data
-    from an internet connection using urllib2. This software is
+""" connector.py - Module to manage and retrieve data
+    from an internet connection using urllib2. This module is
     part of the HarvestMan program.
 
-    Author: Anand B Pillai (anandpillai at letterboxes dot org).
+    Author: Anand B Pillai (abpillai at gmail dot com).
 
     For licensing information see the file LICENSE.txt that
     is included in this distribution.
@@ -14,8 +14,14 @@
     Aug 16 06         Restarted dev cycle. Fixed 2 bugs with 404
                       errors, one with setting directory URLs
                       and another with re-resolving URLs.
+    Feb 8 2007        Added hooks support.
+
+   Copyright (C) 2004 Anand B Pillai.    
                               
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import sys
 import socket
@@ -26,10 +32,9 @@ import urllib2
 import urlparse
 
 from common import *
-
-# HarvestManUrlParser module
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 
+# Overrideable hooks defined by this module
 __hooks__ = { 'save_url_hook': 'HarvestManUrlConnector:save_url' }
 
 
@@ -581,12 +586,6 @@ class HarvestManUrlConnector:
                     no_change = (actual_url == urltofetch)
 
                     if not no_change:
-                        # print self.get_http_headers()
-                        #if oldurl:
-                        #    print 'OLDURL=>',oldurl
-                        
-                        # print 'Actual url=>',actual_url
-                        # print 'Orig url=>',urltofetch
                         
                         replacedurl = actual_url.replace(urltofetch, '')
                         # If the difference is only as a directory url
@@ -607,9 +606,6 @@ class HarvestManUrlConnector:
                             # be otherwise invalid and will result in 404
                             # errors.
                             
-                            # print hu.url, hu.baseurl
-                            # print hu.origurl
-                            # print actual_url
                             hu.url = actual_url
                             hu.wrapper_resolveurl()
                             
@@ -669,8 +665,6 @@ class HarvestManUrlConnector:
                     # Link not found, this might
                     # be a file wrongly fetched as directory
                     # Add to filter
-                    # print 'BASE=>',url_obj.baseurl.url
-                    # print 'SELF=>',url_obj.url
                     rulesmgr.add_to_filter(urltofetch)
                     self.__error['fatal']=True
                 elif errnum == 401: # Site authentication required

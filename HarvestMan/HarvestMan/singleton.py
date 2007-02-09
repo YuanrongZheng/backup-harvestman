@@ -1,10 +1,16 @@
-""" Singleton design-pattern implemented using
-meta-classes
+""" singleton.py - Singleton design-pattern implemented using
+    meta-classes. This module is part of HarvestMan program.
 
-Created Anand B Pillai <abpillai@gmail.com> Feb 2 2007
+    Author: Anand B Pillai <abpillai at gmail dot com>
 
-Copyright(C) 2006 Anand B Pillai.
+    Created Anand B Pillai Feb 2 2007
+    
+
+Copyright(C) 2007 Anand B Pillai.
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 class SingletonMeta(type):
     """ A type for Singleton classes """
@@ -20,8 +26,7 @@ class SingletonMeta(type):
         cls.__new__ = cls.my_new
 
 class Singleton(object):
-    """ The default implementation for a Python
-    Singleton class """
+    """ The default implementation for a Python Singleton class """
 
     __metaclass__ = SingletonMeta
 

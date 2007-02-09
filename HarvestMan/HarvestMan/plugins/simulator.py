@@ -24,11 +24,19 @@ def save_url(self, urlobj):
 def apply_plugin():
     """ All plugin modules need to define this method """
 
+    # This method is expected to perform the following steps.
+    # 1. Register the required hook function
+    # 2. Get the config object and set/override any required settings
+    # 3. Print any informational messages.
+
+    # The first step is required, the last two are of course optional
+    # depending upon the required application of the plugin.
+    
     from common import GetObject
     
     cfg = GetObject('config')
     if cfg.simulate:
-        hooks.register_hook_function('connector:save_url_hook', save_url)
+        hooks.register_plugin_function('connector:save_url_hook', save_url)
         # Turn off caching, since no files are saved
         cfg.pagecache = 0
         print 'Simulation mode turned on. Crawl will be simulated and no files will be saved.'

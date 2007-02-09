@@ -1,17 +1,21 @@
 # -- coding: latin-1
 """ datamgr.py - Data manager module for HarvestMan.
-    This software is part of the HarvestMan program.
+    This module is part of the HarvestMan program.
 
-    Author: Anand B Pillai <abpillai@gmail.com>
+    Author: Anand B Pillai <abpillai at gmail dot com>
     
     Oct 13 2006     Anand          Removed data lock since it is not required - Python GIL
                                    automatically locks byte operations.
-    
+
     Feb 2 2007      Anand          Re-added function parse_style_sheet which went missing.
     
-   Copyright (C) 2006 Anand B Pillai.
+   Copyright (C) 2004 Anand B Pillai.
     
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
+
 import os, sys
 import time
 import math
@@ -151,7 +155,6 @@ class HarvestManDataManager(object):
             self._projectcache = obj
             self._cfg.cachefound = 1
         else:
-            # print 'Cache not found, setting cachefound to zero...'
             self._cfg.cachefound = 0
 
     def write_file_from_cache(self, urlobj):
@@ -392,8 +395,6 @@ class HarvestManDataManager(object):
     def post_download_setup(self):
         """ Actions to perform after project is complete """
 
-        # print self._projectcache.values()
-        
         if self._cfg.retryfailed:
             self._numfailed = len(self._downloaddict['_failedurls'])
             moreinfo(' ')
@@ -422,8 +423,6 @@ class HarvestManDataManager(object):
         if self._cfg.urlheaders:
             self.add_headers_to_cache()
 
-        # print self._projectcache.values()
-        
         # Write cache file
         if self._cfg.pagecache and self.does_cache_need_update():
             cachewriter = utils.HarvestManCacheManager( self.get_proj_cache_directory() )
@@ -529,7 +528,6 @@ class HarvestManDataManager(object):
     def update_file_stats(self, urlObject, status):
         """ Add the passed information to the saved file list """
 
-        # print 'I am updating file stats=>',tg.currentThread()
         if not urlObject: return -1
 
         # Bug: we should be getting this url as rooturl and not
@@ -561,8 +559,6 @@ class HarvestManDataManager(object):
         if not filename in lookuplist:
             lookuplist.append( filename )
 
-        # print 'I am done updating file stats=>',tg.currentThread()
-        
         return 0
     
     def update_links(self, filename, urlobjlist):
@@ -806,7 +802,7 @@ class HarvestManDataManager(object):
                 return -1
             
         except ImportError, e:
-            print e
+            logconsole(e)
             return -1
         
 
@@ -1015,7 +1011,7 @@ class HarvestManDataManager(object):
             fw.write(data)
             fw.close()
         except IOError, e:
-            print e
+            logconsole(e)
 
         return 0
 
@@ -1096,7 +1092,7 @@ class HarvestManDataManager(object):
             # Write stats to a stats file
             statsfile = self._cfg.project + '.hst'
             statsfile = os.path.abspath(os.path.join(self._cfg.projdir, statsfile))
-            print '\nWriting stats file ', statsfile , '...'
+            logconsole('\nWriting stats file ', statsfile , '...')
             # Append to files contents
             sf=open(statsfile, 'a')
 
@@ -1118,7 +1114,7 @@ class HarvestManDataManager(object):
             sf.write(infostr)
             sf.close()
             
-            print 'Done.'
+            logconsole('Done.')
 
     def dump_urltree(self, urlfile):
         """ Dump url tree to a file """
@@ -1136,7 +1132,7 @@ class HarvestManDataManager(object):
             if os.path.exists(urlfile):
                 os.remove(urlfile)
         except OSError, e:
-            print e
+            logconsole(e)
 
         moreinfo('Dumping url tree to file', urlfile)
         fextn = ((os.path.splitext(urlfile))[1]).lower()        
@@ -1149,7 +1145,7 @@ class HarvestManDataManager(object):
                 self.dump_urltree_htmlmode(f)
             f.close()
         except Exception, e:
-            print e
+            logconsole(e)
             return -1
 
         debug("Done.")
@@ -1373,7 +1369,7 @@ class harvestManController(tg.Thread):
                         (ddict['_deletedfiles']).append(lastfile)
                         ddict['_savedfiles'].remove(lastfile)
                     except (OSError, IndexError, ValueError), e:
-                        print e
+                        logconsole(e)
 
         return 0
                     

@@ -3,7 +3,7 @@
     serving urls for HarvestMan. This module is part of the
     HarvestMan program.
 
-    Author : Anand B Pillai ( anandpillai at letterboxes dot org).
+    Author : Anand B Pillai (abpillai at gmail dot com).
 
 
     Jan 10 2006  Anand  Converted from dos to unix format (removed Ctrl-Ms).
@@ -11,6 +11,9 @@
    Copyright (C) 2006 Anand B Pillai.
 
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import select
 import asyncore, socket, threading, SocketServer
@@ -124,7 +127,7 @@ class HarvestManUrlServer(asyncore.dispatcher_with_send):
                              url_server=self)
 
     def handle_close(self):
-        print "Inside url_server: handle_close..."
+        pass
 
     def notify(self, handler):
         """ Notify method for secondary socket server

@@ -1,6 +1,21 @@
-"""Process urls - remove ampersand chars etc
+""" urlproc.py - Module to process URLs and replace
+    entity characters (characters starting with an ampersand
+    and ending with a semicolon). This module is part of
+    the HarvestMan program.
 
-Created - Anand B Pillai <abpillai@gmail.com> 28 Sep 06 """
+
+   Author: Anand B Pillai <abpillai at gmail dot com>
+   
+   Modification History
+   --------------------
+   
+   Created - Anand B Pillai 28 Sep 06
+
+   Copyright (C) 2006 Anand B Pillai.
+"""
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import unicodedata
 
@@ -92,7 +107,7 @@ char_names = ['LESS-THAN SIGN',
               'LEFT-POINTING DOUBLE ANGLE QUOTATION MARK',
               'RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK']
 
-# Ampersand characters
+# Entity characters
 ampersand_strings = ('&lt;','&gt;','&amp;','&quot;',
                      '&nbsp;','&Ccedil;','&ccdil;','&Ntilde;',
                      '&ntilde;','&THORN;','&thorn;','&Yacute;',
@@ -118,7 +133,9 @@ ampersand_strings = ('&lt;','&gt;','&amp;','&quot;',
                          
                          
 def modify_url(url):
-
+    """ Replace entity characters in URLs with the original
+    string representations """
+    
     # Remove trailing wspace chars.
     url = url.rstrip()
     
@@ -130,6 +147,7 @@ def modify_url(url):
     return url
 
 def main():
+    # Test code
     url = 'http://www.nbb.be/pub/Home.htm?l=nl&amp;t=ho'
     print modify_url(url)
 

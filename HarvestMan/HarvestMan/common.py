@@ -1,18 +1,25 @@
 # -- coding: latin-1
-""" Global functions for HarvestMan Program.
-This file is part of the HarvestMan software.
-For licensing information, see file LICENSE.TXT.
+""" common.py - Global functions for HarvestMan Program.
+    This file is part of the HarvestMan software.
+    For licensing information, see file LICENSE.TXT.
 
-Author: Anand B Pillai <abpillai@gmail.com>
+    Author: Anand B Pillai <abpillai at gmail dot com>
 
-Created: Jun 10 2003
+    Created: Jun 10 2003
 
- Aug 17 2006          Anand          Modifications for the new logging
-                                     module.
+    Aug 17 2006          Anand          Modifications for the new logging
+                                        module.
 
-Copyright (C) 2006 - Anand B Pillai.
+    Feb 7 2007           Anand          Some changes. Added logconsole
+                                        function. Split Initialize() to
+                                        InitConfig() and InitLogger().
+
+   Copyright (C) 2004 - Anand B Pillai.
 
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import weakref
 import os, sys
@@ -229,12 +236,14 @@ def SetConfig(configobject):
     """ Set the config object  """
 
     global RegisterObj
-    if RegisterObj.ini==0: Initialize()
+    if RegisterObj.ini==0: InitConfig()
     RegisterObj.config = configobject
 
 def SetLogFile():
 
     global RegisterObj
+    # print 'Verbosity=>',RegisterObj.config.verbosity
+    
     logfile = RegisterObj.config.logfile
     # if logfile: RegisterObj.logger.setLogFile(logfile)
     if logfile:
@@ -261,19 +270,22 @@ def SetUserDebug(message):
         except:
             RegisterObj.userdebug.append(message)
 
-def Initialize():
-    """ Initialize the globals module. This
-    initializes the registry object and a basic
-    config object in the regsitry. """
+def InitConfig():
+    """ Initialize the config object """
 
     global RegisterObj
-    if RegisterObj.ini==1:
-        return -1
-
-    RegisterObj.ini = 1
     cfg = HarvestManStateObject()
     RegisterObj.config = cfg
+
+
+def InitLogger():
+
+    global RegisterObj
     RegisterObj.logger = HarvestManLogger()
+
+def SetLogSeverity():
+    global RegisterObj
+    RegisterObj.logger.setLogSeverity(RegisterObj.config.verbosity)    
     
 def Finish():
     """ Clean up this module. This function
@@ -291,9 +303,9 @@ def Finish():
                 async_t.end()
                 extrainfo("Done.")
             except socket.error, e:
-                print e
+                logconsole(e)
             except Exception, e:
-                print e
+                logconsole(e)
                 
     
     RegisterObj.ini = 0
@@ -314,9 +326,9 @@ def Finish():
             
     # inform user of config file errors
     if RegisterObj.userdebug:
-        print "Some errors were found in your configuration, please correct them!"
+        logconsole("Some errors were found in your configuration, please correct them!")
         for x in range(len(RegisterObj.userdebug)):
-            print str(x+1),':', RegisterObj.userdebug[x]
+            logconsole(str(x+1),':', RegisterObj.userdebug[x])
 
     RegisterObj.userdebug = []
 
@@ -372,10 +384,10 @@ def bin_decrypt(data):
     try:
         return unobfuscate(binascii.unhexlify(data))
     except TypeError, e:
-        print 'Error in decrypting data: <',data,'>', e
+        logconsole('Error in decrypting data: <',data,'>', e)
         return data
     except ValueError, e:
-        print'Error in decrypting data: <',data,'>', e
+        logconsole('Error in decrypting data: <',data,'>', e)
         return data
 
 
@@ -424,77 +436,6 @@ def unobfuscate(data):
     out = a0
 
     return out
-
-
-def filetype(filename):
-    """ Return filetype of a file by reading its
-    signature """
-
-    fullpath=os.path.abspath(filename)
-    if not os.path.exists(fullpath):
-        return ''
-
-    try:
-        f=open(fullpath, 'rb')
-    except IOError, e:
-        print e
-        return ''
-    except OSError, e:
-        print e
-        return ''
-
-    sigbuffer = ''
-    try:
-        sigbuffer=f.read(20)
-    except IOError, e:
-        print e
-        return ''
-
-    ftype=''
-    for key in signatures.keys():
-        sigs = (signatures[key])[1]
-        # look for the sigs in the sigbuffer
-        for sig in sigs:
-            index = sigbuffer.find(sig)
-            if index == -1: continue
-            if index == (signatures[key])[0]:
-                ftype = key
-                break
-
-    return ftype
-
-def rename(filename):
-    """ Rename a file by looking at its signature """
-
-    ftype=filetype(filename)
-
-    if ftype:
-        fullpath = os.path.abspath(filename)
-        # get extension
-        extn = (((os.path.splitext(fullpath))[1])[1:]).lower()
-        if extn==ftype: return ''
-        try:
-            a=aliases[ftype]
-            if extn in a: return ''
-        except KeyError:
-            return ''
-
-        # rename the file
-        newname = (os.path.splitext(fullpath))[0] + '.' + ftype
-        try:
-            os.rename(fullpath, newname)
-            # set the global variable to new name
-            global RegisterObj
-            # build up a dictionary of oldfilename => newfilename
-            # mappings, this will be useful later
-            RegisterObj.oldnewmappings[fullpath]=newname
-            RegisterObj.modfilename = newname
-            # return the new name
-            return newname
-        except OSError, e:
-            print e
-            return ''
-    return ''
 
 def send_url(data, host, port):
     
@@ -622,8 +563,15 @@ def moredebug(arg, *args):
     # plus maximum debugging information.
     RegisterObj.logger.moredebug(arg, *args)        
 
+def logconsole(arg, *args):
+    """ Log directly to sys.stdout using print """
+
+    # Setting verbosity to 5 will print maximum information
+    # plus maximum debugging information.
+    RegisterObj.logger.logconsole(arg, *args)        
+
 if __name__=="__main__":
-    Initialize()
+    InitConfig()
     cfg = GetObject('config')
     print type(cfg)
     

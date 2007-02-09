@@ -1,11 +1,15 @@
-""" Module allowing developer extensions(plugins) to HarvestMan.
-This module makes it possible to hook into the execution
-flow of HarvestMan, making it easy to extend and customize
-it.
+""" hooks.py - Module allowing developer extensions(plugins/callbacks)
+    to HarvestMan. This module makes it possible to hook into/modify the
+    execution flow of HarvestMan, making it easy to extend and customize
+    it. This module is part of the HarvestMan program.
 
-Created by Anand B Pillai <abpillai@gmail.com> Feb 1 07.
+    Created by Anand B Pillai <abpillai@gmail.com> Feb 1 07.
 
+   Copyright (C) 2007 Anand B Pillai.    
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 from singleton import Singleton
 
@@ -14,7 +18,7 @@ class HarvestManHooksException(Exception):
     pass
 
 class HarvestManHooks(Singleton):
-    """ Class which manages pluggable hooks for HarvestMan """
+    """ Class which manages pluggable hooks and callbacks for HarvestMan """
     
     supported_modules = ('crawler','harvestman', 'urlqueue', 'datamgr', 'connector')
     module_hooks = {}
@@ -92,9 +96,9 @@ class HarvestManHooks(Singleton):
     
 HarvestManHooks.add_all_hooks()
               
-def register_hook_function(context, func):
+def register_plugin_function(context, func):
     """ Register function 'func' as
-    a hook at context 'context' """
+    a plugin at context 'context' """
     
     # The context is a string of the form module:hook
     # Example => crawler:fetcher_process_url_hook
@@ -133,5 +137,5 @@ def myfunc():
     pass
 
 if __name__ == "__main__":
-    register_hook_function('datamgr:download_url_hook', myfunc)
+    register_plugin_function('datamgr:download_url_hook', myfunc)
     print HarvestManHooks.getInstance().get_all_hook_funcs()

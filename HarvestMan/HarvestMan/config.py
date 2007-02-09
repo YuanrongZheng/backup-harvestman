@@ -1,39 +1,25 @@
 # -- coding: latin-1
-""" HarvestManConfig.py - Module to keep configuration options
-    for HarvestMan program and its related modules. This software is
-    part of the HarvestMan program.
+""" config.py - Module to keep configuration options
+    for HarvestMan program and its related modules. This 
+    module is part of the HarvestMan program.
 
-    Author: Anand B Pillai.
+    Author: Anand B Pillai <abpillai at gmail dot com>
 
     For licensing information see the file LICENSE.txt that
     is included in this distribution.
 
-    Jan 2 2004        Anand   1.3.1 bug fix version.
-    Feb 12 2004       Anand   1.3.2 version
-                              development started.
-    May 28 2004       Anand   1.4 version development. Derived
-                              HarvestManStateObject from dict type.
-                              (Note that this limits the program to
-                              Python 2.2 and later versions.)
-    Jun 14 2004       Anand   1.3.9 release.
-    Sep 20 2004       Anand   1.4 development. Added system.locale
-                              property to fix bug #B1095681194.6 .
 
-    Sep 22 2004       Anand   1.4 development. Added a config property
-                              for controlling download by time limit.
-
-                              Performance fix - Set the default tracker
-                              size to three.
-    Oct 25 2004      Anand    Added config variables for urlserver.                              
-    Jan 01 2006      jkleven  Change "skipqueryforms" to "getqueryforms" 
-                              So in config file <forms value="0"/> meaning
-                              is consistent with other types like 
-                              images=1 and html=1
-    Jan 10 2006      Anand    Converted from dos to unix format (removed
-                              Ctrl-Ms).
     Jan 23 2007      Anand    Added code to check config in $HOME/.harvestman.
                               Added control-var for session saving feature.
+    Feb 8 2007       Anand    Added config support for loading plugins. Added
+                              code for swish-e plugin.
+
+   Copyright (C) 2004 Anand B Pillai.                              
+
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 PROG_HELP = """\
 %(appname)s %(version)s %(maturity)s: A multithreaded web crawler.
@@ -95,6 +81,8 @@ options:
     
     -R, --robots=yes/no         Enable/disable Robot Exclusion Protocol.
     -u, --urlfilter=FILTER      Use regular expression FILTER for filtering urls.
+    -g, --plugin=plugin         Load the plugin named 'plugin'. Supported plugins
+                                are 'swish-e' and 'simulator'.
 
     --urlslist=FILE             Dump a list of urls to file FILE.
     --urltree=FILE              Dump a file containing hierarchy of urls to FILE.
@@ -127,34 +115,18 @@ class HarvestManStateObject(dict):
         self.appname='HarvestMan'
         self.progname="".join((self.appname," ",self.version," ",self.maturity))
         self.url=''
-        # New var in 1.4.5 to store multiple starting urls
         self.urls = []
         self.project=''
-        # New var in 1.4.5 to store multiple starting project names
         self.projects = []
-        # New var in 1.4.1 to indicate combining of projects        
         self.combine = False
         self.basedir=''
-        # New var in 1.4.5 to store multiple base dirs        
         self.basedirs = []
-        # New var in 1.4.5 to store multiple verbosities
         self.verbosities=[]
-        # New var in 1.4.5 to store multiple timeouts
         self.projtimeouts = []
-        # New var in 1.4.5 to map urls to project names, basedirs & other project
-        # related vars.
         self.urlmap = {}
-        # New in 1.4.5 for archiving
-        # downloaded files.
         self.archive = 0
-        # Format for storing archives
-        # Supported - bz2,gz.
         self.archformat = 'bzip'
-        # New in 1.4.5 for storing
-        # url headers
         self.urlheaders = 0
-        # Format for storing url headers
-        # Supported - dbm (shelve)
         self.urlheadersformat = 'dbm'
         self.configfile = 'config.xml'
         self.projectfile = ''         
@@ -208,7 +180,6 @@ class HarvestManStateObject(dict):
         self.checkfiles=1
         self.cookies=1
         self.pagecache=1
-        # New internal flag - Added Jan 8 2006
         self.cachefound=0
         self._error=''
         self.starttime=0
@@ -216,11 +187,8 @@ class HarvestManStateObject(dict):
         self.javascript = True
         self.javaapplet = True
         self.connections=5
-        # Values => 'pickled' only
         self.cachefileformat='pickled' 
-        # 1. Testing the code (no browse page)
         self.testing = False 
-        # 2. Testing the browse page (no crawl)
         self.testnocrawl = False
         self.nocrawl = False
         self.ignoreinterrupts = False
@@ -241,15 +209,11 @@ class HarvestManStateObject(dict):
         self.urlserver_protocol='tcp'
         self.blocking = False
         self.junkfilter = True
-        # Junk filter domain specific flag, not used
         self.junkfilterdomains = True
-        # Junk filter patterns specific flag, not used
         self.junkfilterpatterns = True
         self.urltreefile = ''
         self.urllistfile = ''
-        # Default maximum file size is 5MB
         self.maxfilesize=5242880
-        # Minimum file size is 0 bytes
         self.minfilesize=0
         self.format = 'xml'
         self.rawsave = False
@@ -261,6 +225,8 @@ class HarvestManStateObject(dict):
         self.savesessions = True
         # Control var for simulation feature
         self.simulate = False
+        # Control var for swish integration
+        self.swishplugin = False
         
     def _init2(self):
         
@@ -627,16 +593,17 @@ class HarvestManStateObject(dict):
         # -h => prints help
         # -v => prints version info
 
-        soptions = 'hmvNp:c:b:C:P:t:f:l:w:r:n:d:T:R:u:Y:U:W:s:V:M:S:'
+        soptions = 'hmvNp:c:b:C:P:t:f:l:w:r:n:d:T:R:u:Y:U:W:s:V:M:S:g:'
         longoptions = [ "configfile=", "projectfile=",
-                        "project=", "help","nocrawl","simulate",
+                        "project=","help","nocrawl","simulate",
                         "version", "basedir=",
                         "verbosity=", "depth=","urlfilter=",
                         "maxthreads=","maxfiles=","timelimit=",
                         "retry=","connections=",
                         "localize=","fetchlevel=","proxy=",
                         "proxyuser=","proxypass=","urlserver=",
-                        "cache=","urlslist=","urltree=","savesessions="
+                        "cache=","urlslist=","urltree=","savesessions=",
+                        "plugin="
                         ]
 
         arguments = sys.argv[1:]
@@ -644,7 +611,7 @@ class HarvestManStateObject(dict):
             optlist, args = getopt.getopt(arguments, soptions, longoptions)
         except getopt.GetoptError, e:
             sys.exit('Error: ' + str(e))
-
+ 
         if args:
             self.set_option_xml('url',self.process_value(args[0]))
             args.pop(0)
@@ -737,6 +704,18 @@ class HarvestManStateObject(dict):
                 if self.check_value(value): self.set_option_xml('savesessions_value', self.process_value(value))
             elif option in ('-m','--simulate',):
                 self.set_option_xml('simulate_value', 1)
+            elif option in ('-g','--plugin',):
+                if value == 'swish-e':
+                    from common import SetLogSeverity
+                    
+                    self.swishplugin = True
+                    self.verbosity = 0
+                    SetLogSeverity()
+                elif value == 'simulator':
+                    self.simulate = True
+                else:
+                    print 'Error in command-line options: Invalid plugin %s!' % value
+                    sys.exit(0)
             else:
                 print 'Ignoring invalid option ', option
 
@@ -819,7 +798,12 @@ class HarvestManStateObject(dict):
         num=len(self.urls)
         if num==0:
             sys.exit("Fatal Error: No URLs given, Aborting.")
-            
+
+        # If swish plugin enabled, set verbosity to zero
+        if self.swishplugin:
+            self.verbosity = 0
+            self.verbosities = [0]*len(self.verbosities)
+
         if not len(self.projtimeouts): self.projtimeouts.append(self.projtimeout)
         if not len(self.verbosities): self.verbosities.append(self.verbosity)
         
@@ -892,19 +876,21 @@ class HarvestManStateObject(dict):
     def parse_config_file(self):
         """ Opens the configuration file and parses it """
 
+        from common import logconsole
+        
         cfgfile = self.configfile
         if not os.path.isfile(cfgfile):
-            print 'Configuration file %s not found...' % cfgfile
+            logconsole('Configuration file %s not found...' % cfgfile)
             # Try in $HOME/.harvestman/conf directory
             if self.userconfdir:
                 cfgfile = os.path.join(self.userconfdir, 'config.xml')
                 if os.path.isfile(cfgfile):
-                    print 'Using configuration file %s...' % cfgfile
+                    logconsole('Using configuration file %s...' % cfgfile)
                     self.configfile = cfgfile
                 else:
-                    print 'Configuration file %s not found...' % cfgfile
+                    logconsole('Configuration file %s not found...' % cfgfile)
         else:
-            print 'Using configuration file %s...' % cfgfile
+            logconsole('Using configuration file %s...' % cfgfile)
             
         return xmlparser.parse_xml_config_file(self, cfgfile)
         

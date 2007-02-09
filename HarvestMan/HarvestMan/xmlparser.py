@@ -1,5 +1,4 @@
 # -- coding: latin-1
-
 """
 xmlparser.py - XML Parsing routines for HarvestMan. 
 This module contains a single class ConfigParser which acts
@@ -8,16 +7,19 @@ using pyexpat.
 
 This module is part of the HarvestMan program.
 
-Author: Anand B Pillai
-
-For licensing information see the file LICENSE.txt that
-is included in this distribution.
+Author: Anand B Pillai <abpillai at gmail dot com>
 
 Created xx-xx-xxxx  Anand
 
 Added this comment header                         10-1-06 Anand
 Fixes for handling URLs with '&amp;' correctly    10/1/06 jkleven 
+
+Copyright (C) 2004 Anand B Pillai.
+
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import xml.parsers.expat
 

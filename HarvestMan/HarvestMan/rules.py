@@ -1,10 +1,11 @@
 # -- coding: latin-1
 """ rules.py - Rules checker module for HarvestMan.
-    This software is part of the HarvestMan program.
+    This module is part of the HarvestMan program.
 
-     Author: Anand B Pillai <abpillai@gmail.com>
+     Author: Anand B Pillai <abpillai at gmail dot com>
 
     Modification History
+    --------------------
 
    Jan 8 2006          Anand    Updated this file from EIAO
                                 repository to get fixes for robot
@@ -16,9 +17,13 @@
    Jan 10 2006          Anand    Converted from dos to unix format
                                 (removed Ctrl-Ms).
 
-   Copyright (C) 2006 Anand B Pillai.
+   Copyright (C) 2004 Anand B Pillai.
                                 
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
+
 import socket
 import re
 import os
@@ -28,7 +33,6 @@ import copy
 import robotparser
 
 from common import *
-# urlPathParser module
 import urlparser
 
 class HarvestManRulesChecker(object):
@@ -589,7 +593,6 @@ class HarvestManRulesChecker(object):
             if self._configobj.getimagelinks: return False
 
         if not self.is_external_server_link(urlObj):
-            # print 'Same server ', urlObj.domain, baseUrlObj.domain
             if self._configobj.fetchlevel==0:
                 return True
             elif self._configobj.fetchlevel==3:
@@ -610,7 +613,8 @@ class HarvestManRulesChecker(object):
                     else:
                         return True
                 except urlparser.HarvestManUrlParserError, e:
-                    print e
+                    logconsole(e)
+                    
             elif self._configobj.fetchlevel > 0:
                 # this option takes precedence over the
                 # extpagelinks option, so set extpagelinks
@@ -642,8 +646,6 @@ class HarvestManRulesChecker(object):
                 self.add_to_filter(urlObj.get_full_url())
                 return True
         else:
-            # print 'Different server ', urlObj.domain, baseUrlObj.domain
-            # print 'Fetchlevel ', self._configobj.fetchlevel
             # Both belong to different base servers
             if self._configobj.fetchlevel==0 or self._configobj.fetchlevel == 1:
                 return True
@@ -665,7 +667,8 @@ class HarvestManRulesChecker(object):
                     else:
                         return True
                 except urlparser.HarvestManUrlParserError, e:
-                    print e
+                    logconsole(e)
+                    
             elif self._configobj.fetchlevel>3:
                 # this option takes precedence over the
                 # extserverlinks option, so set extserverlinks
@@ -826,7 +829,6 @@ class HarvestManRulesChecker(object):
             dom = self._pagehash[datahash]
             return (dom == urlobj.get_domain())
         else:
-            # print 'Adding datahash => %s for DOM %s' % (datahash, urlobj.get_domain())
             self._pagehash[datahash] = urlobj.get_domain()
             return False
         
@@ -849,7 +851,7 @@ class HarvestManRulesChecker(object):
             try:
                 os.remove(urlfile)
             except OSError, e:
-                print e
+                logconsole(e)
                 return
 
         moreinfo('Dumping url list to file', urlfile)
@@ -862,7 +864,7 @@ class HarvestManRulesChecker(object):
 
             f.close()
         except Exception, e:
-            print e
+            logconsole(e)
             
         debug('Done.') 
 
@@ -884,13 +886,13 @@ class HarvestManRulesChecker(object):
         urlprioritystr = self._configobj.urlpriority
         # The return is a dictionary
         url_priorities = self.__make_priority(urlprioritystr)
-        # print url_priorities
+
         self._configobj.set_option('control.urlprioritydict', url_priorities)
 
         serverprioritystr = self._configobj.serverpriority
         # The return is a dictionary        
         server_priorities = self.__make_priority(serverprioritystr)
-        # print server_priorities
+
         self._configobj.set_option('control.serverprioritydict', server_priorities)
 
         # word filter list
@@ -995,7 +997,6 @@ class HarvestManRulesChecker(object):
             return serverfilter
 
         for s in strlist:
-        # print 'S=>', s
             fstr = ''
             # First replace any ''' with ''
             extn=s.replace("'",'')            
@@ -1099,7 +1100,7 @@ class HarvestManRulesChecker(object):
         clparen = s.count(')')
         oparen  = s.count('(')
         if oparen != clparen:
-            print 'Error in word regular expression'
+            logconsole('Error in word regular expression')
             return None
 
         self.__parse_word_filter(s)

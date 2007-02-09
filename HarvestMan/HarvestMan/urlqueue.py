@@ -1,17 +1,23 @@
 # -- coding: latin-1
 """ urlqueue.py - Module which controls queueing of urls
-created by crawler threads. This is part of the HarvestMan
-program.
+    created by crawler threads. This is part of the HarvestMan
+    program.
 
-Modification History
+    Author: Anand B Pillai <abpillai at gmail dot com>
+    
+    Modification History
 
-Anand Jan 12 2005 -   Created this module, by splitting urltracker.py
-Aug 11 2006  Anand    Checked in changes for reducing CPU
-                      utlization (reported by EIAO).
+     Anand Jan 12 2005 -   Created this module, by splitting urltracker.py
+     Aug 11 2006  Anand    Checked in changes for reducing CPU utilization.
 
-Aug 22 2006  Anand    Changes for fixing single-thread mode.
+     Aug 22 2006  Anand    Changes for fixing single-thread mode.
+
+   Copyright (C) 2005 Anand B Pillai.     
 
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import bisect
 import Queue
@@ -132,7 +138,6 @@ class HarvestManCrawlerQueue(object):
 
         # Get base url object
         self._baseUrlObj = state.get('_baseUrlObj')
-        print 'Base URL OBJ=>',self._baseUrlObj
         # If base url object is None, we cannot proceed
         # so return -1
         if self._baseUrlObj is None:
@@ -148,10 +153,8 @@ class HarvestManCrawlerQueue(object):
 
         # Set state for queues
         self.url_q.queue = state.get('url_q', MyDeque())
-        # print self.url_q.queue
         
         self.data_q.queue = state.get('data_q', MyDeque())
-        # print self.data_q.queue
 
         # If both queues are empty, we don't have anything to do
         if len(self.url_q.queue)==0 and len(self.data_q.queue)==0:
@@ -266,7 +269,7 @@ class HarvestManCrawlerQueue(object):
             try:
                 t.start()
             except AssertionError, e:
-                print e
+                logconsole(e)
                 pass
 
         time.sleep(2.0)
@@ -408,7 +411,6 @@ class HarvestManCrawlerQueue(object):
 
         blocked = 0
         for t in self._trackers:
-            # print t,t.has_work()
             if not t.has_work(): blocked += 1
 
         return blocked
@@ -532,7 +534,6 @@ class HarvestManCrawlerQueue(object):
 
         blocked = self.__get_num_blocked_threads()
 
-        # print 'Blocked threads=>',blocked
         if blocked == len(self._trackers):
             return True
         else:
@@ -585,8 +586,6 @@ class HarvestManCrawlerQueue(object):
             self._trackers[idx] = new_t
             new_t._resuming = True
             new_t.start()
-            print 'New thread=>',new_t
-            print 'Status=>',new_t._status
             time.sleep(2.0)
         else:
             # Could not make new thread, so decrement
@@ -634,12 +633,6 @@ class HarvestManCrawlerQueue(object):
                     time.sleep(0.5)
                     
         self._pushes += 1
-        #if self._pushes==10:
-        #    # print 'NUM=>',len(threading.enumerate())
-        #    raise MemoryError, 'Out of memory!'
-        #elif self._pushes>10:
-        #    print 'NUM=>',len(threading.enumerate())
-            
         self._lasttimestamp = time.time()
 
         return status
@@ -711,9 +704,9 @@ class HarvestManCrawlerQueue(object):
             except crawler.HarvestManUrlCrawlerException, e:
                 pass
             except AssertionError, e:
-                print str(e), '=> ', tracker
+                logconsole(str(e))
             except ValueError, e:
-                print str(e), '=> ', tracker
+                logconsole(str(e))
 
             del tracker
             

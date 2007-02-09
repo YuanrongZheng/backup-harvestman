@@ -1,57 +1,27 @@
 # -- coding: latin-1
 """ pageparser.py - Module to parse an html page and
-    extract its links. This software is part of the
+    extract its links. This module is part of the
     HarvestMan program.
 
-    Author: Anand B Pillai (anandpillai at letterboxes dot org).
+    Author: Anand B Pillai (abpillai at gmail dot com).
     
     For licensing information see the file LICENSE.txt that
     is included in this distribution.
 
-    Dependency
-    ==========
+    Modification History
+    ====================
 
-    Jun 14 2004       Anand          1.3.9 release.
-    May 14 2005       Anand          1.4.1 - Replaced parser
-                                     with one derived from SGMLParser
-                                     instead of htmlparser. Discontinued
-                                     usage of HTML tidy.
-
-                                     [Original code of SGMLParser derived
-                                     parser, courtesy Leonardo of BeautifulSoup
-                                     module]
-
-   Sep 1 2005       Anand            Made _handled, skip_re and query_re
-                                     as class level members to optimize their
-                                     usage.
-   Jan 4 2006       Anand            Fixed a bug in duplicate links for anchor
-                                     type links as part of EIAO ticket #74
-                                     changes (random walk fix).
-   Jan 8 2006       Anand            Updated this file from EIAO repository
-                                     to get a few bug-fixes. Removed EIAO
-                                     specific code.
-   Jan 10 2006      John             Bugfix by John Kleven for query forms
-                                     variable (changed skipqueryforms to getqueryforms
-                                     and fixed filter_link method).
-   Jan 10 2006      Anand            1. Converted from dos to unix format (removed
-                                     Ctrl-Ms).
-                                     2. Bugfix for 'link' type tags - Type should not
-                                     be empty; set to 'normal'. Also added a
-                                     'handled_rel_types' variable to hold the types
-                                     handled inside <link.. type of tags. This bug
-                                     was causing a number of web-page links to be
-                                     reported as non-webpage links.
-
-   Sep 26 2006    Anand              Fixed EIAO ticket #194 - added support for
-                                     <area...> tags.
-   Sep 29 2006    Anand              Partial fix for EIAO ticket #193 by adding support for
-                                     META REFRESH tag - lack of this was causing
-                                     www.um.lublin.pl to fail.
 
    Jan 2007       Anand              Complete support for META robot tags implemented.
                                      Requested by jim sloan of MCHS.
+
+
+  Copyright (C) 2004 Anand B Pillai.                                     
                                      
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 from sgmllib import SGMLParser
 from HTMLParser import HTMLParser
@@ -188,7 +158,6 @@ class harvestManSimpleParser(SGMLParser):
 
             d = CaselessDict(attrs)
             _values = (self.handled[tag])
-            #print 'd', d, d.line, d.column
 
             link = ''
 
@@ -223,7 +192,7 @@ class harvestManSimpleParser(SGMLParser):
 
                 try:
                     if tag == 'meta':
-                        # print 'D=>',d
+
                         # Handle meta tag for refresh
                         foundtyp = d.get('http-equiv','').lower()
                         if foundtyp.lower() == 'refresh':
@@ -289,11 +258,9 @@ class harvestManSimpleParser(SGMLParser):
         if typ == 'image':
             if not (typ, link) in self.images:
                 # moredebug('Adding image ', link, typ)
-                # print 'Adding image ', link, typ
                 self.images.append((typ, link))
         elif not (typ, link) in self.links:
                 # moredebug('Adding link ', link, typ)
-                # print 'Adding link ', link, typ
                 pos = self.getpos()
                 self.links.append((typ, link))
                 self.linkpos[(typ,link)] = (pos[0],pos[1])

@@ -3,41 +3,22 @@
     Has two classes, one for downloading of urls and another
     for managing the url threads.
 
-    This software is part of the HarvestMan program.
+    This module is part of the HarvestMan program.
 
-    Author: Anand B Pillai (anandpillai at letterboxes dot org).
+    Author: Anand B Pillai (abpillai at gmail dot com).
     
-    Copyright (C) 2004-2005 Anand B Pillai.
-
     Modification History
 
-    Jun 4-9 2004 Anand  1.4 development.
-
-                        *Adopted a queue model for the sub
-                        threads in this module similar to the
-                        tracker threads. Instead of spawning new
-                        threads for every download job, we reuse
-                        the threads in the thread pool. The threads
-                        are pre-spawned at the beginning of download.
-
-                        Derived harvestManUrlThreadPool from Queue
-                        and added method 'spawn_threads' to it.
-
-    Jun 14 2004        1.3.9 release.
-
-    Sep 22 2004        1.4 development
-
-                        Performance Fixes
-                        =================
-
-                        1. Added check for end flag in download() method
-                        of threads for better clean up in case of
-                        program termination or killing (using Ctrl-C).
     Jan 10 2006  Anand  Converted from dos to unix format (removed Ctrl-Ms).
     Jan 20 2006  Anand  Small change in printing debug info in download
                         method.
     
+    Copyright (C) 2004 Anand B Pillai.
+
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import os, sys
 import math
@@ -131,7 +112,6 @@ class harvestManUrlThread(threading.Thread):
         # If download was not completed, push-back object
         # to the pool.
         if self.__downloadstatus==0 and self.__urlobject:
-            # print 'Pushing back urlobject for url %s...' % self.__urlobject.get_full_url()
             self.__pool.push(self.__urlobject)
             
         self.__endflag = True
@@ -314,7 +294,6 @@ class harvestManUrlThreadPool(Queue):
             tdict[t.getName()]  = d2
 
         d['threadinfo'] = tdict
-        # print d
         
         return copy.deepcopy(d)
 

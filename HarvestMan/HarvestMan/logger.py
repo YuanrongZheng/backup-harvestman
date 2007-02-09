@@ -2,27 +2,33 @@
 
 """
 logger.py -  Logging functions for HarvestMan.
-This file is part of the HarvestMan program.
+This module is part of the HarvestMan program.
 
-Author: Anand B Pillai
+Author: Anand B Pillai <abpillai at gmail dot com>
+
 Created: Jan 23 2005
 
-Modified: Anand B Pillai Aug 17 06
-Made this to use Python logging module.
+Modification History
 
+   Aug 17 06 Anand   Made this to use Python logging module.
+
+Copyright (C) 2005 Anand B Pillai.
 
 """
 
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
+
 import logging, logging.handlers
-import os
+import os, sys
 
 class HandlerFactory(object):
     """ Factory class to create handlers of different families for use by SIMLogger """
     
     def createHandle(handlertype, *args):
         """ Return a logging handler of the given type.
-        The handler will be initialized using params from the args and kwargs
-        arguments """
+        The handler will be initialized using params from the args
+        argument tuple """
 
         if handlertype == 'StreamHandler':
             return logging.StreamHandler(*args)
@@ -63,7 +69,7 @@ class HarvestManLogger(object):
         """ Initialize the logger class with severity and logflag """
         
         self._severity = severity
-        self._consolelog = False
+        self._consolelog = True
         
         if logflag==0:
             self._severity = 0
@@ -199,6 +205,14 @@ class HarvestManLogger(object):
         except ValueError, e:
             pass
 
+    def logconsole(self, msg, *args):
+        """ Directly log to console using sys.stdout """
+
+        try:
+            (self._severity>0) and sys.stdout.write(self.__getMessage(msg, *args)+'\n')
+        except ValueError, e:
+            pass
+        
     def getDefaultLogger(cls):
         """ Return the default logger instance """
 

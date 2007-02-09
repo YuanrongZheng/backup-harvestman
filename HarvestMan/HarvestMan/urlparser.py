@@ -1,29 +1,27 @@
 # -- coding: latin-1
-"""HarvestManUrlPathParser.py - Module to parse a url string based
-on a directory and extract useful information like
-directory, filename path etc. This software is part of
-the HarvestMan program.
+"""urlparser.py - Module to parse a URL string based
+   on a directory/parent URL and extract useful information like
+   directory, filename path etc. This module is part of
+   the HarvestMan program.
 
-Author: Anand B Pillai, based on the earlier code written
-by Nirmal K Chidambadarm.
+   Author: Anand B Pillai <abpillai at gmail dot com>, based on
+   the original code written by Nirmal K Chidambaram.
 
-Date: Nov 2 2004
+   Creation Date: Nov 2 2004
 
-Nov 24 2004       Added two methods to get base server.
-July 21 2005      Fixed a bug in setting directory-like urls
-                  in function set_directory_url. lastpath
-                  is appended to dirpath only if it is not
-                  already there. This fixes a number of
-                  HTTP 404 errors.
-July 30 2005      Added a few more xtensions to webpage types
-                  which are missing.
-Jan 01 2006       jkleven change is_webpage to return "true"
-                  if the URL looks like a form query
-Jan 10 2006      Anand    Converted from dos to unix format (removed Ctrl-Ms).
-Oct 1 2006       Anand    Fixes for EIAO ticket #193 - added reduce_url
-                          method to take care of .. chars inside URLs.
 
+   Jan 01 2006      jkleven  Change is_webpage to return 'true'
+                             if the URL looks like a form query.
+   Jan 10 2006      Anand    Converted from dos to unix format (removed Ctrl-Ms).
+   Oct 1 2006       Anand    Fixes for EIAO ticket #193 - added reduce_url
+                             method to take care of .. chars inside URLs.
+
+   Copyright (C) 2004 Anand B Pillai.
+   
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import os
 import re
@@ -34,9 +32,10 @@ import urlproc
 from common import *
 
 # Testing flag
-__TEST__ = 0
+TEST = 0
 
 class HarvestManUrlParserError(Exception):
+
     def __init__(self, value):
         self.value = value
 
@@ -46,7 +45,7 @@ class HarvestManUrlParserError(Exception):
     def __str__(self):
         return str(self.value)
     
-class HarvestManUrlParser:
+class HarvestManUrlParser(object):
     """ New HarvestMan Url Parser class re-written
     to make the code more readable """
     
@@ -75,9 +74,13 @@ class HarvestManUrlParser:
     # including dynamic server pages & cgi scripts.
     webpage_extns = ('', '.htm', '.html', '.shtm', '.shtml', '.php',
                      '.php3','.php4','.asp', '.aspx', '.jsp','.psp','.pl',
-                     '.cgi', '.stx', '.cfm', '.cfml', '.cms' )
+                     '.cgi', '.stx', '.cfm', '.cfml', '.cms')
 
 
+    # Document extensions
+    document_extns = ('.doc','.rtf','.odt','.odp','.ott','.sxw','.stw',
+                      '.sdw','.vor','.xml','.pdf','.ps')
+    
     # Most common stylesheet url file extensions
     stylesheet_extns = ( '.css', )
 
@@ -99,6 +102,7 @@ class HarvestManUrlParser:
     # Special strings
     special_strings = ('%20','%7E','%2B','%22','%3C','%3E','%23','%25',
                        '%7B','%7D','%7C','%5C','%5E','%5B','%5D','%60')
+
     # Special string replacements
     special_strings_repl = (' ','~','+','"','<','>','#','%','{','}','|','\\','^','[',']','`')
 
@@ -337,7 +341,6 @@ class HarvestManUrlParser:
                 items = self.reduce_url(items)
                 # Re-construct URL
                 paths = self.URLSEP.join(items)
-                print 'PATHS=>',paths
             
         # Now compute local directory/file paths
 
@@ -586,6 +589,29 @@ class HarvestManUrlParser:
              
         return False
 
+    def is_document(self):
+        """ Return whether the url is a document """
+
+        # This method is useful for Indexers which use HarvestMan.
+        # We define any URL which is not an image, is either a web-page
+        # or any of the following types as a document.
+
+        # Microsoft word documents
+        # Openoffice documents
+        # Adobe PDF documents
+        # Postscript documents
+
+        if self.is_image(): return False
+        if self.is_webpage(): return True
+
+        # Check extension
+        if self.validfilename:
+            extn = ((os.path.splitext(self.validfilename))[1]).lower()
+            if extn in self.document_extns:
+                return True
+
+        return False
+    
     def is_equal(self, url):
         """ Find whether the passed url matches
         my url """
@@ -810,7 +836,7 @@ class HarvestManUrlParser:
         This is created w.r.t the local directory where we save
         the url data """
 
-        if not __TEST__:
+        if not TEST:
             cfg = GetObject('config')
             if cfg.rawsave:
                 return self.get_filename()
@@ -1085,9 +1111,10 @@ class HarvestManUrlParser:
 if __name__=="__main__":
     Initialize()
     # Test code
-    global __TEST__
 
-    __TEST__ = 1
+    global TEST
+
+    TEST = 1
     hulist = [ HarvestManUrlParser('http://www.yahoo.com/photos/my photo.gif'),
                HarvestManUrlParser('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
                HarvestManUrlParser('http://cwc2003.rediffblogs.com'),
