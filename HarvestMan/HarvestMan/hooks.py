@@ -3,7 +3,7 @@
     execution flow of HarvestMan, making it easy to extend and customize
     it. This module is part of the HarvestMan program.
 
-    Created by Anand B Pillai <abpillai@gmail.com> Feb 1 07.
+    Created by Anand B Pillai <abpillai at gmail dot com> Feb 1 07.
 
    Copyright (C) 2007 Anand B Pillai.    
 """

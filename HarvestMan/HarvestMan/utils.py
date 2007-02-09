@@ -1,30 +1,25 @@
  # -- coding: latin-1
-""" HarvestManUtils.py - Utility classes for harvestman
+""" utils.py - Utility classes for harvestman
     program.
 
     Created: Anand B Pillai on Sep 25 2003.
     
-    Author: Anand B Pillai (anandpillai at letterboxes dot org).    
+    Author: Anand B Pillai (abpillai at gmail dot com).    
 
     This contains a class for pickling using compressed data
     streams and another one for writing project files.
 
-    Feb 10 2004   Anand   1.3.1 bug fix release.
-    Jun 14 2004   Anand   1.3.9 release.
-    Oct 4 2004    Anand   1.4 dev - Use cPickle instead
-                          of pickle.
-    Nov 19 2004   Anand   Fixed bugs in read/write of
-                          project files.
-    Aug 2 2005    Anand   Changed binary protocol from pickle
-                          to marshal. However most functions
-                          still retain the 'pickle tag :-) .
-                          This was because the config object
-                          was not getting pickled, but was getting
-                          marshalled fine. This also fixes
-                          the problem with reading project files.
-  Jan 10 2006     Anand   Converted from dos to unix format (removed Ctrl-Ms).
+   Jan 10 2006     Anand   Converted from dos to unix format (removed Ctrl-Ms).
+
+
+   Copyright (C) 2005 Anand B Pillai
+   
                           
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
+
 
 import os
 import cPickle, pickle
@@ -293,7 +288,7 @@ class HarvestManCacheManager(object):
                     cache_obj[domain] = domain_cache
             
         except HarvestManSerializerError, e:
-            print e
+            logconsole(e)
             return None
 
         return cache_obj
@@ -343,7 +338,7 @@ class HarvestManCacheManager(object):
                 pickler.dump( urldict, cachefilename)
                 
         except HarvestManSerializerError, e:
-            print e
+            logconsole(e)
             return -1
 
         return 0
@@ -390,7 +385,7 @@ class HarvestManProjectManager(object):
 
             return 0
         except HarvestManSerializerError, e:
-            print e
+            logconsole(e)
             return -1
 
     def __write_pickled_project_file(self):
@@ -403,14 +398,14 @@ class HarvestManProjectManager(object):
             try:
                 os.remove(pckfile)
             except OSError, e:
-                print e
+                logconsole(e)
                 return -1
 
         try:
             pickler = HarvestManSerializer()
             pickler.dump( cfg, pckfile)
         except HarvestManSerializerError, e:
-            print 'PROJECT ERROR:', str(e)
+            logconsole(str(e))
             return -1
 
         moreinfo('Done.')
@@ -444,7 +439,7 @@ class HarvestManBrowser(object):
             webbrowser.open(browsefile)
             moreinfo('Done.')
         except webbrowser.Error, e:
-            print e
+            logconsole(e)
         return 
 
     def __add_project_to_browse_page(self):
@@ -460,10 +455,10 @@ class HarvestManBrowser(object):
             contents=f.read()
             f.close()
         except IOError, e:
-            print e
+            logconsole(e)
             return -1
         except OSError, e:
-            print e
+            logconsole(e)
             return -1
 
         if not contents: return -1
@@ -499,7 +494,7 @@ class HarvestManBrowser(object):
                 f.write(newcontents)
                 f.close()
             except OSError, e:
-                print e
+                logconsole(e)
                 return -1
         else:
             # find location of </TR> from this index
@@ -515,7 +510,7 @@ class HarvestManBrowser(object):
                 f.write(newcontents)
                 f.close()
             except OSError, e:
-                print e
+                logconsole(e)
                 return -1
 
     def __make_initial_browse_page(self):

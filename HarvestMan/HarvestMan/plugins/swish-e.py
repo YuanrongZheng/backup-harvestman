@@ -4,8 +4,14 @@ behaviour of HarvestMan to work with swish-e search engine.
 The data format is according to the guidelines given
 at http://swish-e.org/docs/swish-run.html#indexing.
 
-Created Feb 8 2007     Anand B Pillai <abpillai@gmail.com>
+Created Feb 8 2007     Anand B Pillai <abpillai at gmail dot com>
+
+Copyright (C) 2007 Anand B Pillai
+
 """
+
+__version__ = '1.5 b1'
+__author__ = 'Anand B Pillai'
 
 import hooks
 from common import GetObject
