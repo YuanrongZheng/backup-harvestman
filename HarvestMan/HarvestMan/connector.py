@@ -31,7 +31,7 @@ import threading as tg
 import urllib2 
 import urlparse
 
-from common import *
+from common.common import *
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 
 # Overrideable hooks defined by this module

@@ -26,7 +26,7 @@ __author__ = 'Anand B Pillai'
 from sgmllib import SGMLParser
 from HTMLParser import HTMLParser
 
-from common import *
+from common.common import *
 import re
 
 class CaselessDict(dict):
@@ -342,19 +342,19 @@ class harvestManComplexParser(HTMLParser, harvestManSimpleParser):
 if __name__=="__main__":
     import os
     
-    Initialize()
+    InitConfig()
 
     cfg = GetObject('config')
     cfg.verbosity = 5
     cfg.forms = True
     
-    p = harvestManComplexParser()
-    urls = ['http://xerces.apache.org/xerces-j/apiDocs/index.html']
+    p = harvestManSimpleParser()
+    urls = ['http://projecteuler.net/index.php?section=problems']
 
     for url in urls:
        if os.system('wget %s -O index.html' % url ) == 0:
            p.feed(open('index.html').read())
-           #print p.links
+           print p.links
            #p.reset()
            pass
                                    

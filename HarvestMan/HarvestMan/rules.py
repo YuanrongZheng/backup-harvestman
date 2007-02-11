@@ -32,7 +32,7 @@ import copy
 
 import robotparser
 
-from common import *
+from common.common import *
 import urlparser
 
 class HarvestManRulesChecker(object):

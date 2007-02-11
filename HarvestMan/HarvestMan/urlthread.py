@@ -28,7 +28,7 @@ import copy
 
 from collections import deque
 from Queue import Queue, Full, Empty
-from common import *
+from common.common import *
 
 class HarvestManUrlThreadInterrupt(Exception):
     """ Interrupt raised to kill a harvestManUrlThread class's object """

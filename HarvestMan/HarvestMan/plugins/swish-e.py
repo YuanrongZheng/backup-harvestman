@@ -14,7 +14,7 @@ __version__ = '1.5 b1'
 __author__ = 'Anand B Pillai'
 
 import hooks
-from common import GetObject
+from common.common import GetObject
 
 def save_url(self, urlobj):
 

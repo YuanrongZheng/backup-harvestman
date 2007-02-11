@@ -30,7 +30,7 @@ import utils
 
 from urlthread import harvestManUrlThreadPool
 from connector import *
-from common import *
+from common.common import *
 
 # Defining hookable functions
 __hooks__ = { 'download_url_hook': 'HarvestManDataManager:download_url' }

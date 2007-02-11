@@ -19,7 +19,7 @@ import select
 import asyncore, socket, threading, SocketServer
 from urlqueue import PriorityQueue
 from Queue import Empty
-from common import *
+from common.common import *
 import bisect
 
 class AsyncoreThread(threading.Thread):

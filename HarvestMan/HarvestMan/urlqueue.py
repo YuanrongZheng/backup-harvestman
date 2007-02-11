@@ -27,7 +27,7 @@ import threading
 import sys, os
 import copy
 
-from common import *
+from common.common import *
 
 class PriorityQueue(Queue.Queue):
     """ Priority queue based on bisect module (courtesy: Effbot) """

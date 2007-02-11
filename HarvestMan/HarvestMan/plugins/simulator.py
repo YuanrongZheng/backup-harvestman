@@ -39,7 +39,7 @@ def apply_plugin():
     # The first step is required, the last two are of course optional
     # depending upon the required application of the plugin.
     
-    from common import GetObject
+    from common.common import GetObject
     
     cfg = GetObject('config')
     if cfg.simulate:

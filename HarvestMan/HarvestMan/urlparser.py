@@ -29,7 +29,7 @@ import mimetypes
 import copy
 import urlproc
 
-from common import *
+from common.common import *
 
 # Testing flag
 TEST = 0

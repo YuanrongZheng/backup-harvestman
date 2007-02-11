@@ -28,7 +28,7 @@ import zlib
 import shelve
 
 from shutil import copy
-from common import *
+from common.common import *
 
 HARVESTMAN_XML_HEAD1="""<?xml version=\"1.0\" encoding=\"UTF-8\"?>"""
 HARVESTMAN_XML_HEAD2="""<!DOCTYPE HarvestManProject SYSTEM \"HarvestManProject.dtd\">"""

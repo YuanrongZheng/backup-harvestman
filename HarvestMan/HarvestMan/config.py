@@ -92,10 +92,10 @@ Mail bug reports and suggestions to <abpillai@gmail.com>.
 """
 
 import os, sys
-import getopt
+import getopt, optparse
 import xmlparser
 
-from common import *
+from common.common import *
 
 class HarvestManStateObject(dict):
     """ Internal config class for the program """
@@ -706,7 +706,7 @@ class HarvestManStateObject(dict):
                 self.set_option_xml('simulate_value', 1)
             elif option in ('-g','--plugin',):
                 if value == 'swish-e':
-                    from common import SetLogSeverity
+                    from common.common import SetLogSeverity
                     
                     self.swishplugin = True
                     self.verbosity = 0
@@ -878,7 +878,7 @@ class HarvestManStateObject(dict):
     def parse_config_file(self):
         """ Opens the configuration file and parses it """
 
-        from common import logconsole
+        from common.common import logconsole
         
         cfgfile = self.configfile
         if not os.path.isfile(cfgfile):

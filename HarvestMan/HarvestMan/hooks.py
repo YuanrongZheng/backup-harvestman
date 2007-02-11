@@ -11,7 +11,7 @@
 __version__ = '1.5 b1'
 __author__ = 'Anand B Pillai'
 
-from singleton import Singleton
+from common.singleton import Singleton
 
 class HarvestManHooksException(Exception):
     """ Exception class for HarvestManHooks class """

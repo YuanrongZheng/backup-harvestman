@@ -33,7 +33,7 @@ import sha
 
 from sgmllib import SGMLParseError
 
-from common import *
+from common.common import *
 import urlparser
 import pageparser
 
