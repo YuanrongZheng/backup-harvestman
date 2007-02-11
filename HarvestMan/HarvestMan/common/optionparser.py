@@ -1,7 +1,8 @@
-# -- coding: iso8859-1
-"""Generic option parser class. This class can be used
-to write code that will parse command line options for
-an application by invoking one of the standard Python
+# -- coding: latin-1
+"""
+optionparser.py - Generic option parser class. This class
+can be used to write code that will parse command line options
+for an application by invoking one of the standard Python
 library command argument parser modules optparse or
 getopt.
 
@@ -9,26 +10,40 @@ The class first tries to use optparse. It it is not there
 (< Python 2.3), it invokes getopt. However, this is
 transparent to the application which uses the class.
 
-The class requires a dictionary with entries of the following
+The class requires a list with tuple entries of the following
 form for each command line option.
 
-'option_var' :   ('short=<short option>','long=<long option>',
-                  'help=<help string>', 'meta=<meta variable>',
-                  'default=<default value>', 'type=<option type>')
+('option_var', 'short=<short option>','long=<long option>',
+'help=<help string>', 'meta=<meta variable>','default=<default value>',
+'type=<option type>')
 
 where, 'option_var' is the key for the option in the final
-dictionary of option-value pairs. The value is a tuple of
-strings, where each string consists of entries of the form,
-
-'key=value', where 'key' is borrowed from the way optparse
-represents each variables for an option setting.
+dictionary of option-value pairs. The rest are strings of
+the form 'key=value', where 'key' is borrowed from the way
+optparse represents each variables for an option setting.
 
 To parse the arguments, call the method 'parse_arguments'.
-The return value is a dictionary of the option-value pairs."""
+The return value is a dictionary of the option-value pairs.
+
+This module is part of the HarvestMan software.
+
+This module was originally created as an ASPN cookbook
+recipe http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/425345 .
+The current module is a slightly modified form of the recipe.
+
+Author: Anand B Pillai <abpillai at gmail dot com>
+
+Created: Feb 11 2007 by Anand B Pillai 
+
+
+Copyright (C) 2007 - Anand B Pillai.
+
+"""
 
 import sys
 
-__author__="Anand Pillai"
+__author__="Anand B Pillai"
+__version__="1.5 b1"
 
 class GenericOptionParserError(Exception):
     
@@ -42,28 +57,34 @@ class GenericOptionParser:
     """ Generic option parser using
     either optparse or getopt """
 
-    def __init__(self, optmap):
-        self._optmap = self._parse_optmap(optmap)
+    def __init__(self, optlist, usage=''):
+        self._optlist = self.__process_optlist(optlist)
         self._optdict = {}
+        self._args = ''
+        self._usage = usage
         self.maxw = 24
-        
-    def _parse_optmap(self, map):
-        """ Internal method -> Parse option
-        map containing tuples and convert the
-        tuples to a dictionary """
 
-        optmap = {}
-        for key,value in map.items():
-            d = {}
-            for item in value:
-                if not item: continue
-                var,val=item.split('=')
-                d[var]=val
-                
-            optmap[key] = d
+    def __process_optlist(self, optlist):
+        """ Process options list """
 
-        return optmap
-        
+        optionslist = []
+
+        for optiontuple in optlist:
+            # Option destination is first item
+            optiondest = optiontuple[0]
+            # Create empty dictionary
+            itemdict = {}
+            # Convert rest to a dictionary
+            for item in optiontuple[1:]:
+                key,val = item.split('=')
+                itemdict[key] = val
+
+            # Append option dest as first val
+            # and itemdict as second val in a list
+            optionslist.append([optiondest, itemdict])
+
+        return optionslist
+            
     def parse_arguments(self):
         """ Parse command line arguments and
         return a dictionary of option-value pairs """
@@ -84,30 +105,28 @@ class GenericOptionParser:
             except ImportError:
                 raise GenericOptionParserError,'Fatal Error: No optparse or getopt modules found'
 
-        return self._optdict
+        return (self._optdict, self._args)
                 
     def _parse_arguments1(self):
         """ Parse command-line arguments using optparse """
 
-        p = self.optparse.OptionParser()
+        p = self.optparse.OptionParser(usage=self._usage)
         
-        for key,value in self._optmap.items():
-            # Option destination is the key itself
-            option = key
+        for option, itemdict in self._optlist:
             # Default action is 'store'
             action = 'store'
             # Short option string
-            sopt = value.get('short','')
+            sopt = itemdict.get('short','')
             # Long option string
-            lopt = value.get('long','')
+            lopt = itemdict.get('long','')
             # Help string
-            helpstr = value.get('help','')
+            helpstr = itemdict.get('help','')
             # Meta var
-            meta = value.get('meta','')
+            meta = itemdict.get('meta','')
             # Default value
-            defl = value.get('default','')
+            defl = itemdict.get('default','')
             # Default type is 'string'
-            typ = value.get('type','string')
+            typ = itemdict.get('type','string')
             
             # If bool type...
             if typ == 'bool':
@@ -123,7 +142,8 @@ class GenericOptionParser:
 
         (options,args) = p.parse_args()
         self._optdict = options.__dict__
-
+        self._args = args
+        
     def _parse_arguments2(self):
         """ Parse command-line arguments using getopt """
 
@@ -135,11 +155,11 @@ class GenericOptionParser:
         shortopt,longopt='h',['help']
         # Create short option string and long option
         # list for getopt
-        for key, value in self._optmap.items():
-            sopt = value.get('short','')
-            lopt = value.get('long','')
-            typ = value.get('type','string')            
-            defl = value.get('default','')
+        for option, itemdict in self._optlist:
+            sopt = itemdict.get('short','')
+            lopt = itemdict.get('long','')
+            typ = itemdict.get('type','string')            
+            defl = itemdict.get('default','')
 
             # If bool type...
             if typ == 'bool':
@@ -156,45 +176,80 @@ class GenericOptionParser:
 
         # Parse
         (optlist,args) = self.getopt.getopt(sys.argv[1:],shortopt,longopt)
-
+        self._args = args
+        
         # Match options
         for opt,val in optlist:
             # Invoke help
             if opt in ('-h','--help'):
                 sys.exit(self._usage())
                 
-            for key,value in self._optmap.items():
-                sopt = '-' + value.get('short','')
-                lopt = '--' + value.get('long','')
-                typ = value.get('type','string')
+            for option,itemdict in self._optlist:
+                sopt = '-' + itemdict.get('short','')
+                lopt = '--' + itemdict.get('long','')
+                typ = itemdict.get('type','string')
                 
                 if opt in (sopt,lopt):
                     if typ=='bool': val = True
                     self._optdict[key]=val
-                    del self._optmap[key]
                     break
 
+    def _split_help_str(self, help):
+        """ Split help string into many lines """
+
+        # According to following
+        # Max number of chars per line is 52
+        # If char count exceeds, split line,
+        # preserving words.
+        maxlen = 53
+        helps,count=[],0
+        if len(help)<=maxlen:
+            return help
+        
+        while help:
+            if len(help)<maxlen:
+                helps.append(self.maxw*' ' + help.strip())
+                break
+            else:
+                piece = help[0:maxlen]
+                # Find max index of space char in this piece
+                sindx = piece.rfind(' ')
+                # Split according to space char
+                piece = piece[0:sindx]
+                if count>0:
+                    piece = self.maxw*' ' + piece
+                helps.append(piece)
+                help = help[sindx+1:]
+                count += 1
+                
+        return '\n'.join(helps)
+    
     def _usage(self):
         """ Generate and return a help string
         for the program, similar to the one
         generated by optparse """
 
-        usage = ["usage: %s [options]\n\n" % sys.argv[0]]
-        usage.append("options:\n")
+        if self._usage:
+            usage = [self._usage]
+        else:
+            usage = ["usage: %s [options]\n\n" % sys.argv[0]]
+            usage.append("options:\n")
 
         options = [('  -h, --help', 'show this help message and exit\n')]
         maxlen = 0
-        for value in self._optmap.values():
-            sopt = value.get('short','')
-            lopt = value.get('long','')
-            help = value.get('help','')
-            meta = value.get('meta','')
+        for option, itemdict in self._optlist:
+            sopt = itemdict.get('short','')
+            lopt = itemdict.get('long','')
+            help = itemdict.get('help','')
+            meta = itemdict.get('meta','')
             
             optstr = ""
-            if sopt: optstr="".join(('  -',sopt,meta))
+            if sopt: optstr="".join(('  -',sopt,' ',meta))
             if lopt: optstr="".join((optstr,', --',lopt))
             if meta: optstr="".join((optstr,'=',meta))
-            
+
+            help = self._split_help_str(help)
+                
             l = len(optstr)
             if l>maxlen: maxlen=l
             options.append((optstr,help))
@@ -212,17 +267,17 @@ class GenericOptionParser:
         return "".join(usage)
 
 if __name__=="__main__":
-    d={ 'infile' : ('short=i','long=in','help=Input file for the program',
+    l=[ ('infile', 'short=i','long=in','help=Input file for the program',
                     'meta=IN'),
-        'outfile': ('short=o','long=out','help=Output file for the program',
+        ('outfile', 'short=o','long=out','help=Output file for the program',
                     'meta=OUT'),
-        'verbose': ('short=V','long=verbose','help=Be verbose in output',
-                    'type=bool') }
+        ('verbose', 'short=V','long=verbose','help=Be verbose in output',
+                    'type=bool') ]
 
-    g=GenericOptionParser(d)
+    g=GenericOptionParser(l)
     optdict = g.parse_arguments()
  
     for key,value in optdict.items():
          # Use the option and the value in
          # your program
-         ...
+         print key,value

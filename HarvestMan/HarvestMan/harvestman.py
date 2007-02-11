@@ -406,17 +406,17 @@ class HarvestMan(object):
         # Open stream to log file
         SetLogFile()
         
-        #try:
-        if not self._cfg.testnocrawl:
-            self.start_project()
-        #except (KeyboardInterrupt, EOFError, Exception), e:
-        #    logconsole('Exception received=>',str(e))
-        #    if not self._cfg.ignoreinterrupts:
-        #        # dont allow to write cache, since it
-        #        # screws up existing cache.
-        #        GetObject('datamanager').conditional_cache_set()
-        #        self.save_current_state()
-        #        self.clean_up()
+        try:
+            if not self._cfg.testnocrawl:
+                self.start_project()
+        except (KeyboardInterrupt, EOFError, Exception), e:
+           logconsole('Exception received=>',str(e))
+           if not self._cfg.ignoreinterrupts:
+               # dont allow to write cache, since it
+               # screws up existing cache.
+               GetObject('datamanager').conditional_cache_set()
+               self.save_current_state()
+               self.clean_up()
 
         # Clean up actions
         try:

@@ -21,14 +21,14 @@
 __version__ = '1.5 b1'
 __author__ = 'Anand B Pillai'
 
-PROG_HELP = """\
-%(appname)s %(version)s %(maturity)s: A multithreaded web crawler.
+USAGE = """\
+ %(program)s [options] [optional URL]
+ 
+%(appname)s %(version)s %(maturity)s: An extensible, multithreaded web crawler.
 
-Usage: %(appname)s [options] URL
+There are three major modes of running %(appname)s.
 
-There are three major modes of running HarvestMan.
-
-In the default mode, %(appname)s works as a crawler.
+In the default mode, %(appname)s works as a crawler. 
 
 With the -N or --nocrawl option, %(appname)s only downloads
 the url and saves it to the disk, similar to wget. 
@@ -37,65 +37,14 @@ With the -m or --simulate option, %(appname)s performs crawling,
 but no files are downloaded. In this mode, caching is turned
 off automatically and no project directories are created.
 
-options:
-
-    -h, --help:                 Show this message and exit
-    -v, --version               Print version information and exit
-    -m, --simulate              Simulates crawling with the given configuration, but
-                                does not perform any actual downloads.
-    -N, --nocrawl               Only download the passed url (wget-like behaviour).
-    
-
-    -p, --project=PROJECT       Set the (optional) project name to PROJECT. 
-    -b, --basedir=BASEDIR       Set the (optional) base directory to BASEDIR.
-    
-    -C, --configfile=CFGFILE    Read all options from the configuration file CFGFILE.
-    -P, --projectfile=PROJFILE  Load the project file PROJFILE.
-    -V, --verbosity=LEVEL       Set the verbosity level to LEVEL. Ranges from 0-5.
-
-    -f, --fetchlevel=LEVEL      Set the fetch-level of this project to LEVEL. Ranges
-                                from 0-4.
-    -l, --localize=yes/no       Localize urls after download.
-    -r, --retry=NUM             Set the number of retry attempts for failed urls to NUM.
-    -Y, --proxy=PROXYSERVER     Enable and set proxy to PROXYSERVER (host:port).
-    -U, --proxyuser=USERNAME    Set username for proxy server to USERNAME.
-    -W, --proxypass=PASSWORD    Set password for proxy server to PASSWORD.
-    -n, --connections=NUM       Limit number of simultaneous network connections to NUM.
-    -c, --cache=yes/no          Enable/disable caching of downloaded files. If enabled,
-                                files won't be downloaded unless their timestamp is
-                                newer than the cache timestamp.
-    
-    -d, --depth=DEPTH           Set the limit on the depth of urls to DEPTH.
-    -w, --workers=NUM           Enable worker threads and set the number of worker
-                                threads to NUM. 
-    -T, --maxthreads=NUM        Limit the number of tracker threads to NUM.
-    -M, --maxfiles=NUM          Limit the number of files downloaded to NUM.
-    -t, --timelimit=TIME        Run the program for the specified time TIME.
-
-    -s, --urlserver=yes/no      Enable/disable urlserver running on port 3081.
-    -S, --savesessions=yes/no   Enable/disable session saver feature. If enabled,
-                                crashed sessions are automatically saved to disk and
-                                the program gives you the option of resuming them
-                                later. 
-                                
-    
-    -R, --robots=yes/no         Enable/disable Robot Exclusion Protocol.
-    -u, --urlfilter=FILTER      Use regular expression FILTER for filtering urls.
-    -g, --plugin=plugin         Load the plugin named 'plugin'. Supported plugins
-                                are 'swish-e' and 'simulator'.
-
-    --urlslist=FILE             Dump a list of urls to file FILE.
-    --urltree=FILE              Dump a file containing hierarchy of urls to FILE.
-
-
-Mail bug reports and suggestions to <abpillai@gmail.com>.
-"""
+Mail bug reports and suggestions to <abpillai@gmail.com>."""
 
 import os, sys
-import getopt, optparse
 import xmlparser
+import options
 
 from common.common import *
+from common.optionparser import *
 
 class HarvestManStateObject(dict):
     """ Internal config class for the program """
@@ -114,6 +63,7 @@ class HarvestManStateObject(dict):
         self.maturity="beta 1"
         self.appname='HarvestMan'
         self.progname="".join((self.appname," ",self.version," ",self.maturity))
+        self.program = sys.argv[0]
         self.url=''
         self.urls = []
         self.project=''
@@ -592,56 +542,40 @@ class HarvestManStateObject(dict):
         #
         # -h => prints help
         # -v => prints version info
-
-        soptions = 'hmvNp:c:b:C:P:t:f:l:w:r:n:d:T:R:u:Y:U:W:s:V:M:S:g:'
-        longoptions = [ "configfile=", "projectfile=",
-                        "project=","help","nocrawl","simulate",
-                        "version", "basedir=",
-                        "verbosity=", "depth=","urlfilter=",
-                        "maxthreads=","maxfiles=","timelimit=",
-                        "retry=","connections=",
-                        "localize=","fetchlevel=","proxy=",
-                        "proxyuser=","proxypass=","urlserver=",
-                        "cache=","urlslist=","urltree=","savesessions=",
-                        "plugin="
-                        ]
-
-        arguments = sys.argv[1:]
+        
+        args, optdict = '',{}
         try:
-            optlist, args = getopt.getopt(arguments, soptions, longoptions)
-        except getopt.GetoptError, e:
+            gopt = GenericOptionParser(options.getOptList(), USAGE % self )
+            optdict, args = gopt.parse_arguments()
+        except GenericOptionParserError, e:
             sys.exit('Error: ' + str(e))
  
         if args:
+            # Any option without an argument is assumed to be a URL
             self.set_option_xml('url',self.process_value(args[0]))
-            args.pop(0)
-            for idx in range(0,len(args),2):
-                try:
-                    item, value = args[idx], args[idx+1]
-                    optlist.append((item,value))
-                except IndexError:
-                    # Perhaps this chap is a flag
-                    optlist.append((args[idx],''))
 
-        # print optlist
+        cfgfile = False
         
-        for option, value in optlist:
+        for option, value in optdict.items():
+            # If an option with value of null string, skip it
+            if value=='':
+               # print 'Skipping option',option
+               continue
+            else:
+               # print 'Processing option',option,'value',value
+               pass
+           
             # first parse arguments with no options
-            if option in ('-h', '--help'):
-                self.print_help()
-                sys.exit(0)
-            elif option in ('-v', '--version'):
+            if option=='version' and value:
                 self.print_version_info()
-                sys.exit(0)
-            elif option in ('-C', '--configfile'):
-                if self.check_value(value):
+                sys.exit(0)                
+            elif option=='configfile':
+                if self.check_value(option,value):
                     self.set_option('files.configfile', self.process_value(value))
-                    # Parse config file and load values
-                    self.parse_config_file()
+                    cfgfile = True
                     # Continue parsing and take rest of options from cmd line
-                    
-            elif option in ('-P', '--projectfile'):
-                if self.check_value(value):
+            elif option=='projectfile':
+                if self.check_value(option,value):
                     self.set_option('files.projectfile', self.process_value(value))
                     import utils 
 
@@ -651,60 +585,60 @@ class HarvestManStateObject(dict):
                         # No need to parse further values
                         return 0
             
-            elif option in ('-b', '--basedir'):
-                if self.check_value(value): self.set_option_xml('basedir', self.process_value(value))
-            elif option in ('-p', '--project'):
-                if self.check_value(value): self.set_option_xml('name', self.process_value(value))
-            elif option in ('-r', '--retry'):
-                if self.check_value(value): self.set_option_xml('retries_value', self.process_value(value))
-            elif option in ('-l', '--localize'):
-                if self.check_value(value): self.set_option_xml('localise_value', self.process_value(value))
-            elif option in ('--f', '--fetchlevel'):
-                if self.check_value(value): self.set_option_xml('fetchlevel_value', self.process_value(value))
-            elif option in ('-T', '--maxthreads'):
-                if self.check_value(value): self.set_option_xml('trackers_value', self.process_value(value))
-            elif option in ('-M', '--maxfiles'):
-                if self.check_value(value): self.set_option_xml('maxfiles_value', self.process_value(value))
-            elif option in ('-t', '--timelimit'):
-                if self.check_value(value): self.set_option_xml('timelimit_value', self.process_value(value))
-            elif option in ('-w','--workers'):
+            elif option=='basedir':
+                if self.check_value(option,value): self.set_option_xml('basedir', self.process_value(value))
+            elif option=='project':
+                if self.check_value(option,value): self.set_option_xml('name', self.process_value(value))
+            elif option=='retries':
+                if self.check_value(option,value): self.set_option_xml('retries_value', self.process_value(value))
+            elif option=='localise':
+                if self.check_value(option,value): self.set_option_xml('localise_value', self.process_value(value))
+            elif option=='fetchlevel':
+                if self.check_value(option,value): self.set_option_xml('fetchlevel_value', self.process_value(value))
+            elif option=='maxthreads':
+                if self.check_value(option,value): self.set_option_xml('trackers_value', self.process_value(value))
+            elif option=='maxfiles':
+                if self.check_value(option,value): self.set_option_xml('maxfiles_value', self.process_value(value))
+            elif option=='timelimit':
+                if self.check_value(option,value): self.set_option_xml('timelimit_value', self.process_value(value))
+            elif option=='workers':
                 self.set_option_xml('workers_status',1)
-                if self.check_value(value): self.set_option_xml('workers_size', self.process_value(value))                
-            elif option in ('-u', '--urlfilter'):
-                if self.check_value(value): self.set_option_xml('urlfilter', self.process_value(value))
-            elif option in ('-d', '--depth'):
-                if self.check_value(value): self.set_option_xml('depth_value', self.process_value(value))
-            elif option in ('-R', '--robots'):
-                if self.check_value(value): self.set_option_xml('robots_value', self.process_value(value))
-            elif option in ('--urllistfile'):
-                if self.check_value(value): self.set_option_xml('urllistfile', self.process_value(value))
-            elif option in ('--urltreefile'):
-                if self.check_value(value): self.set_option_xml('urltreefile', self.process_value(value))
-            elif option in ('-N','--nocrawl'):
-                self.nocrawl = True
-            elif option in ('-Y', '--proxy'):
-                if self.check_value(value):
+                if self.check_value(option,value): self.set_option_xml('workers_size', self.process_value(value))                
+            elif option=='urlfilter':
+                if self.check_value(option,value): self.set_option_xml('urlfilter', self.process_value(value))
+            elif option=='depth':
+                if self.check_value(option,value): self.set_option_xml('depth_value', self.process_value(value))
+            elif option=='robots':
+                if self.check_value(option,value): self.set_option_xml('robots_value', self.process_value(value))
+            elif option=='urlslist':
+                if self.check_value(option,value): self.set_option_xml('urllistfile', self.process_value(value))
+            elif option=='urltree':
+                if self.check_value(option,value): self.set_option_xml('urltreefile', self.process_value(value))
+            elif option=='nocrawl':
+                self.nocrawl = value
+            elif option=='proxy':
+                if self.check_value(option,value):
                     # Set proxyencrypted flat to False
                     self.proxyenc=False
                     self.set_option_xml('proxyserver', self.process_value(value))
-            elif option in ('-U', '--proxyuser'):
-                if self.check_value(value): self.set_option_xml('proxyuser', self.process_value(value))                
-            elif option in ('-W', '--proxypass'):
-                if self.check_value(value): self.set_option_xml('proxypasswd', self.process_value(value))
-            elif option in ('-s', '--urlserver'):
-                if self.check_value(value): self.set_option_xml('urlserver_status', self.process_value(value))
+            elif option=='proxyuser':
+                if self.check_value(option,value): self.set_option_xml('proxyuser', self.process_value(value))                
+            elif option=='proxypasswd':
+                if self.check_value(option,value): self.set_option_xml('proxypasswd', self.process_value(value))
+            elif option=='urlserver':
+                if self.check_value(option,value): self.set_option_xml('urlserver_status', self.process_value(value))
                 
-            elif option in ('-c', '--cache'):
-                if self.check_value(value): self.set_option_xml('cache_status', self.process_value(value))
-            elif option in ('-n', '--connections'):
-                if self.check_value(value): self.set_option_xml('connections_value', self.process_value(value))
-            elif option in ('-V','--verbosity'):
-                if self.check_value(value): self.set_option_xml('verbosity_value', self.process_value(value))
-            elif option in ('-S', '--savesessions'):
-                if self.check_value(value): self.set_option_xml('savesessions_value', self.process_value(value))
-            elif option in ('-m','--simulate',):
-                self.set_option_xml('simulate_value', 1)
-            elif option in ('-g','--plugin',):
+            elif option=='cache':
+                if self.check_value(option,value): self.set_option_xml('cache_status', self.process_value(value))
+            elif option=='connections':
+                if self.check_value(option,value): self.set_option_xml('connections_value', self.process_value(value))
+            elif option=='verbosity':
+                if self.check_value(option,value): self.set_option_xml('verbosity_value', self.process_value(value))
+            elif option=='savesessions':
+                if self.check_value(option,value): self.set_option_xml('savesessions_value', self.process_value(value))
+            elif option=='simulate':
+                self.set_option_xml('simulate_value', value)
+            elif option=='plugin':
                 if value == 'swish-e':
                     from common.common import SetLogSeverity
                     
@@ -716,8 +650,6 @@ class HarvestManStateObject(dict):
                 else:
                     print 'Error in command-line options: Invalid plugin %s!' % value
                     sys.exit(0)
-            else:
-                print 'Ignoring invalid option ', option
 
         if self.nocrawl:
             self.pagecache = False
@@ -733,16 +665,20 @@ class HarvestManStateObject(dict):
             print self._error, value
             return -1
 
+        # If need to pass config file return -1
+        if cfgfile:
+            return -1
+        
         return 1
 
-    def check_value(self, value):
+    def check_value(self, option, value):
         """ This function checks the values for options
         when options are supplied as command line arguments.
         Returns 0 on any error and non-zero if ok """
 
         # check #1: If value is a null, return 0
         if not value:
-            self._error='Error in option value, value should not be empty!'
+            self._error='Error in option value for option %s, value should not be empty!' % option
             return 0
 
         # no other checks right now
