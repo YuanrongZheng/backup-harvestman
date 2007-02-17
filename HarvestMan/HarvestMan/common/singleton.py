@@ -1,3 +1,4 @@
+# -- coding: latin-1
 """ singleton.py - Singleton design-pattern implemented using
     meta-classes. This module is part of HarvestMan program.
 
