@@ -36,7 +36,7 @@ setup(name="HarvestMan",
       author_email="abpillai_at_gmail_dot_com",
       url="http://harvestman.freezope.org/",
       license="GNU General Public License",
-      packages = ['HarvestMan', 'HarvestMan.tools'],
+      packages = ['HarvestMan', 'HarvestMan.common','HarvestMan.tools'],
       data_files=make_data_files(),
       )
 

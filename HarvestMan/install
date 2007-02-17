@@ -38,12 +38,8 @@ echo "Creating build..."
 python setup.py build
 echo "Installing..."
 python setup.py install
-echo "Do you want to configure system-wide symbolic links [y/n] ?"
-read ans
-case $ans in
-"n"|"N") ;;
-"y"|"Y")echo "Creating symbolic link in /usr/bin...";sym_link;;
-esac
+echo "Creating link to HarvestMan in /usr/bin...";
+sym_link
 
 # Clean up local build directory
 echo "Cleaning up..."
