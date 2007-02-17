@@ -29,7 +29,10 @@ class MethodWrapperBaseMetaClass(type):
     # http://svn.python.org/view/python/trunk/Demo/newmetaclasses/Eiffel.py
     
     def my_new(cls, *args, **kwargs):
-        cls.convert_methods(cls.__dict__)
+        # Since this gets called at creation of every instance
+        # we need to make sure that it gets done exactly once.
+        if not getattr(cls, '__callbacks__',False):
+            cls.convert_methods(cls.__dict__)
         return object.__new__(cls)
     
     def __init__(cls, name, bases, dct):
@@ -57,6 +60,8 @@ class MethodWrapperBaseMetaClass(type):
             if pre or post:
                 setattr(cls, m, cls.make_wrapper_method(dict[m], pre, post))
 
+        setattr(cls, '__callbacks__', True)
+        
 class MethodWrapperMetaClass(MethodWrapperBaseMetaClass):
     # an implementation of the "MethodWrapper" meta class that uses nested functions
 
@@ -67,7 +72,7 @@ class MethodWrapperMetaClass(MethodWrapperBaseMetaClass):
                 pre(self, *args, **kwargs)
             x = func(self, *args, **kwargs)
             if post:
-                post(self, *args, **kwargs)
+                post(self, x, *args, **kwargs)
             return x
 
         if func.__doc__:
@@ -95,13 +100,17 @@ def test():
         __metaclass__ = MethodWrapperMetaClass
         
         def f(self):
+            x = 10
+            y = 20
+            z = x + y
             print 'F called'
-            pass
+            return z
 
     def myfunc1(self):
         print 'Myfunc#1 called'
 
-    def myfunc2(self):
+    def myfunc2(self, x):
+        print x
         print 'Myfunc#2 called'
 
 
@@ -109,6 +118,8 @@ def test():
     set_wrapper_method(MyClass, 'f', myfunc2, 'post')
 
     c = MyClass()
+    d = MyClass()
+    e = MyClass()
     c.f()
 
 if __name__=="__main__":

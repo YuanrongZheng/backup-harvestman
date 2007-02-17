@@ -13,7 +13,10 @@
     Nov 9 2006   Anand    Added support to download imported stylesheets.
 
     Jan 2007     Anand    Support for META robot tags.
-
+    Feb 17 2007  Anand    Modified return type of process_url in
+                          HarvestManUrlFetcher class to return the data.
+                          This is required for the modified swish-e
+                          plugin.
 
  Copyright (C) 2004 Anand B Pillai.
    
@@ -34,6 +37,8 @@ import sha
 from sgmllib import SGMLParseError
 
 from common.common import *
+from common.methodwrapper import MethodWrapperMetaClass
+
 import urlparser
 import pageparser
 
@@ -43,8 +48,16 @@ from datamgr import harvestManController
 # Hook name is the key and value is <class>:<function>
 
 __hooks__ = { 'fetcher_process_url_hook': 'HarvestManUrlFetcher:process_url',
-              'crawler_process_url_hook': 'HarvestManUrlCrawler:process_url' }
-              
+              'crawler_crawl_url_hook': 'HarvestManUrlCrawler:crawl_url' }
+
+# Defining functions with pre & post callbacks
+# Callback name is the key and value is <class>:<function>
+__callbacks__ = { 'fetcher_process_url_callback' : 'HarvestManUrlFetcher:process_url',
+                  'crawler_crawl_url_callback' : 'HarvestManUrlCrawler:crawl_url',
+                  'fetcher_push_buffer_callback' : 'HarvestManUrlFetcher:push_buffer',
+                  'crawler_push_buffer_callback' : 'HarvestManUrlCrawler:push_buffer',
+                  'fetcher_terminate_callback' : 'HarvestManUrlFetcher:terminate',
+                  'crawler_terminate_callback' : 'HarvestManUrlCrawler:terminate' }
               
 class HarvestManUrlCrawlerException(Exception):
 
@@ -62,6 +75,8 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
     This is the base class with no actual code apart from the threading or
     termination functions. """
 
+    __metaclass__ = MethodWrapperMetaClass
+    
     def __init__(self, index, url_obj = None, isThread = True):
         # Index of the crawler
         self._index = index
@@ -162,20 +177,20 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
     def run(self):
         """ The overloaded run method of threading.Thread class """
 
-        try:
-            self.action()
-        except Exception, e:
-            if e.__class__ == HarvestManUrlCrawlerException:
-                raise
-            else:
-                # Now I am dead - so I need to tell the queue
-                # object to migrate my data and produce a new
-                # thread.
-                self._crawlerqueue._cond.acquire()
-                self._crawlerqueue.dead_thread_callback(self)
-                self._crawlerqueue._cond.release()                
-
-                extrainfo('Tracker thread %s has died due to error: %s' % (str(self), str(e)))
+        #try:
+        self.action()
+        #except Exception, e:
+        #    if e.__class__ == HarvestManUrlCrawlerException:
+        #        raise
+        #    else:
+        #        # Now I am dead - so I need to tell the queue
+        #        # object to migrate my data and produce a new
+        #        # thread.
+        #        self._crawlerqueue._cond.acquire()
+        #        self._crawlerqueue.dead_thread_callback(self)
+        #        self._crawlerqueue._cond.release()                
+        #
+        #        extrainfo('Tracker thread %s has died due to error: %s' % (str(self), str(e)))
 
     def terminate(self):
         """ Kill this crawler thread """
@@ -627,7 +642,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             
             if ruleschecker.check_duplicate_content(self._urlobject, sh.hexdigest()):
                 extrainfo('Skipped URL %s => duplicate content' % url)
-                return -1
+                return ''
             
             # MOD: Need to localise <base href="..." links if any
             # so add a NULL entry. (Nov 30 2004 - Refer header)
@@ -666,21 +681,10 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
             # Check for NOINDEX flag...do this only after checking robots flag
             if self._configobj.robots:
-                if not self.wp.can_index:
-                    extrainfo('URL %s defines META Robots NOINDEX flag, deleting its file...' % self._url)
-                    fname = self._urlobject.get_full_filename()
-                    if os.path.isfile(fname):
-                        try:
-                            os.remove(fname)
-                            extrainfo('Removed file %s.' % fname)
-                            mgr.remove_file_from_stats(fname)
-                        except OSError, e:
-                            debug(str(e))
-
                 # Check for NOFOLLOW tag
                 if not self.wp.can_follow:
                     extrainfo('URL %s defines META Robots NOFOLLOW flag, not following its children...' % self._url)
-                    return -1
+                    return data
                 
             links = self.wp.links
             # Put images first!
@@ -719,6 +723,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             # Update links called here
             mgr.update_links(url_obj.get_full_filename(), urlobjlist)
 
+            return data
+        
         elif self._urlobject.is_stylesheet() and data:
 
             # To download stylesheets imported in other stylesheets
@@ -748,6 +754,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             # Update links called here
             mgr.update_links(self._urlobject.get_full_filename(), urlobjlist)
 
+            # Successful return returns data
+            return data
         else:
             # Dont do anything
             return None

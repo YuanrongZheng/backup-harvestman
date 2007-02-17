@@ -24,6 +24,8 @@
      Feb 7 2007          Anand       Finished implementation of plugin feature. Crawl
                                      simulator is now a plugin.
      Feb 8 2007          Anand       Added swish-e integration as a plugin.
+     Feb 11 2007         Anand       Changes in the swish-e plugin implementation,
+                                     by using callbacks.
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -420,6 +422,8 @@ class HarvestMan(object):
 
         # Clean up actions
         try:
+            sys.excepthook = None
+            sys.tracebacklimit = 0
             self.finish()
         except Exception, e:
             # To catch errors at interpreter shutdown
@@ -594,11 +598,13 @@ class HarvestMan(object):
                                 logconsole('Applying plugin %s...' % f)
                                 func()
                             except Exception, e:
-                                logconsole('Error while trying to apply plugin %s' % f)
-                                logconsole('Error is:',str(e))
+                                print 'Error while trying to apply plugin %s' % f
+                                print 'Error is:',str(e)
+                                sys.exit(0)
                     except ImportError, e:
-                        logconsole('Error importing plugin module %s' % f)
-                        logconsole('Error is:',str(e))
+                        print 'Error importing plugin module %s' % f
+                        print 'Error is:',str(e)
+                        sys.exit(0)
                         
     def main(self):
 

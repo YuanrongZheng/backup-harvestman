@@ -32,11 +32,13 @@ import urllib2
 import urlparse
 
 from common.common import *
+from common.methodwrapper import MethodWrapperMetaClass
+
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 
 # Overrideable hooks defined by this module
 __hooks__ = { 'save_url_hook': 'HarvestManUrlConnector:save_url' }
-
+__callbacks__ = { 'connect_callback' : 'HarvestManUrlConnector:connect' }
 
 __protocols__=["http", "ftp"]
 
@@ -447,9 +449,11 @@ class HarvestManNetworkConnector(object):
     def get_socket_errors(self):
         return self.__sockerrs
         
-class HarvestManUrlConnector:
+class HarvestManUrlConnector(object):
     """ Class which helps to connect to the internet """
 
+    __metaclass__ = MethodWrapperMetaClass
+    
     def __str__(self):
         return `self` 
         

@@ -14,6 +14,9 @@
     Feb 8 2007       Anand    Added config support for loading plugins. Added
                               code for swish-e plugin.
 
+    Feb 11 2007      Anand    Re-wrote configuration parsing using generic option
+                              parser.
+                              
    Copyright (C) 2004 Anand B Pillai.                              
 
 """
@@ -35,7 +38,7 @@ the url and saves it to the disk, similar to wget.
 
 With the -m or --simulate option, %(appname)s performs crawling,
 but no files are downloaded. In this mode, caching is turned
-off automatically and no project directories are created.
+off automatically.
 
 Mail bug reports and suggestions to <abpillai@gmail.com>."""
 
@@ -549,11 +552,11 @@ class HarvestManStateObject(dict):
             optdict, args = gopt.parse_arguments()
         except GenericOptionParserError, e:
             sys.exit('Error: ' + str(e))
- 
+
         if args:
             # Any option without an argument is assumed to be a URL
             self.set_option_xml('url',self.process_value(args[0]))
-
+            
         cfgfile = False
         
         for option, value in optdict.items():
