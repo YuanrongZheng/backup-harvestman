@@ -65,7 +65,6 @@ class MethodWrapperBaseMetaClass(type):
 class MethodWrapperMetaClass(MethodWrapperBaseMetaClass):
     # an implementation of the "MethodWrapper" meta class that uses nested functions
 
-    @staticmethod
     def make_wrapper_method(func, pre, post):
         def method(self, *args, **kwargs):
             if pre:
@@ -80,6 +79,8 @@ class MethodWrapperMetaClass(MethodWrapperBaseMetaClass):
 
         return method
 
+    make_wrapper_method = staticmethod(make_wrapper_method)
+    
 def set_wrapper_method(klass, method, callback, where='post'):
     """ Set callback method 'callback' on the method with
     the given name 'method' on class 'klass'. If the last
