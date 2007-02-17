@@ -1,0 +1,22 @@
+
+FEATURE/FIX                                  |  STATUS
+-------------------------------------------------------------------------------------
+1.Localization still has problems. Some      | Kind of fixed. A few sample sites
+downloaded files are still not localized     | such as http://www.oligopolywatch.com
+correctly.                                   | now localize correctly.
+                                             |
+2. Memory consumption problem                | Fixed with changes in urlqueue
+                                             | and using binaries. 
+3. Scheduler to start crawling at a given    | Later.
+time.                                        |
+4. Ability to pick up and add URLs from/to   | Later.
+a URL database.                              |
+5. Thread checkpointing and data migration   | Done in current code.
+for crawlers.                                |
+6. Cache creation using C extensions.        | Done - but will not be used in 1.5
+7. Developer API                             | Not yet.
+8. Crawling language-specific pages          | Not yet
+9. A basic UI.                               | Much much later. 
+---------------------------------------------------------------------------------------
+
+

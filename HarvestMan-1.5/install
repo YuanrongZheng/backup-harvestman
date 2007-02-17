@@ -1,0 +1,51 @@
+#!/bin/bash
+# HarvestMan installation script for
+# Linux/Unix systems.
+
+currver=`python -c "import sys; v = sys.version_info; print ''.join((str(v[0]),'.',str(v[1])))"`
+
+function sym_link
+{
+sitedir=`python -c "import os; print os.path.join(os.path.dirname(os.__file__), 'site-packages')"`
+exepath=$sitedir/HarvestMan/harvestman.py
+if [ ! -f $exepath ]
+then
+echo "Could not find $exepath"
+echo "Re-run the installation or install manually"
+exit 2
+fi
+
+if [ -f /usr/bin/harvestman ]
+then
+rm -rf /usr/bin/harvestman
+fi
+echo "/usr/bin/env python $exepath \$*" > /usr/bin/harvestman
+chmod +x /usr/bin/harvestman
+}
+
+case `whoami` in 
+"root"|"Administrator");;
+*)echo "Run this script as the local system administrator.";exit 2;;
+esac
+
+case $currver in
+"2.4") echo "Python 2.4 detected...";;
+"2.3") echo "Python 2.3 detected...";;
+*) echo "Python 2.3 or 2.4 not detected";echo "Please upgrade your Python installation";exit 2;;
+esac
+
+echo "Creating build..."
+python setup.py build
+echo "Installing..."
+python setup.py install
+echo "Creating link to HarvestMan in /usr/bin...";
+sym_link
+
+# Clean up local build directory
+echo "Cleaning up..."
+if [ -d ./build ]
+then
+rm -rf ./build
+fi
+
+echo "Finished."

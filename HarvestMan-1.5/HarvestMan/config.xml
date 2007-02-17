@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<HarvestMan xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://harvestmanontheweb.com/schemas/HarvestMan.xsd">
+  <config version="3.0" xmlversion="1.0">
+    <projects combine="0">
+      
+      <project skip="0">
+
+        <url>http://www.python.org/doc/current/tut/tut.html</url>
+        <name>lpydoc</name>
+
+        <basedir>~/websites</basedir>
+        <verbosity value="3"/>
+      </project>
+      
+    </projects>
+    
+    <network>
+      <proxy>
+        <proxyserver></proxyserver>
+        <proxyuser></proxyuser>
+        <proxypasswd></proxypasswd>
+        <proxyport value="80"/>
+      </proxy>
+      <urlserver status="0">
+        <urlhost>localhost</urlhost>
+        <urlport value="3081"/>
+      </urlserver>
+    </network>
+    
+    <download>
+      <types>
+        <html value="1"/>
+        <images value="1"/>
+        <javascript value="1"/>
+        <javaapplet value="1"/>
+        <forms value="1"/>
+        <cookies value="1"/>
+      </types> 
+      <cache status="1">
+        <datacache value="0"/>
+      </cache>
+      <misc>
+        <retries value="1"/>
+      </misc>
+    </download>
+    
+    <control>
+      <links>
+        <imagelinks value="1"/>
+        <stylesheetlinks value="1"/>
+      </links>
+      <extent>
+        <fetchlevel value="0"/>
+        <extserverlinks value="0"/>
+        <extpagelinks value="1"/>
+        <depth value="10"/>
+        <extdepth value="0"/>
+        <subdomain value="1"/>
+      </extent>
+      <limits>
+        <maxextservers value="0"/>
+        <maxextdirs value="0"/>
+        <maxfiles value="5000"/>
+        <maxfilesize value="5048576000"/>
+        <connections value="5"/>
+        <requests value="5"/>
+        <timelimit value="-1"/>
+      </limits>
+      <rules>
+        <robots value="1"/>
+        <urlpriority></urlpriority>
+        <serverpriority></serverpriority>
+      </rules>
+      <filters>
+        <urlfilter></urlfilter>
+        <serverfilter></serverfilter>
+        <wordfilter></wordfilter>
+        <junkfilter value="0"/>
+      </filters>
+    </control>
+    
+    <system>
+      <workers status="1" size="10" timeout="200"/>
+      <trackers value="10"/>
+      <locale>C</locale>
+      <fastmode value="1"/>
+      <savesessions value="1"/>
+    </system>
+    
+    <files>
+      <urllistfile>urls-list.txt</urllistfile>
+      <urltreefile>urls.html</urltreefile>
+      <archive status="0" format="bzip"/>
+      <urlheaders status="1" />
+    </files>
+    
+    <indexer>
+      <localise value="0"/>
+    </indexer>
+    
+    <display>
+      <browsepage value="0"/>
+    </display>
+    
+  </config>
+  
+</HarvestMan>
