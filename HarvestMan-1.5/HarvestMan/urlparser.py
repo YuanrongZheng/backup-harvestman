@@ -16,6 +16,9 @@
    Oct 1 2006       Anand    Fixes for EIAO ticket #193 - added reduce_url
                              method to take care of .. chars inside URLs.
 
+   Feb 25 2007      Anand    Added .ars as a web-page extension to support
+                             the popular ars-technica website.
+                             
    Copyright (C) 2004 Anand B Pillai.
    
 """
@@ -74,7 +77,7 @@ class HarvestManUrlParser(object):
     # including dynamic server pages & cgi scripts.
     webpage_extns = ('', '.htm', '.html', '.shtm', '.shtml', '.php',
                      '.php3','.php4','.asp', '.aspx', '.jsp','.psp','.pl',
-                     '.cgi', '.stx', '.cfm', '.cfml', '.cms')
+                     '.cgi', '.stx', '.cfm', '.cfml', '.cms', '.ars')
 
 
     # Document extensions
@@ -345,12 +348,20 @@ class HarvestManUrlParser(object):
         # Now compute local directory/file paths
 
         # For cgi paths, add a url separator at the end 
-        if self.cgi:
-            paths = "".join((paths, self.URLSEP))
+        #if self.cgi:
+        #    paths = "".join((paths, self.URLSEP))
 
         self.compute_dirpaths(paths)
         self.compute_domain_and_port()
 
+        # For some file extensions, automatically set as
+        # directory URL.
+        if self.validfilename:
+            extn = ((os.path.splitext(self.validfilename))[1]).lower()
+            # This tuple can be made as a class-var
+            if extn in ('.ars',):
+                self.set_directory_url()
+            
     def reduce_url(self, paths):
         """ Remove nonsense .. chars from URL paths """
         
@@ -561,7 +572,12 @@ class HarvestManUrlParser(object):
         elif self.typ == 'normal':
             if self.validfilename:
                 extn = ((os.path.splitext(self.validfilename))[1]).lower()
+                
                 if extn in self.webpage_extns:
+                    return True
+                
+                elif extn not in self.document_extns and \
+                     extn not in self.image_extns:
                     return True
                 else:
                     # jkleven: 10/1/06.  Forms were never being parsed for links.
@@ -849,7 +865,7 @@ class HarvestManUrlParser(object):
         """ Return the filenam of this url on the disk. """
 
         # NOTE: This is just the filename, not the absolute filename path
-        if self.cgi or not self.filelike:
+        if not self.filelike:
             self.validfilename = 'index.html'
             
         return self.validfilename
@@ -1036,7 +1052,6 @@ class HarvestManUrlParser(object):
         the directory on the disk where we save the files of this url """
         
         # Gives Local Direcory path equivalent to URL Path in server
-        # Could be used to cache HTML pages to disk
         rval = os.path.join(self.rootdir, self.domain)
 
         for diry in self.dirpath:
@@ -1088,6 +1103,7 @@ class HarvestManUrlParser(object):
 
         # Guess extension of type
         extn = mimetypes.guess_extension(content_type)
+        
         if extn:
             if extn in self.webpage_extns:
                 self.typ = 'webpage'
@@ -1109,7 +1125,9 @@ class HarvestManUrlParser(object):
 
 
 if __name__=="__main__":
-    Initialize()
+    InitConfig()
+    InitLogger()
+    
     # Test code
 
     global TEST
@@ -1147,7 +1165,9 @@ if __name__=="__main__":
                HarvestManUrlParser('../eway/library/getmessage.asp?objectid=27015&moduleid=160',
                                    'normal',0,'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'),
                HarvestManUrlParser('fileadmin/dz.gov.si/templates/../../../index.php',
-                                   'normal',0,'http://www.dz-rs.si')]
+                                   'normal',0,'http://www.dz-rs.si','~/websites'),
+               HarvestManUrlParser('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70','form',True,'http://www.evvs.dk'),
+               HarvestManUrlParser('http://arstechnica.com/reviews/os/macosx-10.4.ars')]
                                   
                                   
     

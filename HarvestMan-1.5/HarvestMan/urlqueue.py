@@ -20,20 +20,22 @@ __version__ = '1.5 b1'
 __author__ = 'Anand B Pillai'
 
 import bisect
-import Queue
+from Queue import *
+from time import time, sleep
+
 import crawler
-import time
+
 import threading
 import sys, os
 import copy
 
 from common.common import *
 
-class PriorityQueue(Queue.Queue):
+class PriorityQueue(Queue):
     """ Priority queue based on bisect module (courtesy: Effbot) """
 
     def __init__(self, maxsize=0):
-        Queue.Queue.__init__(self, maxsize)
+        Queue.__init__(self, maxsize)
 
     def _init(self, maxsize):
         self.maxsize = maxsize
@@ -64,7 +66,7 @@ class HarvestManCrawlerQueue(object):
         self._flag = 0
         self._pushes = 0
         self._lockedinst = 0
-        self._lasttimestamp = time.time()
+        self._lasttimestamp = time()
         self._trackers  = []
         self._requests = 0
         self._trackerindex = 0
@@ -146,7 +148,7 @@ class HarvestManCrawlerQueue(object):
         # Set state for simple data-members
         self._pushes = state.get('_pushes',0)
         self._lockedinst = state.get('_lockedinst', 0)
-        self._lasttimestamp = state.get('_lasttimestamp', time.time())
+        self._lasttimestamp = state.get('_lasttimestamp', time())
         self._requests = state.get('_requests', 0)
         self._lastblockedtime = state.get('_lastblockedtime', 0)
         self.buffer = state.get('buffer', [])
@@ -246,11 +248,11 @@ class HarvestManCrawlerQueue(object):
         while 1:
             if self.is_exit_condition():
                 count += 1
-            
+                
             if count==numstops:
                 break
-
-            time.sleep(1.0)
+            
+            sleep(1.0)
 
     def restart(self):
         """ Alternate method to start from a previous restored state """
@@ -263,7 +265,7 @@ class HarvestManCrawlerQueue(object):
 
         # Start base tracker
         self._basetracker.start()
-        time.sleep(2.0)
+        sleep(2.0)
         
         for t in self._trackers[1:]:
             try:
@@ -272,7 +274,7 @@ class HarvestManCrawlerQueue(object):
                 logconsole(e)
                 pass
 
-        time.sleep(2.0)
+        sleep(2.0)
         self.mainloop()        
         # Set flag to 1 to denote that downloading is finished.
         self._flag = 1
@@ -291,7 +293,7 @@ class HarvestManCrawlerQueue(object):
         if os.name=='nt':
             t1=time.clock()
         else:
-            t1=time.time()
+            t1=time()
 
         # Set start time on config object
         self._configobj.starttime = t1
@@ -326,7 +328,7 @@ class HarvestManCrawlerQueue(object):
             self._basetracker.start()
 
             while self._basetracker.get_status() != 0:
-                time.sleep(0.1)
+                sleep(0.1)
 
             for x in range(1, self._configobj.maxtrackers):
 
@@ -349,7 +351,7 @@ class HarvestManCrawlerQueue(object):
 
             # bug: give the threads some time to start,
             # otherwise we exit immediately sometimes.
-            time.sleep(2.0)
+            sleep(2.0)
 
             self.mainloop()
             
@@ -386,8 +388,8 @@ class HarvestManCrawlerQueue(object):
                     try:
                         obj=self.data_q.get_nowait()
                         break
-                    except Queue.Empty:
-                        time.sleep(0.3)
+                    except Empty:
+                        sleep(0.3)
                         continue
                 
         elif role == 'fetcher' or role=='tracker':
@@ -398,11 +400,11 @@ class HarvestManCrawlerQueue(object):
                     try:
                         obj = self.url_q.get_nowait()
                         break
-                    except Queue.Empty:
-                        time.sleep(0.3)
+                    except Empty:
+                        sleep(0.3)
                         continue
             
-        self._lasttimestamp = time.time()        
+        self._lasttimestamp = time()        
 
         self._requests += 1
         return obj
@@ -488,7 +490,7 @@ class HarvestManCrawlerQueue(object):
         
         dmgr = GetObject('datamanager')
             
-        currtime = time.time()
+        currtime = time()
         last_thread_time = dmgr.last_download_thread_report_time()
 
         if last_thread_time > self._lasttimestamp:
@@ -498,7 +500,7 @@ class HarvestManCrawlerQueue(object):
 
         is_blocked = self.is_blocked()
         if is_blocked:
-            self._lastblockedtime = time.time()
+            self._lastblockedtime = time()
             
         has_running_threads = dmgr.has_download_threads()
         timed_out = False
@@ -586,7 +588,7 @@ class HarvestManCrawlerQueue(object):
             self._trackers[idx] = new_t
             new_t._resuming = True
             new_t.start()
-            time.sleep(2.0)
+            sleep(2.0)
         else:
             # Could not make new thread, so decrement
             # count of threads.
@@ -618,8 +620,8 @@ class HarvestManCrawlerQueue(object):
                     self.url_q.put_nowait((obj.priority, obj.index))
                     status = 1
                     break
-                except Queue.Full:
-                    time.sleep(0.5)
+                except Full:
+                    sleep(0.5)
                     
         elif role == 'fetcher':
             stuff = (obj[0].priority, (obj[0].index, obj[1]))
@@ -628,12 +630,13 @@ class HarvestManCrawlerQueue(object):
                     ntries += 1
                     self.data_q.put_nowait(stuff)
                     status = 1
+                    print 'Put links for URL %s...' % obj[0].get_full_url()
                     break
-                except Queue.Full:
-                    time.sleep(0.5)
+                except Full:
+                    sleep(0.5)
                     
         self._pushes += 1
-        self._lasttimestamp = time.time()
+        self._lasttimestamp = time()
 
         return status
     
@@ -644,6 +647,7 @@ class HarvestManCrawlerQueue(object):
 
         if self._configobj.project:
             moreinfo("Ending Project", self._configobj.project,'...')
+
         for t in self._trackers:
             try:
                 t.terminate()

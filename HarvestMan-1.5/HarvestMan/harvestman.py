@@ -86,6 +86,10 @@ class HarvestMan(object):
         GetObject('ruleschecker').clean_up()        
 
         # Shutdown logging at the end
+        #while len(threading.enumerate())>1:
+        #    print 'Threads=>',threading.enumerate()
+        #    time.sleep(1.0)
+            
         Finish()
         
     def save_current_state(self):
@@ -177,7 +181,7 @@ class HarvestMan(object):
                 host, port = self._cfg.urlhost, self._cfg.urlport
                 # Initialize server
                 try:
-                    server = urlserver.harvestManUrlServer(host, port)
+                    server = urlserver.HarvestManUrlServer(host, port)
                     flag = 1
                     info("Url server bound to port %d" % port)
                     break
@@ -616,7 +620,8 @@ class HarvestMan(object):
         # If this is nocrawl mode, just download the URL
         if self._cfg.nocrawl:
             self.grab_url()
-            
+
+    
         # See if a crash file is there, then try to load it and run
         # program from crashed state.
         elif self.run_saved_state() == -1:

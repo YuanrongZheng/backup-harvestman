@@ -105,6 +105,7 @@ class HarvestManUrlServer(asyncore.dispatcher_with_send):
         self.urlmap = {}
         asyncore.dispatcher_with_send.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+
         try:
             self.bind((self.host, port))
         except socket.error:

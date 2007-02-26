@@ -331,7 +331,7 @@ class harvestManUrlThreadPool(Queue):
         """ Start the download threads """
 
         for x in range(self.__numthreads):
-            name = 'Fetcher-'+ str(x+1)
+            name = 'Worker-'+ str(x+1)
             fetcher = harvestManUrlThread(name, self.__timeout, self)
             fetcher.setDaemon(True)
             # Append this thread to the list of threads

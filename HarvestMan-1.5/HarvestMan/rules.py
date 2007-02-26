@@ -874,7 +874,11 @@ class HarvestManRulesChecker(object):
 
         # url filter string
         urlfilterstr = self._configobj.urlfilter
+        print 'URL FILTER STRING=>',urlfilterstr
+        
         url_filters = self.__make_filter(urlfilterstr)
+        print 'URL FILTERS=>',url_filters
+        
         self._configobj.set_option('control.urlfilterre', url_filters)
 
         # server filter string
@@ -972,6 +976,9 @@ class HarvestManRulesChecker(object):
                 else:
                     exclude.append(s)
 
+        print 'Exclude=>',exclude
+        print 'Include=>',include
+        
         exclusionfilter=self.__create_filter(exclude,servers)
         inclusionfilter=self.__create_filter(include,servers)
         allfilter = self.__create_filter(all, servers)
@@ -1001,7 +1008,7 @@ class HarvestManRulesChecker(object):
             # First replace any ''' with ''
             extn=s.replace("'",'')            
             # Then we remove the asteriks
-            s=s.replace('*','')
+            s=s.replace('*','.*')
             # Type 1 filter-> they begin with '.' now
             # Find out position of '.'
             pos=s.rfind('.')
@@ -1027,6 +1034,8 @@ class HarvestManRulesChecker(object):
             else:
                 fstr += s
 
+            print 'Fstr=>',fstr
+            
             refilter.append(re.compile(fstr, re.IGNORECASE))
 
         return refilter

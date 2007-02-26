@@ -37,7 +37,7 @@ from common.methodwrapper import MethodWrapperMetaClass
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 
 # Overrideable hooks defined by this module
-__hooks__ = { 'save_url_hook': 'HarvestManUrlConnector:save_url' }
+__plugins__ = { 'save_url_hook': 'HarvestManUrlConnector:save_url' }
 __callbacks__ = { 'connect_callback' : 'HarvestManUrlConnector:connect' }
 
 __protocols__=["http", "ftp"]
@@ -584,11 +584,12 @@ class HarvestManUrlConnector(object):
                 # differentiate between directory like urls
                 # and file like urls.
                 actual_url = self.__freq.geturl()
+                # print 'ACTUAL URL=>',actual_url
                 
                 # Replace the urltofetch in actual_url with null
                 if actual_url:
                     no_change = (actual_url == urltofetch)
-
+                    
                     if not no_change:
                         
                         replacedurl = actual_url.replace(urltofetch, '')
@@ -873,7 +874,7 @@ class HarvestManUrlConnector(object):
         the file <filename> """
 
         url = urlobj.get_full_url()
-
+        
         res = self.connect(url, urlobj, True, self._cfg.retryfailed)
 
         # If it was a rules violation, skip it
@@ -893,10 +894,10 @@ class HarvestManUrlConnector(object):
         if urlobj.is_webpage() and not self._cfg.html:
             extrainfo("Html filter prevents download of url =>", url)
             return 5
-        
+
         # Find out if we need to update this file
         # by checking with the cache.
-        filename = urlobj.get_full_filename()
+
         # Get last modified time
         timestr = self.get_last_modified_time()
         update, fileverified = False, False
@@ -909,6 +910,9 @@ class HarvestManUrlConnector(object):
                 debug(e)
 
         datalen = self.get_content_length()
+
+        filename = urlobj.get_full_filename()
+        directory = urlobj.get_local_directory()
         
         # Optimization: We need to do all these checks
         # only if the cache was loaded in the beginning.
@@ -941,8 +945,8 @@ class HarvestManUrlConnector(object):
                 dmgr.wrapper_update_cache_for_url2(urlobj, filename, lmt, self.__data)
             else:
                 dmgr.wrapper_update_cache_for_url(urlobj, filename, datalen, self.__data)
-            
-        if dmgr.create_local_directory(urlobj) == 0:
+
+        if dmgr.create_local_directory(directory) == 0:
             retval=self.__write_url( filename )
         else:
             extrainfo("Error in getting data for", url)

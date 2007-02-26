@@ -13,6 +13,8 @@
     Feb 7 2007           Anand          Some changes. Added logconsole
                                         function. Split Initialize() to
                                         InitConfig() and InitLogger().
+    Feb 26 2007          Anand          Replaced urlmappings dictionary
+                                        with a WeakValueDictionary.
 
    Copyright (C) 2004 - Anand B Pillai.
 
@@ -26,9 +28,21 @@ import os, sys
 import socket
 import binascii
 import copy
+import threading
 
-from config import HarvestManStateObject
-from logger import HarvestManLogger
+class UrlDict(dict):
+
+    countdict = {}
+    def get(self, key):
+        if key in self.countdict:
+            self.countdict[key] += 1
+        else:
+            self.countdict[key] = 1
+        val = self.countdict[key]
+        if val==2:
+            return super(UrlDict, self).pop(key)
+        else:
+            return super(UrlDict, self).get(key,None)
 
 class Registry(object):
 
@@ -59,7 +73,7 @@ class Registry(object):
             self.USER_AGENT = 'HarvestMan 1.5'
             self.userdebug = []
             self.modfilename = ''
-            self.urlmappings = {}
+            self.urlmappings = weakref.WeakValueDictionary()
             self.oldnewmappings = {}
             self.mappings = { 'HarvestManStateObject' : 'config',
                               'HarvestManNetworkConnector' : 'connector',
@@ -187,12 +201,20 @@ def GetObject(objkey):
 def GetUrlObject(key):
     """ Get url object based on its index (key) """
 
-    if type(key) is int:
-        obj = RegisterObj.urlmappings.get(key, None)
-        return obj
-    else:
-        return None
+    #print 'Length of dict=>',len(RegisterObj.urlmappings)
+    #print 'Called by',key,threading.currentThread()
+    return RegisterObj.urlmappings.get(key, None)
 
+def SetUrlObject(obj):
+    """ Set url objects based on their index """
+
+    key = obj.index
+    urldict = RegisterObj.urlmappings
+    urldict[key] = obj
+
+def PopUrlObject(key):
+    RegisterObj.urlmappings.pop(key, None)
+                               
 def SetState(obj):
 
     if obj.has_key('urlmappings'):
@@ -204,6 +226,8 @@ def SetState(obj):
         return -1
 
 def ResetState():
+
+    from config import HarvestManStateObject
     
     global RegisterObj
     RegisterObj.urlmappings = {}
@@ -224,14 +248,6 @@ def SetObject(obj):
         s="".join(('RegisterObj', '.', str(objkey),'=', 'obj'))
         exec(compile(s,'','exec'))
 
-def SetUrlObject(obj):
-    """ Set url objects based on their index """
-
-    key = obj.index
-    urldict = RegisterObj.urlmappings
-    if not urldict.has_key(key):
-        urldict[key] = obj
-    
 def SetConfig(configobject):
     """ Set the config object  """
 
@@ -273,12 +289,16 @@ def SetUserDebug(message):
 def InitConfig():
     """ Initialize the config object """
 
+    from config import HarvestManStateObject
+
     global RegisterObj
     cfg = HarvestManStateObject()
     RegisterObj.config = cfg
 
 
 def InitLogger():
+
+    from logger import HarvestManLogger
 
     global RegisterObj
     RegisterObj.logger = HarvestManLogger()
@@ -310,7 +330,6 @@ def Finish():
     
     RegisterObj.ini = 0
 
-    # RegisterObj.logger.close()
     RegisterObj.logger.shutdown()
     
     # Reset url object indices

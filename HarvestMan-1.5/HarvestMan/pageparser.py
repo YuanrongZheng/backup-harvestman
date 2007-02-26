@@ -36,7 +36,7 @@ class CaselessDict(dict):
             return True
         return False
     
-class harvestManSimpleParser(SGMLParser):
+class HarvestManSimpleParser(SGMLParser):
     """ An HTML/XHTML parser derived from SGMLParser """
 
     # Optimizations - put some of the data as
@@ -154,6 +154,8 @@ class harvestManSimpleParser(SGMLParser):
         if not attrs: return
         isBaseTag = not self.base and tag == 'base'
 
+        # print tag, attrs
+        
         if tag in self.handled:
 
             d = CaselessDict(attrs)
@@ -333,10 +335,10 @@ class harvestManSimpleParser(SGMLParser):
     def get_base_url(self):
         return self.base
 
-class harvestManComplexParser(HTMLParser, harvestManSimpleParser):
+class HarvestManComplexParser(HTMLParser, HarvestManSimpleParser):
 
     def handle_starttag(self, tag, attrs):
-        harvestManSimpleParser.unknown_starttag(tag, attrs)
+        HarvestManSimpleParser.unknown_starttag(tag, attrs)
 
 
 if __name__=="__main__":
@@ -348,15 +350,20 @@ if __name__=="__main__":
     cfg.verbosity = 5
     cfg.forms = True
     
-    p = harvestManSimpleParser()
+    p = HarvestManSimpleParser()
     urls = ['http://projecteuler.net/index.php?section=problems']
+    urls = ['http://www.evvs.dk/index.php?cPath=30&osCsid=3b110c689f01d722dbbe53c5cee0bf2d']
 
-    for url in urls:
-       if os.system('wget %s -O index.html' % url ) == 0:
-           p.feed(open('index.html').read())
-           print p.links
-           #p.reset()
-           pass
+    fname = '/home/anand/websites/macosx2/arstechnica.com/reviews/os/macosx-10.4.ars/3'
+    p.feed(open(fname).read())
+    print p.links
+    
+    ## for url in urls:
+##        if os.system('wget %s -O index.html' % url ) == 0:
+##            p.feed(open('index.html').read())
+##            print p.links
+##            #p.reset()
+##            pass
                                    
 
 

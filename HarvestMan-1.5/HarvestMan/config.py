@@ -46,7 +46,6 @@ import os, sys
 import xmlparser
 import options
 
-from common.common import *
 from common.optionparser import *
 
 class HarvestManStateObject(dict):
@@ -634,7 +633,11 @@ class HarvestManStateObject(dict):
             elif option=='cache':
                 if self.check_value(option,value): self.set_option_xml('cache_status', self.process_value(value))
             elif option=='connections':
-                if self.check_value(option,value): self.set_option_xml('connections_value', self.process_value(value))
+                if self.check_value(option,value):
+                    val = self.process_value(value)
+                    if val>=self.connections:
+                        self.connections = val + 1
+                    self.set_option_xml('requests_value', val)
             elif option=='verbosity':
                 if self.check_value(option,value): self.set_option_xml('verbosity_value', self.process_value(value))
             elif option=='savesessions':

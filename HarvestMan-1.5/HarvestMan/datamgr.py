@@ -8,6 +8,9 @@
                                    automatically locks byte operations.
 
     Feb 2 2007      Anand          Re-added function parse_style_sheet which went missing.
+
+    Feb 26 207      Anand          Fixed bug in check_duplicate_download for stylesheets.
+                                   Also rewrote logic.
     
    Copyright (C) 2004 Anand B Pillai.
     
@@ -32,8 +35,8 @@ from urlthread import harvestManUrlThreadPool
 from connector import *
 from common.common import *
 
-# Defining hookable functions
-__hooks__ = { 'download_url_hook': 'HarvestManDataManager:download_url' }
+# Defining pluggable functions
+__plugins__ = { 'download_url_hook': 'HarvestManDataManager:download_url' }
 
 class HarvestManDataManager(object):
     """ The data manager cum indexer class """
@@ -603,9 +606,8 @@ class HarvestManDataManager(object):
         if self._urlThreadPool:
             self._urlThreadPool.end_all_threads()
 
-    def create_local_directory(self, urlObj):
-        """ Create the directories on the disk for downloading
-        this url object """
+    def create_local_directory(self, directory):
+        """ Create the directories on the disk named 'directory' """
 
         # new in 1.4.5 b1 - No need to create the
         # directory for raw saves using the nocrawl
@@ -613,7 +615,6 @@ class HarvestManDataManager(object):
         if self._cfg.rawsave:
             return 0
         
-        directory =  urlObj.get_local_directory()
         try:
             if not os.path.exists( directory ):
                 os.makedirs( directory )
@@ -712,12 +713,7 @@ class HarvestManDataManager(object):
         # Modified to check fetcher status dictionary to avoid
         # duplicate downloads, also urlthredpool should be queried
         # only for non-webpage URLs.
-        
-        # First query worker thread pool, if enabled
-        if not urlobj.is_webpage() and self._urlThreadPool:
-            debug('Checking duplicates for url...',urlobj.get_full_url(),urlobj.get_type())
-            return self._urlThreadPool.check_duplicates(urlobj)
-        else:
+        if urlobj.is_webpage() or urlobj.is_stylesheet():
             ret = self.is_file_downloaded(urlobj.get_full_filename())
             if ret:return ret
             # Check if some fetcher is already in charge
@@ -727,6 +723,10 @@ class HarvestManDataManager(object):
                 if ret:
                     debug("Fetchers in charge of url",urlobj.get_full_url(),"...")
                 return ret
+        elif self._urlThreadPool:
+            # Query worker thread pool, if enabled
+            debug('Checking duplicates for url...',urlobj.get_full_url(),urlobj.get_type())
+            return self._urlThreadPool.check_duplicates(urlobj)
         
     def clean_up(self):
         """ Purge data for a project by cleaning up
@@ -941,7 +941,7 @@ class HarvestManDataManager(object):
                 # replace '\\' with '/'
                 urlfilename = urlfilename.replace('\\','/')
 
-                extrainfo('Filename=>',urlfilename)
+                # extrainfo('Filename=>',urlfilename)
                 
                 newurl=''
                 oldurl=''

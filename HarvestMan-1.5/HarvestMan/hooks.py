@@ -8,6 +8,8 @@
 
     Modified by Anand B Pillai Feb 17 2007 Completed callback implementation
                                            using metaclass methodwrappers.
+    Modified by Anand B Pillai Feb 26 2007 Replaced all 'hook' strings with
+                                           'plugin'.
 
    Copyright (C) 2007 Anand B Pillai.    
 """
@@ -26,43 +28,40 @@ class HarvestManHooks(Singleton):
     """ Class which manages pluggable hooks and callbacks for HarvestMan """
     
     supported_modules = ('crawler','harvestman', 'urlqueue', 'datamgr', 'connector')
-    module_hooks = {}
+    module_plugins = {}
     module_callbacks = {}
     
     def __init__(self):
-        self.run_hooks = {}
+        self.run_plugins = {}
         self.run_callbacks = {}
         
-    def add_all_hooks(cls):
+    def add_all_plugins(cls):
 
         for module in cls.supported_modules:
-            # Get __hooks__ attribute from the module
+            # Get __plugins__ attribute from the module
             M = __import__(module)
-            hooks = getattr(M, '__hooks__',{})
-            # print hooks
-            for hook in hooks.keys():
-                cls.add_hook(module, hook)
-
-        # print cls.module_hooks
+            plugins = getattr(M, '__plugins__',{})
+            for plugin in plugins.keys():
+                cls.add_plugin(module, plugin)
 
     def add_all_callbacks(cls):
 
         for module in cls.supported_modules:
-            # Get __hooks__ attribute from the module
+            # Get __plugins__ attribute from the module
             M = __import__(module)
             callbacks = getattr(M, '__callbacks__',{})
-            # print hooks
+
             for cb in callbacks.keys():
                 cls.add_callback(module, cb)
                 
-    def add_hook(cls, module, hook):
-        """ Add a hook named 'hook' for module 'module' """
+    def add_plugin(cls, module, plugin):
+        """ Add a plugin named 'plugin' for module 'module' """
 
-        l = cls.module_hooks.get(module)
+        l = cls.module_plugins.get(module)
         if l is None:
-            cls.module_hooks[module] = [hook]
+            cls.module_plugins[module] = [plugin]
         else:
-            l.append(hook)
+            l.append(plugin)
 
     def add_callback(cls, module, callback):
         """ Add a callback named 'callback' for module 'module' """
@@ -73,23 +72,23 @@ class HarvestManHooks(Singleton):
         else:
             l.append(callback)            
 
-    def get_hooks(cls, module):
-        """ Return all hooks for module 'module' """
+    def get_plugins(cls, module):
+        """ Return all plugins for module 'module' """
 
-        return cls.module_hooks.get(module)
+        return cls.module_plugins.get(module)
 
     def get_callbacks(cls, module):
         """ Return all callbacks for module 'module' """
 
         return cls.module_callbacks.get(module)    
 
-    def get_all_hooks(cls):
-        """ Return the hooks data structure """
+    def get_all_plugins(cls):
+        """ Return the plugins data structure """
 
         # Note this is a copy of the dictionary,
         # so modifying it will not have any impact
         # locally.
-        return cls.module_hooks.copy()
+        return cls.module_plugins.copy()
 
     def get_all_callbacks(cls):
         """ Return the callbacks data structure """
@@ -99,15 +98,15 @@ class HarvestManHooks(Singleton):
         # locally.
         return cls.module_callbacks.copy()    
 
-    def set_hook_func(self, context, func):
-        """ Set hook function 'func' for context 'context' """
+    def set_plugin_func(self, context, func):
+        """ Set plugin function 'func' for context 'context' """
 
-        self.run_hooks[context] = func
+        self.run_plugins[context] = func
         # Inject the given function in place of the original
-        module, hook = context.split(':')
+        module, plugin = context.split(':')
         # Load module and get the entry point
         M = __import__(module)
-        orig_func = getattr(M, '__hooks__').get(hook)
+        orig_func = getattr(M, '__plugins__').get(plugin)
         # Orig func is in the form class:function
         klassname, function = orig_func.split(':')
         if klassname:
@@ -129,10 +128,10 @@ class HarvestManHooks(Singleton):
         is 'pre' """
 
         self.run_callbacks[order + ':' + context] = method
-        module, hook = context.split(':')
+        module, callback = context.split(':')
         # Load module and get the entry point
         M = __import__(module)
-        orig_meth = getattr(M, '__callbacks__').get(hook)
+        orig_meth = getattr(M, '__callbacks__').get(callback)
         
         # Orig func is in the form class:function
         klassname, origmethod = orig_meth.split(':')
@@ -158,24 +157,24 @@ class HarvestManHooks(Singleton):
         else:
             pass
                           
-    def get_hook_func(self, context):
+    def get_plugin_func(self, context):
 
-        return self.run_hooks.get(context)
+        return self.run_plugins.get(context)
 
-    def get_all_hook_funcs(self):
+    def get_all_plugin_funcs(self):
 
-        return self.run_hooks.copy()
+        return self.run_plugins.copy()
 
-    add_all_hooks = classmethod(add_all_hooks)    
-    add_hook = classmethod(add_hook)
-    get_hooks = classmethod(get_hooks)
-    get_all_hooks = classmethod(get_all_hooks)
+    add_all_plugins = classmethod(add_all_plugins)    
+    add_plugin = classmethod(add_plugin)
+    get_plugins = classmethod(get_plugins)
+    get_all_plugins = classmethod(get_all_plugins)
     add_all_callbacks = classmethod(add_all_callbacks)
     add_callback = classmethod(add_callback)
     get_callbacks = classmethod(get_callbacks)
     get_all_callbacks = classmethod(get_all_callbacks)
     
-HarvestManHooks.add_all_hooks()
+HarvestManHooks.add_all_plugins()
 HarvestManHooks.add_all_callbacks()
               
 def register_plugin_function(context, func):
@@ -198,22 +197,19 @@ def register_plugin_function(context, func):
     # such validation is done by the Python run-time. The function
     # can be a module-level, class-level or instance-level function.
     
-    module, hook = context.split(':')
+    module, plugin = context.split(':')
 
     Hook = HarvestManHooks.getInstance()
     
     # Validity checks...
-    if module not in HarvestManHooks.get_all_hooks().keys():
-        raise HarvestManHooksException,'Error: %s has no hooks defined!' % module
+    if module not in HarvestManHooks.get_all_plugins().keys():
+        raise HarvestManHooksException,'Error: %s has no plugins defined!' % module
 
-    # print HarvestManHooks.get_hooks(module)
-    
-    if hook not in HarvestManHooks.get_hooks(module):
-        raise HarvestManHooksException,'Error: Hook %s is not defined for module %s!' % (hook, module)
+    if plugin not in HarvestManHooks.get_plugins(module):
+        raise HarvestManHooksException,'Error: Plugin %s is not defined for module %s!' % (plugin, module)
 
     # Finally add hook..
-    Hook.set_hook_func(context, func)
-
+    Hook.set_plugin_func(context, func)
 
 def register_callback_method(context, method, order):
     """ Register class method 'method' as
