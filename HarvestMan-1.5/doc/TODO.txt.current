@@ -1,10 +1,10 @@
 
 FEATURE/FIX                                  |  STATUS
 -------------------------------------------------------------------------------------
-1.Localization still has problems. Some      | Later
-downloaded files are still not localized     | 
+1.Localization still has problems. Some      | Need to fix problem with base URL 
+downloaded files are still not localized     | redefining immediately.
 correctly.                                   | 
-2. Improvements in the common module for     | Anand
+2. Improvements in the common module for     | Done (Anand)
 storing URL objects - try a weakrefdictionary|
 3. Changing the default url store from the   | Vaibhav
 queue module to the url server.              | 
@@ -12,16 +12,24 @@ queue module to the url server.              |
        next higher port numbers.             |
   3.2. Just run it for a set of say 10 sites |
        and see that things work.             |
-4. Change name of __hooks__ attribute to     | Anand
+4. Change name of __hooks__ attribute to     | Done (Anand)
 '__plugins__'.                               |
-5. Change the mode of inserting child url    | Vaibhav ?
+5. Change the mode of inserting child url    | Done (Anand)
 objects from the current list of url objects |
 to something else<maybe a list of url indices?>
 6. Add session-save feature when running with | Anand
 URL server.                                  |
-7. Deep crawling problem - sample site is    | Anand/Vaibhav
+7. Deep crawling problem - sample site is    | Anand/Vaibhav (Getting fixed - one error found on Feb 26)
 www.evvs.dk - Fix after all above is done.   |
-
+8. Some file extensions are better saved     |
+as directories always. Example - the .ars    | Done (Anand)
+extension of arstechnica. The site does not  |
+indicate this is a directory URL, but that   |
+is the only way to save it.                  |
+9. Btw arstechnica sites seem to have        | Figured out issue - problem with base URL redefining.
+the same deep crawling problem. Program      | Needs a good fix (Anand).
+exits after a few initial crawls.
+Sample URL: http://arstechnica.com/reviews/os/macosx-10.4.ars/
 ---------------------------------------------------------------------------------------
 
 
