@@ -6,8 +6,8 @@ downloaded files are still not localized     | redefining immediately.
 correctly.                                   | 
 2. Improvements in the common module for     | Done (Anand)
 storing URL objects - try a weakrefdictionary|
-3. Changing the default url store from the   | Vaibhav
-queue module to the url server.              | 
+3. Changing the default url store from the   | 
+queue module to the url server.              | Done(Vaibhav)
   3.1. Adding code in urlserver to try       |
        next higher port numbers.             |
   3.2. Just run it for a set of say 10 sites |
