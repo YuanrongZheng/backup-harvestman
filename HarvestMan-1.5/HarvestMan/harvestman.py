@@ -182,6 +182,8 @@ class HarvestMan(object):
                 # Initialize server
                 try:
                     server = urlserver.HarvestManUrlServer(host, port)
+                    port = server.get_port()
+                    self._cfg.urlport = port
                     flag = 1
                     info("Url server bound to port %d" % port)
                     break
