@@ -156,8 +156,8 @@ class HarvestManStateObject(dict):
         self.terminate = False
         self.datacache = True
         self.urlserver = False
-        self.urlhost = 'localhost'
-        self.urlport = 3081
+        self.urlhost = '127.0.0.1'
+        self.urlport = 0
         self.urlserver_protocol='tcp'
         self.blocking = False
         self.junkfilter = True
@@ -750,6 +750,9 @@ class HarvestManStateObject(dict):
 
         if not len(self.projtimeouts): self.projtimeouts.append(self.projtimeout)
         if not len(self.verbosities): self.verbosities.append(self.verbosity)
+
+        if self.urlhost == 'localhost':
+            self.urlhost = '127.0.0.1'
         
         if num>1:
             # Check the other list variables
