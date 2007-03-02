@@ -7,6 +7,9 @@
 
 
     Jan 10 2006  Anand  Converted from dos to unix format (removed Ctrl-Ms).
+    Mar 02 2007  Anand  Added support for crawler threads. Now enabling
+                        url server makes all the flow go through the url
+                        server.
 
    Copyright (C) 2006 Anand B Pillai.
 
@@ -98,7 +101,10 @@ class HarvestManUrlServer(asyncore.dispatcher_with_send):
     server multiplexing several url requests simultaneously """
 
     def __init__(self, host, port, protocol='tcp'):
+        # For storing data from crawlers
         self.urls = PriorityQueue(0)
+        # For storing data from fetchers
+        self.urls2 = PriorityQueue(0)
         self.port = port
         self.host = host
         self.protocol = protocol
@@ -108,6 +114,7 @@ class HarvestManUrlServer(asyncore.dispatcher_with_send):
 
         try:
             self.bind((self.host, port))
+            self.port = self.getsockname()[1]
         except socket.error:
             raise
 
@@ -117,11 +124,17 @@ class HarvestManUrlServer(asyncore.dispatcher_with_send):
         return self.port
 
     def seturl(self, url):
-        self.urlmap['last'] = url
+        self.urlmap['lasturl'] = url
 
+    def seturllist(self, urllist):
+        self.urlmap['lastlist'] = urllist
+        
     def geturl(self):
-        return self.urlmap['last']
+        return self.urlmap['lasturl']
 
+    def geturllist(self):
+        return self.urlmap['lastlist']
+    
     def handle_accept(self):
         newSocket, address = self.accept()
         secondary_url_server(sock=newSocket, addr=address,
@@ -159,8 +172,8 @@ class secondary_url_server(asyncore.dispatcher):
         if data:
             # Replace any newlines
             data.strip()
-            urls = self._urlserver.urls
-            if data in ('ping', 'flush', 'get last url', 'get url'):
+
+            if data in ('ping', 'flush', 'get last url', 'get url','get list','get last list'):
                 if data.lower() == 'ping':
                     self.sendall('ping')
                 elif data.lower() == "flush":
@@ -172,15 +185,33 @@ class secondary_url_server(asyncore.dispatcher):
                     self.sendall("Flushed Repository")
                 elif data.lower() == "get last url":
                     self.sendall((self._urlserver.geturl()).strip())
+                elif data.lower() == "get last list":
+                    self.sendall((self._urlserver.geturllist()).strip())                    
                 elif data.lower() == "get url":
                     try:
-                        url=urls.get_nowait()
+                        prior, url=self._urlserver.urls.get_nowait()
                         self._urlserver.seturl(url)
                         self.sendall(url.strip())                        
                     except Empty:
                         self.sendall("empty")
+                elif data.lower() == 'get list':
+                    try:
+                        prior, rest = self._urlserver.urls2.get_nowait()
+                        self._urlserver.seturllist(rest)
+                        self.sendall(rest.strip())
+                    except Empty:
+                        self.sendall('empty')
             else:
-                urls.put_nowait(data)
+                # Split w.r.t '#'
+                pieces = data.split('#')
+                # print 'Pieces=>',pieces
+                if len(pieces)==2:
+                    # Sent by crawler, put to urls queue
+                    self._urlserver.urls.put_nowait(pieces)
+                else:
+                    # Sent by fetcher, put to urls2 queue
+                    self._urlserver.urls2.put_nowait((pieces[0], '#'.join(pieces[1:])))
+                    
                 self.sendall("Recieved")
         else:
             self.close()

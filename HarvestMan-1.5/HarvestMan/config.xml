@@ -23,9 +23,9 @@
         <proxypasswd></proxypasswd>
         <proxyport value="80"/>
       </proxy>
-      <urlserver status="0">
+      <urlserver status="1">
         <urlhost>localhost</urlhost>
-        <urlport value="3081"/>
+        <urlport value="0"/>
       </urlserver>
     </network>
     
@@ -39,7 +39,7 @@
         <cookies value="1"/>
       </types> 
       <cache status="1">
-        <datacache value="0"/>
+        <datacache value="1"/>
       </cache>
       <misc>
         <retries value="1"/>
@@ -82,10 +82,11 @@
     </control>
     <system>
       <workers status="1" size="10" timeout="200"/>
-      <trackers value="20"/>
+      <trackers value="10"/>
       <locale>C</locale>
       <fastmode value="1"/>
       <savesessions value="0"/>
+      <timegap value="0.5" random="1" />
     </system>
     
     <files>

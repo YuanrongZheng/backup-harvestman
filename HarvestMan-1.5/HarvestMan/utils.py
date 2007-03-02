@@ -10,7 +10,9 @@
     streams and another one for writing project files.
 
    Jan 10 2006     Anand   Converted from dos to unix format (removed Ctrl-Ms).
-
+   Mar 03 2007     Anand   Modified cache read/write functions to dump URL data
+                           to separate *.data files - this helps to reduce
+                           the size of the cache files.
 
    Copyright (C) 2005 Anand B Pillai
    
@@ -26,6 +28,7 @@ import cPickle, pickle
 import marshal
 import zlib
 import shelve
+import glob
 
 from shutil import copy
 from common.common import *
@@ -251,7 +254,8 @@ class HarvestManCacheManager(object):
 
     def __init__(self, directory):
         self.__cachedir = directory
-
+        self.__datacachedir = os.path.join(directory, '.cache-data')
+        
     def read_project_cache(self):
         """ Try to read the project cache file """
 
@@ -260,10 +264,11 @@ class HarvestManCacheManager(object):
             moreinfo("Project cache not found")
             return None
 
-        cfg = GetObject('config')
         return self.__read_pickled_cache()
 
     def __read_pickled_cache(self):
+
+        cfg = GetObject('config')
 
         cache_obj = {}
         try:
@@ -275,13 +280,29 @@ class HarvestManCacheManager(object):
                     # The domain name is the bin_decrypted form
                     # of the filename with .hmc removed.
                     domain_cache = pickler.load(fullpath)
-                    
-                    for d in domain_cache.values():
-                        if 'data' in d and d['data']:
-                            try:
-                                d['data']=zlib.decompress(d['data'])
-                            except zlib.error, e:
-                                pass
+
+                    if cfg.datacache:
+                        if os.path.isdir(self.__datacachedir):
+                            # Get list of .data files
+                            datafiles = glob.glob(os.path.join(self.__datacachedir, '*.data'))
+                            for url, cachekey in domain_cache.iteritems():
+                                # Check if there is a datafile with name=hash(url)
+                                fname = os.path.join(self.__datacachedir, str(abs(hash(url))) + '.data')
+                                if fname in datafiles:
+                                    # print 'Added data cache for',url
+                                    try:
+                                        cachekey['data'] = zlib.decompress(open(fname).read())
+                                    except zlib.error, e:
+                                        pass
+                                    except Exception, e:
+                                        print e
+                        else:
+                            for d in domain_cache.values():
+                                if 'data' in d and d['data']:
+                                    try:
+                                        d['data']=zlib.decompress(d['data'])
+                                    except zlib.error, e:
+                                        pass
 
                     # Add this to cache obj
                     domain = bin_decrypt(f.replace('.hmc',''))
@@ -300,6 +321,10 @@ class HarvestManCacheManager(object):
                 if not os.path.exists(self.__cachedir):
                     os.makedirs(self.__cachedir)
                     extrainfo('Created cache directory => ', self.__cachedir)
+                if not os.path.isdir(self.__datacachedir):
+                    # Create data-cache directory
+                    os.makedirs(self.__datacachedir)
+                    extrainfo('Created data cache directory => ', self.__datacachedir)
         except OSError, e:
             debug('OS Exception ', e)
             return -1
@@ -325,20 +350,37 @@ class HarvestManCacheManager(object):
         # values. From 1.5 version onwards, we are
         # writing a separate cache file for every
         # domain.
-        
+
         try:
             pickler = HarvestManSerializer()            
             for domain, urldict in cache_obj.items():
                 for url in urldict.keys():
                     cachekey = urldict[url]
                     if 'data' in cachekey and cachekey['data']:
-                        cachekey['data']=zlib.compress(cachekey['data'])
+                        # Write out the data in another file
+                        # Filename is hash of the URL
+                        if os.path.isdir(self.__datacachedir):
+                            filename = os.path.join(self.__datacachedir, str(abs(hash(url))) + '.data')
+                            # print filename
+                            data = cachekey['data']
+
+                            try:
+                                open(filename, 'wb').write(zlib.compress(data))
+                            except zlib.error, e:
+                                pass
+                            except Exception, e:
+                                print e
+                                
+                            del cachekey['data']
+                        else:
+                            cachekey['data']=zlib.compress(cachekey['data'])
+
                 # Filename is encrypted form of domain name + .hmc
                 cachefilename = os.path.join(self.__cachedir, bin_crypt(domain) + '.hmc')
                 pickler.dump( urldict, cachefilename)
                 
         except HarvestManSerializerError, e:
-            logconsole(e)
+            print e
             return -1
 
         return 0
@@ -430,10 +472,12 @@ class HarvestManBrowser(object):
         if self.__add_project_to_browse_page() == -1:
             self.__make_initial_browse_page()
 
-        # Open the browser page in the user's webbrowser
-        info('Opening project in browser...')
+    def open_project_browse_page(self):
+        """ Open the project page in the user's web-browser """
+        
         import webbrowser
 
+        info('Opening project in browser...')
         browsefile=os.path.join(self._cfg.basedir, 'index.html')
         try:
             webbrowser.open(browsefile)

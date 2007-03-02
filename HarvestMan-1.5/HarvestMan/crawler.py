@@ -246,6 +246,11 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
 
         return False
 
+    def sleep(self):
+        """ Sleep for some time """
+
+        pass
+    
     def crawl_url(self):
         """ Crawl a web page, recursively downloading its links """
 
@@ -296,14 +301,73 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         if not obj:
             return False
 
-        prior, (indx, links) = obj
+        prior, (indx, indices) = obj
         url_obj = GetUrlObject(indx)
+        
         if not url_obj:
             return False
         
-        self.links = links
+        self.links = [GetUrlObject(index) for index in indices]
         return HarvestManBaseUrlCrawler.set_url_object(self, url_obj)
-        
+
+    def sleep(self):
+
+        if self._configobj.randomsleep:
+            time.sleep(random.random()*self._configobj.sleeptime)
+        else:
+            time.sleep(self._configobj.sleeptime)
+
+    def receive_url(self):
+        """ Receive urls from the asynchronous url server. """
+
+        try:
+            err = False
+
+            res = 0
+            try:
+                num_tries = 0
+                while True: # and num_tries<5: (should this be enabled?)
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.connect((self._configobj.urlhost, self._configobj.urlport))
+                    
+                    if err:
+                        # There was error in network data, so request
+                        # url data again.
+                        sock.sendall("get last list")
+                        num_tries += 1                        
+                    else:
+                        sock.sendall("get list")
+                        num_tries += 1
+                    response = sock.recv(8192)
+                    # print 'Response',response
+                    
+                    if response=='empty':
+                        break
+                    try:
+                        # Response is a string of the form
+                        # <index0>#<index1>#<index2>#...
+                        # where <index0> is the index of the parent URL
+                        # and rest the indices of child URLs
+                        pieces = response.split('#')
+                        # print pieces
+                        
+                        index1 = int(pieces[0])
+                        indices = map(lambda x: int(x), pieces[1:])
+                        
+                        self.set_url_object((0, (index1, indices)))
+                        res = 1
+                        break
+                    except Exception, e:
+                        err = True
+
+                    sock.close()    
+            except socket.error, e:
+                logconsole(e)
+
+            return res
+        finally:
+            sock.close()
+            
     def action(self):
         
         if self._isThread:
@@ -316,27 +380,33 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                 if not self._resuming:
                     if self.buffer and self._pushflag:
                         self.push_buffer()
-                    
-                    obj = self._crawlerqueue.get_url_data( "crawler" )
 
-                    if not obj:
-                        if self._endflag: break
-                        
-                        if self.buffer and self._pushflag:
-                            self.push_buffer()
+                    if not self._configobj.urlserver:
+                        obj = self._crawlerqueue.get_url_data( "crawler" )
 
-                        continue
-                
-                    self.set_url_object(obj)
-                    if not self._urlobject:
-                        continue
+                        if not obj:
+                            if self._endflag: break
+
+                            if self.buffer and self._pushflag:
+                                self.push_buffer()
+
+                            continue
+
+                        self.set_url_object(obj)
+                        if not self._urlobject:
+                            continue
+                    else:
+                        if self.receive_url() != 1:
+                            # Time gap helps to reduce
+                            # network errors.
+                            self.sleep()
+                            continue                        
                     
                     # Set status to one to denote busy state
                     self._status = 1
 
-                    # Inserting a random sleep
-                    time.sleep(random.random()*0.3)
-                
+                    self.sleep()
+                    
                 # Do a crawl to generate new objects
                 # only after trying to push buffer
                 # objects.
@@ -348,7 +418,8 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                 self._urlobject = None
                 
                 # Sleep for some time
-                time.sleep(random.random()*0.3)
+                self.sleep()
+                
                 # Set status to zero to denote idle state                
                 self._status = 0
                 # If I had resumed from a saved state, set resuming flag
@@ -437,47 +508,20 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
  
         priority_indx = 0
 
-        # MOD: Need to localise <base href="..." links if any
-        # so add a NULL entry. (Nov 30 2004 - Refer header)
-        mgr.update_links(self._urlobject.get_full_filename(), [])
-        urlobjlist = []
-        
-        for typ,link in self.links:
+        for url_obj in self.links:
 
             # Check for status flag to end loop
             if self._endflag: break
-            if not link: continue
-
-            is_cgi, is_php = False, False
-            if link.find('php?') != -1: is_php = True
-            if typ == 'form' or is_php: is_cgi = True
-
-            try:
-                child_urlobj = urlparser.HarvestManUrlParser(link,
-                                                             typ,
-                                                             is_cgi,
-                                                             self._urlobject)
-
-            except urlparser.HarvestManUrlParserError, e:
-                print 'Error:',e, link
-                continue
-                
-            if not child_urlobj: continue
-
-            if ruleschecker.is_duplicate_link( child_urlobj.get_full_url()):
+            if not url_obj: continue
+            
+            if ruleschecker.is_duplicate_link( url_obj.get_full_url()):
                 continue
             else:
-                debug('Not duplicate link->',child_urlobj.get_full_url())
+                debug('Not duplicate link->',url_obj.get_full_url())
                 pass
 
-            child_urlobj.set_index()
-            SetUrlObject(child_urlobj)
-            
-            # print 'URL=> %s, index=> %d' % (child_urlobj.get_full_url(), child_urlobj.index)
-            urlobjlist.append(child_urlobj)
-            
-            child_urlobj.generation = self._urlobject.generation + 1
-            typ = child_urlobj.get_type()
+            url_obj.generation = self._urlobject.generation + 1
+            typ = url_obj.get_type()
             
             if typ == 'javascript':
                 if not self._configobj.javascript:
@@ -487,15 +531,14 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                     continue
 
             # Check for basic rules of download
-            if child_urlobj.violates_rules():
-                continue
+            if url_obj.violates_rules(): continue
 
             # Thread is going to push data, set status to locked...
             self._status = 2
             
             priority_indx += 1
-            self.apply_url_priority( child_urlobj )
-            
+            self.apply_url_priority( url_obj )
+
             # If not using url server, push data to
             # queue, otherwise send data to url server.
             # - New in 1.4 alpha2
@@ -503,13 +546,16 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                 # Fix for hanging threads - Use a local buffer
                 # to store url objects, if they could not be
                 # adde to queue.
-                if not self._crawlerqueue.push( child_urlobj, "crawler" ):
+                if not self._crawlerqueue.push( url_obj, "crawler" ):
                     if self._pushflag:
-                        self.buffer.append(child_urlobj)
+                        self.buffer.append(url_obj)
             else:
                 # Serialize url object
                 try:
-                    send_url(str(child_urlobj.index),
+                    send_str = '#'.join((str(url_obj.priority), str(url_obj.index)))
+                    # print 'Send string2=>',send_str
+                    
+                    send_url(send_str,
                              self._configobj.urlhost,
                              self._configobj.urlport)
                 except:
@@ -517,9 +563,6 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
             # Thread was able to push data, set status to busy...
             self._status = 1
 
-        # Update links called here
-        mgr.update_links(self._urlobject.get_full_filename(), urlobjlist)
-            
 
 class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
     """ This is the fetcher class, which downloads data for a url
@@ -550,6 +593,13 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         return HarvestManBaseUrlCrawler.set_url_object(self, url_obj)
 
+    def sleep(self):
+
+        if self._configobj.randomsleep:
+            time.sleep(random.random()*self._configobj.sleeptime)
+        else:
+            time.sleep(self._configobj.sleeptime)
+            
     def receive_url(self):
         """ Receive urls from the asynchronous url server. """
 
@@ -625,14 +675,14 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                         if self.receive_url() != 1:
                             # Time gap helps to reduce
                             # network errors.
-                            time.sleep(0.3)
+                            self.sleep()
                             continue
 
                     # Set status to busy 
                     self._status = 1
 
                     # Inserting a random sleep
-                    time.sleep(random.random()*0.3)
+                    self.sleep()
                 
                 # Process to generate new objects
                 # only after trying to push buffer
@@ -644,7 +694,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 self._urlobject = None
 
                 # Sleep for some random time
-                time.sleep(random.random()*0.3)                
+                self.sleep()
                 self._status = 0
                 # Set resuming flag to False
                 self._resuming = False
@@ -686,7 +736,10 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             if ruleschecker.check_duplicate_content(self._urlobject, sh.hexdigest()):
                 extrainfo('Skipped URL %s => duplicate content' % url)
                 return ''
-            
+
+            # MOD: Need to localise <base href="..." links if any
+            # so add a NULL entry. (Nov 30 2004 - Refer header)
+            mgr.update_links(self._urlobject.get_full_filename(), [])            
             self._status = 2
             
             extrainfo("Parsing web page", self._url)
@@ -720,7 +773,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 extrainfo('SGML parse error:',str(e))
                 extrainfo('Error in parsing web-page %s' % self._url)
 
-            # Check for NOINDEX flag...do this only after checking robots flag
             if self._configobj.robots:
                 # Check for NOFOLLOW tag
                 if not self.wp.can_follow:
@@ -735,13 +787,53 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             # Fix for hanging threads - Append objects
             # to local buffer if queue was full.
 
-            # Rules checker object
-            ruleschecker = GetObject('ruleschecker')
+            urlobjidxlist, urlobjlist = [], []
 
-            if not self._crawlerqueue.push((url_obj, links), 'fetcher'):
-                if self._pushflag:
-                    print 'Appending to buffer for URL %s' % self._url
-                    self.buffer.append((url_obj, links))
+            for typ, url in links:
+                is_cgi, is_php = False, False
+                
+                if url.find('php?') != -1: is_php = True
+                if typ == 'form' or is_php: is_cgi = True
+
+                if not url: continue
+
+                try:
+                    child_urlobj = urlparser.HarvestManUrlParser(url,
+                                                                 typ,
+                                                                 is_cgi,
+                                                                 url_obj)
+
+                    child_urlobj.set_index()
+                    SetUrlObject(child_urlobj)
+
+                    urlobjidxlist.append(child_urlobj.index)
+                    urlobjlist.append(child_urlobj)
+                    
+                except urlparser.HarvestManUrlParserError:
+                    continue
+
+            if not self._configobj.urlserver:            
+                if not self._crawlerqueue.push((url_obj, urlobjidxlist), 'fetcher'):
+                    if self._pushflag:                
+                        self.buffer.append((url_obj, urlobjidxlist))
+            else:
+                # We need to pass the priority, index of parent urlobject
+                # and a string created from indices of child url objects
+                # Separating each with a '#'
+                idxstring = '#'.join(map(lambda x: str(x), urlobjidxlist))
+                send_str = '#'.join((str(url_obj.priority), str(url_obj.index), idxstring))
+
+                # print 'Send string=>',send_str
+                try:
+                    send_url(send_str,
+                             self._configobj.urlhost,
+                             self._configobj.urlport)
+                except:
+                    pass
+                
+
+            # Update links called here
+            mgr.update_links(url_obj.get_full_filename(), urlobjlist)
 
             return data
         
@@ -752,12 +844,34 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             
             # Parse stylesheet to find @import links
             imported_sheets = mgr.parse_style_sheet(data)
-            if imported_sheets:
-                imported_sheets = [('stylesheet', url) for url in imported_sheets]
 
-                if not self._crawlerqueue.push((self._urlobject, imported_sheets), 'fetcher'):
-                    if self._pushflag:                
-                        self.buffer.append((self._urlobject, imported_sheets))
+            urlobjlist, urlobjidxlist = [], []
+            
+            # Add these links to the queue
+            for url in imported_sheets:
+                if not url: continue
+
+                try:
+                    child_urlobj =  urlparser.HarvestManUrlParser(url,
+                                                                 'stylesheet',
+                                                                 False,
+                                                                 self._urlobject)
+
+                    child_urlobj.set_index()
+                    SetUrlObject(child_urlobj)
+                    
+                    urlobjlist.append(child_urlobj)
+                    urlobjidxlist.append(child_urlobj.index)
+                    
+                except urlparser.HarvestManUrlParserError:
+                    continue
+                
+            if not self._crawlerqueue.push((self._urlobject, urlobjidxlist), 'fetcher'):
+                if self._pushflag:                
+                    self.buffer.append((self._urlobject, urlobjidxlist))
+
+            # Update links called here
+            mgr.update_links(self._urlobject.get_full_filename(), urlobjlist)
 
             # Successful return returns data
             return data
@@ -818,7 +932,7 @@ class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
                 self.crawl_url()
 
                 self._loops += 1
-                time.sleep(0.5)
+                self.sleep()
                 # Set status to zero to denote idle state                
                 self._status = 0
         else:
@@ -842,7 +956,7 @@ class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
                     if self.receive_url() != 1:
                         # Time gap helps to reduce
                         # network errors.
-                        time.sleep(0.3)
+                        self.sleep()
                         continue
 
                 if self.is_exit_condition(): break

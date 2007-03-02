@@ -26,6 +26,11 @@
      Feb 8 2007          Anand       Added swish-e integration as a plugin.
      Feb 11 2007         Anand       Changes in the swish-e plugin implementation,
                                      by using callbacks.
+     Mar 2 2007          Anand       Renamed finish to finish_project. Moved
+                                     Finish method from common.py to here and
+                                     renamed it as finish(...). finish is never
+                                     called at project end, but by default at
+                                     program end.
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -63,8 +68,8 @@ class HarvestMan(object):
         # error file descriptor
         self.USER_AGENT = "HarvestMan 1.5"
         
-    def finish(self):
-        """ Actions to take after download is over """
+    def finish_project(self):
+        """ Actions to take after download is over for the current project """
 
         # Disable tracebacks
         # sys.excepthook = None
@@ -83,14 +88,51 @@ class HarvestMan(object):
         # Clean up lists inside data manager
         GetObject('datamanager').clean_up()
         # Clean up lists inside rules module
-        GetObject('ruleschecker').clean_up()        
+        GetObject('ruleschecker').clean_up()
 
-        # Shutdown logging at the end
-        #while len(threading.enumerate())>1:
-        #    print 'Threads=>',threading.enumerate()
-        #    time.sleep(1.0)
-            
-        Finish()
+        global RegisterObj
+        # Reset url object indices
+        RegisterObj.urlmappings.clear()
+
+    def finish(self):
+        """ This function can be called at program exit or
+        when handling signals to clean up """
+
+        global RegisterObj
+        
+        # Stop url server if it is running
+        if self._cfg.urlserver:
+            info('Stoppping url server at port %d...' % self._cfg.urlport)
+            async_t= GetObject('asyncorethread')
+            if async_t:
+                try:
+                    async_t.end()
+                    moreinfo("Done.")
+                except socket.error, e:
+                    logconsole(e)
+                except Exception, e:
+                    logconsole(e)
+
+        RegisterObj.ini = 0
+
+        RegisterObj.logger.shutdown()
+
+        # If this was started from a runfile,
+        # remove it.
+        if self._cfg.runfile:
+            try:
+                os.remove(self._cfg.runfile)
+            except OSError, e:
+                moreinfo('Error removing runfile %s.' % self._cfg.runfile)
+
+        # inform user of config file errors
+        if RegisterObj.userdebug:
+            logconsole("Some errors were found in your configuration, please correct them!")
+            for x in range(len(RegisterObj.userdebug)):
+                logconsole(str(x+1),':', RegisterObj.userdebug[x])
+
+        RegisterObj.userdebug = []
+        print 'HarvestMan session finished.'
         
     def save_current_state(self):
         """ Save state of objects to disk so program
@@ -185,6 +227,7 @@ class HarvestMan(object):
                     port = server.get_port()
                     self._cfg.urlport = port
                     flag = 1
+
                     info("Url server bound to port %d" % port)
                     break
                 except socket.error, (errno, errmsg):
@@ -430,7 +473,7 @@ class HarvestMan(object):
         try:
             sys.excepthook = None
             sys.tracebacklimit = 0
-            self.finish()
+            self.finish_project()
         except Exception, e:
             # To catch errors at interpreter shutdown
             pass
@@ -562,7 +605,7 @@ class HarvestMan(object):
                             self.clean_up()
 
                     try:
-                        self.finish()
+                        self.finish_project()
                     except Exception, e:
                         # To catch errors at interpreter shutdown
                         pass
@@ -614,23 +657,27 @@ class HarvestMan(object):
                         
     def main(self):
 
+
         # Prepare myself
         self.__prepare()
-        # Load plugins
-        self.process_plugins()
 
         # If this is nocrawl mode, just download the URL
         if self._cfg.nocrawl:
             self.grab_url()
+            return 0
 
-    
+        # Load plugins
+        self.process_plugins()
+        
         # See if a crash file is there, then try to load it and run
         # program from crashed state.
-        elif self.run_saved_state() == -1:
+        if self.run_saved_state() == -1:
             # No such crashed state or user refused to run
             # from crashed state. So do the usual run.
             self.run_projects()
 
+        # Final cleanup
+        self.finish()
         
 if __name__=="__main__":
     HarvestMan().main()

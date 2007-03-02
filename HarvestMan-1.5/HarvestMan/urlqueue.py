@@ -248,7 +248,8 @@ class HarvestManCrawlerQueue(object):
         while 1:
             if self.is_exit_condition():
                 count += 1
-                
+
+            # print count
             if count==numstops:
                 break
             
@@ -305,7 +306,7 @@ class HarvestManCrawlerQueue(object):
                 # Flush url server of any previous urls by
                 # sending a flush command.
                 send_url("flush", self._configobj.urlhost, self._configobj.urlport)
-                send_url(str(self._baseUrlObj.index),
+                send_url(str(self._baseUrlObj.priority) + '#' + str(self._baseUrlObj.index),
                          self._configobj.urlhost,
                          self._configobj.urlport)
             except:

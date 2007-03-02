@@ -307,50 +307,6 @@ def SetLogSeverity():
     global RegisterObj
     RegisterObj.logger.setLogSeverity(RegisterObj.config.verbosity)    
     
-def Finish():
-    """ Clean up this module. This function
-    can be called at program exit or when
-    handling signals to clean up """
-
-    global RegisterObj
-    cfg=RegisterObj.config
-    # Stop url server if it is running
-    if cfg.urlserver:
-        info('Stoppping url server at port %d...' % cfg.urlport)
-        async_t= RegisterObj.asyncorethread
-        if async_t:
-            try:
-                async_t.end()
-                extrainfo("Done.")
-            except socket.error, e:
-                logconsole(e)
-            except Exception, e:
-                logconsole(e)
-                
-    
-    RegisterObj.ini = 0
-
-    RegisterObj.logger.shutdown()
-    
-    # Reset url object indices
-    RegisterObj.urlmappings.clear()
-
-    # If this was started from a runfile,
-    # remove it.
-    if cfg.runfile:
-        try:
-            os.remove(cfg.runfile)
-        except OSError, e:
-            moreinfo('Error removing runfile %s.' % cfg.runfile)
-            
-    # inform user of config file errors
-    if RegisterObj.userdebug:
-        logconsole("Some errors were found in your configuration, please correct them!")
-        for x in range(len(RegisterObj.userdebug)):
-            logconsole(str(x+1),':', RegisterObj.userdebug[x])
-
-    RegisterObj.userdebug = []
-
 def wasOrWere(val):
     """ What it says """
 

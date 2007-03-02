@@ -879,25 +879,25 @@ class HarvestManRulesChecker(object):
         url_filters = self.__make_filter(urlfilterstr)
         print 'URL FILTERS=>',url_filters
         
-        self._configobj.set_option('control.urlfilterre', url_filters)
+        self._configobj.set_option('urlfilterre_value', url_filters)
 
         # server filter string
         serverfilterstr = self._configobj.serverfilter
         server_filters = self.__make_filter(serverfilterstr)
-        self._configobj.set_option('control.serverfilterre', server_filters)
+        self._configobj.set_option('serverfilterre_value', server_filters)
 
         #  url/server priority filters
         urlprioritystr = self._configobj.urlpriority
         # The return is a dictionary
         url_priorities = self.__make_priority(urlprioritystr)
 
-        self._configobj.set_option('control.urlprioritydict', url_priorities)
+        self._configobj.set_option('urlprioritydict_value', url_priorities)
 
         serverprioritystr = self._configobj.serverpriority
         # The return is a dictionary        
         server_priorities = self.__make_priority(serverprioritystr)
 
-        self._configobj.set_option('control.serverprioritydict', server_priorities)
+        self._configobj.set_option('serverprioritydict_value', server_priorities)
 
         # word filter list
         wordfilterstr = self._configobj.wordfilter

@@ -16,6 +16,15 @@
 
     Feb 11 2007      Anand    Re-wrote configuration parsing using generic option
                               parser.
+
+    Mar 03 2007      Anand    Removed old option parsing dictionary and some
+                              obsolete code. Added option for changing time gap
+                              between downloads in config file. Removed command
+                              line option for urllistfile/urltree file. Added
+                              option to read multiple start URLs from a file.
+                              Modified behaviour so that if a source of URL is
+                              specified (command-line, URL file etc), any URLs
+                              in config file is skipped.
                               
    Copyright (C) 2004 Anand B Pillai.                              
 
@@ -45,6 +54,7 @@ Mail bug reports and suggestions to <abpillai@gmail.com>."""
 import os, sys
 import xmlparser
 import options
+import urlparser
 
 from common.optionparser import *
 
@@ -57,10 +67,10 @@ class HarvestManStateObject(dict):
 
         self._init1()
         self._init2()
-        self._init3()
 
     def _init1(self):
-        
+
+        self.items_to_skip=[]
         self.version='1.5'
         self.maturity="beta 1"
         self.appname='HarvestMan'
@@ -165,6 +175,7 @@ class HarvestManStateObject(dict):
         self.junkfilterpatterns = True
         self.urltreefile = ''
         self.urllistfile = ''
+        self.urlfile = ''
         self.maxfilesize=5242880
         self.minfilesize=0
         self.format = 'xml'
@@ -179,102 +190,11 @@ class HarvestManStateObject(dict):
         self.simulate = False
         # Control var for swish integration
         self.swishplugin = False
+        # Time to sleep between requests
+        self.sleeptime = 0.5
+        self.randomsleep = True
         
     def _init2(self):
-        
-        # create the dictionary of mappings containing
-        # config options to dictionary keys and their
-        # types
-
-        # The dictionary containing the mapping
-        # of config options to dictionary keys and their types
-        self._options = {
-                            'project.url' : ('url', 'str'),
-                            'project.name' : ('project', 'str'),
-                            'project.urls' : ('urls', 'list'),
-                            'project.names' : ('projects', 'list'),
-                            'project.basedir' : ('basedir', 'str'),
-                            'project.verbosity' : ('verbosity', 'int'),
-                            'project.timeout' : ('projtimeout', 'float'),
-
-                            'network.proxyserver' : ('proxy', 'str'),
-                            'network.proxyuser' : ('puser', 'str'),
-                            'network.proxypasswd' : ('ppasswd', 'str'),
-                            'network.proxyport' : ('proxyport', 'int'), 
-                            'network.urlserver' : ('urlserver','int'),
-                            'network.urlport'   : ('urlport', 'int'),
-                            'network.urlhost'   : ('urlhost', 'str'),
-
-                            'download.javascript'   : ('javascript', 'int'),
-                            'download.javaapplet'   : ('javaapplet', 'int'),
-                            'download.rename' : ('renamefiles', 'int'),
-                            'download.cookies' : ('cookies', 'int'),
-                            'download.retries' : ('retryfailed', 'int'),
-                            'download.html': ('html', 'int'),
-                            'download.images' : ('images', 'int'),
-                            'download.forms' : ('getqueryforms', 'int'),
-                            'download.cache' : ('pagecache', 'int'),
-                            'download.datacache' : ('datacache', 'int'),
-
-                            'control.stylesheetlinks' : ('getstylesheets', 'int'),
-                            'control.imagelinks' : ('getimagelinks', 'int'),
-
-                            'control.fetchlevel' : ('fetchlevel', 'int'),
-                            'control.extpagelinks' : ('epagelinks', 'int'),
-                            'control.extserverlinks' : ('eserverlinks', 'int'),
-                            'control.depth' : ('depth', 'int'),
-                            'control.extdepth' : ('extdepth', 'int'),
-                            'control.subdomain'   : ('subdomain', 'int'),
-                            'control.maxextdirs' : ('maxextdirs', 'int'),
-                            'control.maxextservers' : ('maxextservers', 'int'),
-                            'control.maxfiles'      : ('maxfiles', 'int'),
-                            'control.maxfilesize'   : ('maxfilesize', 'int'),
-                            'control.connections' : ('connections', 'int'),
-                            'control.requests'    : ('requests', 'int'),
-                            'control.timelimit'   : ('timelimit', 'int'),
-                            
-                            'control.robots' : ('robots', 'int'),
-                            'control.urlpriority' : ('urlpriority', 'str'),
-                            'control.serverpriority' : ('serverpriority', 'str'),
-                            'control.urlprioritydict' : ('urlprioritydict', 'dict'),
-                            'control.serverprioritydict' : ('serverprioritydict', 'dict'),
-                            
-                            'control.urlfilter' : ('urlfilter', 'str'),
-                            'control.serverfilter' : ('serverfiler', 'str'),
-                            'control.wordfilter' : ('wordfilter', 'str'),
-                            'control.urlfilterre' : (('inclfilter', 'list'), ('exclfilter', 'list'),
-                                                   ('allfilters', 'list')),
-                            'control.serverfilterre' : (('serverinclfilter', 'list'),
-                                                      ('serverexclfilter', 'list'),
-                                                      ('allserverfilters', 'list')),
-
-                            'control.junkfilter'  : ('junkfilter', 'int'),
-
-                            'system.trackers' : ('maxtrackers', 'int'),
-                            'system.threadtimeout' : ('timeout', 'float'),
-                            'system.locale': ('locale', 'str'),   
-                            'system.workers' : ('usethreads', 'int'),
-                            'system.threadpoolsize' : ('threadpoolsize', 'int'),
-                            'system.fastmode' : ('fastmode', 'int'),
-                            'system.savesessions': ('savesessions', 'int'),
-                            'system.simulate': ('simulate', 'int'),
-                            'indexer.localise' : ('localise', 'int'),
-
-                            'files.configfile' : ('configfile', 'str'),   
-                            'files.projectfile' : ('projectfile', 'str'), 
-                            'files.urllistfile' : ('urllistfile', 'str'),
-                            'files.urltreefile'  : ('urltreefile', 'str'),
-                            'files.archive'      : ('archive', 'int'),
-                            'files.archformat'   : ('archformat', 'str'),
-                            'files.urlheaders'   : ('urlheaders', 'int'),
-                            'files.urlheaderformat' : ('urlheadersformat', 'str'),
-
-                            'display.browsepage' : ('browsepage', 'int'),
-                            'nocrawl'            : ('nocrawl', 'int')
-
-                          }
-
-    def _init3(self):
         
         # For mapping xml entities to config entities
         
@@ -305,6 +225,7 @@ class HarvestManStateObject(dict):
                          'datacache_value' : ('datacache','int'),
 
                          'urllistfile' : ('urllistfile', 'str'),
+                         'urllist': ('urlfile', 'str'),
                          'urltreefile' : ('urltreefile', 'str'),
                          'archive_status' : ('archive', 'int'),
                          'archive_format' : ('archformat', 'str'),
@@ -341,9 +262,25 @@ class HarvestManStateObject(dict):
                          'locale' : ('locale','str'),
                          'fastmode_value': ('fastmode','int'),
                          'savesessions_value': ('savesessions','int'),
+                         'timegap_value': ('sleeptime', 'float'),
+                         'timegap_random': ('randomsleep', 'int'),
+                         
                          'simulate_value': ('simulate', 'int'),
                          'localise_value' : ('localise','int'),
                          'browsepage_value' : ('browsepage','int'),
+
+                         'configfile_value': ('configfile', 'str'),
+                         'projectfile_value': ('projectfile', 'str'),
+
+                         'urlfilterre_value': (('inclfilter', 'list'),
+                                               ('exclfilter', 'list'),
+                                               ('allfilters', 'list')),
+                         'serverfilterre_value':(('serverinclfilter', 'list'),
+                                                 ('serverexclfilter', 'list'),
+                                                 ('allserverfilters', 'list')),
+                         'urlprioritydict_value': ('urlprioritydict', 'dict'),
+                         'serverprioritydict_value': ('serverprioritydict', 'dict')
+                         
                          }
 
     def assign_option(self, option_val, value):
@@ -378,40 +315,23 @@ class HarvestManStateObject(dict):
             else:
                 # Type is of the form list:<actual type>
                 typ = (typ.split(':'))[1]
-                fval = (eval(typ))(value)
+                if typ:
+                    fval = (eval(typ))(value)
+                else:
+                    fval = value
+                    
                 var = self[key]
                 var.append(fval)
 
-            #print 'Option set for %s %s' % (option_val, value)
         else:
             debug('Error in option value %s!' % option_val)
-            
-    def set_option_xml(self, option, value):
-        """ Set an option from the xml config file """
 
-        option_val = self.xml_map.get(option, None)
-
-        if option_val:
-            if type(option_val) is tuple:
-                self.assign_option(option_val, value)
-            elif type(option_val) is list:
-                # If the option_val is a list, there
-                # might be multiple vars to set.
-                for item in option_val:
-                    # The item has to be a tuple again...
-                    if type(item) is tuple:
-                        # Set it
-                        self.assign_option(item, value)
-        else:
-            #print 'Could not find key for xml option %s' % option
-            pass
-                       
     def set_option(self, option, value, negate=0):
         """ Set the passed option in the config class
         with its value as the passed value """
-
+        
         # find out if the option exists in the dictionary
-        if option in self._options.keys():
+        if option in self.xml_map.keys():
             # if the option is a string or int or any
             # non-seq type
 
@@ -429,9 +349,9 @@ class HarvestManStateObject(dict):
             
             if type(value) is not tuple:
                 # get the key for the option
-                key = (self._options[option])[0]
+                key = (self.xml_map[option])[0]
                 # get the type of the option
-                typ = (self._options[option])[1]
+                typ = (self.xml_map[option])[1]
                 # do any type casting of the option
                 fval = (eval(typ))(value)
                 # do any negation of the option
@@ -446,7 +366,7 @@ class HarvestManStateObject(dict):
                 # iterate through all values of the option
                 # see if the size of the value tuple and the
                 # size of the values for this key match
-                _values = self._options[option]
+                _values = self.xml_map[option]
                 if len(_values) != len(value): return -1
 
                 for index in range(0, len(_values)):
@@ -466,63 +386,30 @@ class HarvestManStateObject(dict):
                 return 1
 
         return -1
+    
+    def set_option_xml(self, option, value):
+        """ Set an option from the xml config file """
 
-    def get_variable(self, option):
-        """ Get the variable for the passed option
-        if it exists in the config file, otherwise
-        return None """
-
-        # Note: if the option matches more than one
-        # variable, the return is a list of variables
-        # otherwise a single variable
-
-        if option in self._options.keys():
-            value = self._options[option]
-
-            if type(value[0]) is not tuple:
-                key = value[0]
-                return self.key
-            else:
-                # the values are tuples
-                ret=[]
-                for v in value:
-                    key = v[0]
-                    ret.append(self.key)
-                    
-                return ret
+        # If option in things to be skipped, return
+        if option in self.items_to_skip:
+            return
+        
+        option_val = self.xml_map.get(option, None)
+        
+        if option_val:
+            if type(option_val) is tuple:
+                self.assign_option(option_val, value)
+            elif type(option_val) is list:
+                # If the option_val is a list, there
+                # might be multiple vars to set.
+                for item in option_val:
+                    # The item has to be a tuple again...
+                    if type(item) is tuple:
+                        # Set it
+                        self.assign_option(item, value)
         else:
-            return None
-
-    def get_variable_type(self, option):
-        """ Get the type of the variable for the passed
-        option if it exists in the config file, else return
-        None """
-
-        # Note: if the option matches more than one variable
-        # the return is a list of types, otherwise a single type
-
-        if option in self._options.keys():
-            value = self._options[option]
-
-            if type(value[0]) is not tuple:
-                typ = value[1]
-                return typ
-            else:
-                # the values are tuples
-                ret=[]
-                for v in value:
-                    typ = v[1]
-                    ret.append(typ)
-                return ret
-        else:
-            return None
-
-
-    def Options(self):
-        """ Return the options dictionary """
-
-        return self._options
-
+            pass
+                       
     def parse_arguments(self):
         """ Parse the command line arguments """
 
@@ -555,6 +442,9 @@ class HarvestManStateObject(dict):
         if args:
             # Any option without an argument is assumed to be a URL
             self.set_option_xml('url',self.process_value(args[0]))
+            # Since we set a URL from outside, we dont want to read
+            # URLs from the config file.
+            self.items_to_skip = ['url','name','basedir','verbosity_value']
             
         cfgfile = False
         
@@ -573,12 +463,12 @@ class HarvestManStateObject(dict):
                 sys.exit(0)                
             elif option=='configfile':
                 if self.check_value(option,value):
-                    self.set_option('files.configfile', self.process_value(value))
+                    self.set_option_xml('configfile_value', self.process_value(value))
                     cfgfile = True
                     # Continue parsing and take rest of options from cmd line
             elif option=='projectfile':
                 if self.check_value(option,value):
-                    self.set_option('files.projectfile', self.process_value(value))
+                    self.set_option_xml('projectfile_value', self.process_value(value))
                     import utils 
 
                     projector = utils.HarvestManProjectManager()
@@ -586,6 +476,7 @@ class HarvestManStateObject(dict):
                     if projector.read_project() == 0:
                         # No need to parse further values
                         return 0
+        
             
             elif option=='basedir':
                 if self.check_value(option,value): self.set_option_xml('basedir', self.process_value(value))
@@ -612,10 +503,8 @@ class HarvestManStateObject(dict):
                 if self.check_value(option,value): self.set_option_xml('depth_value', self.process_value(value))
             elif option=='robots':
                 if self.check_value(option,value): self.set_option_xml('robots_value', self.process_value(value))
-            elif option=='urlslist':
-                if self.check_value(option,value): self.set_option_xml('urllistfile', self.process_value(value))
-            elif option=='urltree':
-                if self.check_value(option,value): self.set_option_xml('urltreefile', self.process_value(value))
+            elif option=='urllist':
+                if self.check_value(option,value): self.set_option_xml('urllist', self.process_value(value))
             elif option=='nocrawl':
                 self.nocrawl = value
             elif option=='proxy':
@@ -665,7 +554,40 @@ class HarvestManStateObject(dict):
             self.set_option_xml('name','')
             # Set basedir to dot
             self.set_option_xml('basedir','.')
-            
+
+        # If urlfile option set, read all URLs from a file
+        # and load them.
+        if self.urlfile:
+            if not os.path.isfile(self.urlfile):
+                print 'Error: Cannot find URL file %s!' % self.urlfile
+                return -1
+            # Open file
+            try:
+                lines = open(self.urlfile).readlines()
+                if len(lines):
+                    # Reset all...
+                    self.urls = []
+                    self.projects = []
+                    self.projtimeouts = []
+                    self.basedirs = []
+
+                    for line in lines:
+                        url = line.strip()
+                        self.urls.append(url)
+                        # Create project name
+                        h = urlparser.HarvestManUrlParser(url)
+                        project = h.get_domain()
+                        self.projects.append(project)
+                        self.basedirs.append('.')
+
+                    # We would now want to skip url, project,
+                    # basedir etc in the config file
+                    self.items_to_skip = ['url','name','basedir','verbosity_value']
+                        
+            except Exception, e:
+                print e
+                return -1
+                        
         # Error in option value
         if self._error:
             print self._error, value
@@ -751,7 +673,8 @@ class HarvestManStateObject(dict):
         if not len(self.projtimeouts): self.projtimeouts.append(self.projtimeout)
         if not len(self.verbosities): self.verbosities.append(self.verbosity)
 
-        if self.urlhost == 'localhost':
+        # Fix urlhost
+        if self.urlhost in ('localhost', 'localhost.localdomain','0.0.0.0'):
             self.urlhost = '127.0.0.1'
         
         if num>1:
@@ -806,7 +729,6 @@ class HarvestManStateObject(dict):
                 pass
 
             if not project:
-                import urlparser
                 h = urlparser.HarvestManUrlParser(url)
                 project = h.get_domain()
                 self.projects.append(project)

@@ -860,6 +860,8 @@ class HarvestManUrlConnector(object):
         except IOError,e:
             debug('IO Exception' , str(e))
             return 0
+        except ValueError, e:
+            return 0
 
         return 1
 

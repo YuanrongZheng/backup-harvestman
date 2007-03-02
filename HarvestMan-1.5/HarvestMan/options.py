@@ -18,6 +18,7 @@ def getOptList():
   ('nocrawl', 'short=N','long=nocrawl','help=Only download the passed url (wget-like behaviour)','type=bool'),
   ('configfile', 'short=C','long=configfile','help=Read all options from the configuration file CFGFILE','meta=CFGFILE'),
   ('projectfile', 'short=P','long=projectfile','help=Load the project file PROJFILE','meta=PROJFILE'),
+  ('urllist', 'short=F','long=urlfile',"help=Read a list of start URLs from file URLFILE and crawl them","meta=URLFILE"),  
   ('basedir', 'short=b','long=basedir','help=Set the (optional) base directory to BASEDIR','meta=BASEDIR'),
   ('project', 'short=p','long=project','help=Set the (optional) project name to PROJECT', 'meta=PROJECT'),
   ('verbosity', 'short=V','long=verbosity','help= Set the verbosity level to LEVEL. Ranges from 0-5, default is 2','meta=LEVEL'),
@@ -38,9 +39,8 @@ def getOptList():
   ('savesessions', 'short=S','long=savesessions','help=Enable/disable session saver feature. If enabled(default), crashed sessions are automatically saved to disk and the program gives you the option of resuming them next time'),
   ('robots', 'short=R','long=robots','help=Enable/disable Robot Exclusion Protocol.'),
   ('urlfilter', 'short=u','long=urlfilter','help=Use regular expression FILTER for filtering urls','meta=FILTER'),
-  ('plugin', 'short=g','long=plugin',"help=Load and run the plugin PLUGIN. Supported plugins are 'swish-e' and 'simulator'",'meta=PLUGIN'),
-  ('urlslist', 'long=urlslistfile','help=Dump a list of all URLs crawled to file FILE','meta=FILE'),
-  ('urltree', 'long=urlstreefile','help=Dump a file listing hierarchy of URLs crawled to file FILE','meta=FILE')]
+  ('plugin', 'short=g','long=plugin',"help=Load and run the plugin PLUGIN. Supported plugins are 'swish-e' and 'simulator'",'meta=PLUGIN')]
+
 
 
 if __name__=="__main__":

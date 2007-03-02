@@ -172,6 +172,8 @@ class HarvestManLogger(object):
             (self._severity>=1) and self._logger.debug(self.__getMessage(msg, *args))
         except ValueError, e:
             pass
+        except IOError, e:
+            pass
 
     def moreinfo(self, msg, *args):
         """ Perform logging at the MOREINFO level """
@@ -179,6 +181,8 @@ class HarvestManLogger(object):
         try:
             (self._severity>=2) and self._logger.debug(self.__getMessage(msg, *args))
         except ValueError, e:
+            pass
+        except IOError, e:
             pass
         
     def extrainfo(self, msg, *args):
@@ -188,6 +192,8 @@ class HarvestManLogger(object):
             (self._severity>=3) and self._logger.debug(self.__getMessage(msg, *args))
         except ValueError, e:
             pass
+        except IOError, e:
+            pass
         
     def debug(self, msg, *args):
         """ Perform logging at the DEBUG level """
@@ -195,6 +201,8 @@ class HarvestManLogger(object):
         try:
             (self._severity>=4) and self._logger.debug(self.__getMessage(msg, *args))
         except ValueError, e:
+            pass
+        except IOError, e:
             pass
         
     def moredebug(self, msg, *args):
@@ -204,13 +212,17 @@ class HarvestManLogger(object):
             (self._severity>=5) and self._logger.debug(self.__getMessage(msg, *args))
         except ValueError, e:
             pass
-
+        except IOError, e:
+            pass
+        
     def logconsole(self, msg, *args):
         """ Directly log to console using sys.stdout """
 
         try:
             (self._severity>0) and sys.stdout.write(self.__getMessage(msg, *args)+'\n')
         except ValueError, e:
+            pass
+        except IOError, e:
             pass
         
     def getDefaultLogger(cls):

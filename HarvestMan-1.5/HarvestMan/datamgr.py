@@ -73,7 +73,9 @@ class HarvestManDataManager(object):
 
         # Regexp to parse stylesheet imports
         self._importcss1 = re.compile(r'(\@import\s+\"?)(?!url)([\w.-:/]+)(\"?)', re.MULTILINE|re.UNICODE)
-        self._importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.UNICODE)           
+        self._importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.UNICODE)
+        # Regexp to parse URLs inside CSS files
+        self._cssurl = re.compile(r'(url\()(.*)(\))')
 
     def get_state(self):
         """ Return a snapshot of the current state of this
@@ -130,17 +132,19 @@ class HarvestManDataManager(object):
         # for doing stylesheet imports.
 
         # This takes care of @import "style.css" and
-        # @import url("style.css") syntax. Media types specified
-        # if any, are ignored.
-
+        # @import url("style.css") and url(...) syntax.
+        # Media types specified if any, are ignored.
+        
         # Matches for @import "style.css"
         l1 = self._importcss1.findall(data)
         # Matches for @import url("style.css")
         l2 = self._importcss2.findall(data)
-
+        # Matches for url(...)
+        l3 = self._cssurl.findall(data)
+        
         # The URL is the second item of the returned match tuple
         csslinks = []
-        for item in (l1+l2):
+        for item in (l1+l2+l3):
             if not item: continue
             csslinks.append(item[1])
 
@@ -169,6 +173,8 @@ class HarvestManDataManager(object):
         ret = False
         
         d = self._projectcache.get(urlobj.get_full_domain(), {})
+
+        url = urlobj.get_full_url()
         
         if d.has_key(url):
             # Value itself is a dictionary
