@@ -9,9 +9,13 @@
 
     Feb 2 2007      Anand          Re-added function parse_style_sheet which went missing.
 
-    Feb 26 207      Anand          Fixed bug in check_duplicate_download for stylesheets.
+    Feb 26 2007      Anand          Fixed bug in check_duplicate_download for stylesheets.
                                    Also rewrote logic.
-    
+
+    Mar 05 2007     Anand          Added method get_last_modified_time_and_data to support
+                                   server-side cache checking using HTTP 304. Fixed a small
+                                   bug in css url handling.
+                                   
    Copyright (C) 2004 Anand B Pillai.
     
 """
@@ -45,13 +49,11 @@ class HarvestManDataManager(object):
 
         self._numfailed = 0
         self._projectcache = {}
-        self._downloaddict = { '_savedfiles': [],
+        self._downloaddict = { '_savedfiles': MyDeque(),
                                '_deletedfiles': MyDeque(),
-                               '_failedurls' : [],
-                               '_reposfiles' : [],
-                               '_cachefiles': [],
-                               '_invalidurls': MyDeque(),
-                               '_validurls' : MyDeque(),
+                               '_failedurls' : MyDeque(),
+                               '_reposfiles' : 0,
+                               '_cachefiles': 0
                              }
         # Config object
         self._cfg = GetObject('config')
@@ -146,7 +148,8 @@ class HarvestManDataManager(object):
         csslinks = []
         for item in (l1+l2+l3):
             if not item: continue
-            csslinks.append(item[1])
+            url = item[1].replace("'",'').replace('"','')
+            csslinks.append(url)
 
         return csslinks
     
@@ -169,7 +172,6 @@ class HarvestManDataManager(object):
         works only if the cache dictionary of this
         url has a key named 'data' """
 
-        # New feature in 1.4
         ret = False
         
         d = self._projectcache.get(urlobj.get_full_domain(), {})
@@ -260,11 +262,54 @@ class HarvestManDataManager(object):
         d[url] = cachekey
         
         self._projectcache[domain] = d                
-                              
+
+    def get_last_modified_time_and_data(self, urlobj, check_file_exists=True):
+        """ Return last-modified-time and data of the given URL if it
+        was found in the cache """
+
+        # return -1, ''
+    
+        # This is returned as Unix time, i.e number of
+        # seconds since Epoch.
+
+        # This will be called from connector to avoid downloading
+        # URL data using HTTP 304. However, we support this only
+        # if we have data for the URL.
+        if (not self._cfg.pagecache) or (not self._cfg.datacache):
+            return (-1, '')
+
+        # Reference to dictionary in the cache list
+        d = self._projectcache.get(urlobj.get_full_domain(), {})
+        # Cache dictionary is indexed by domain names
+        url = urlobj.get_full_url()
+
+        if url in d:
+            cachekey = d[url]
+            
+            # File check is enabled - return True only if
+            # downloaded file is found.
+            if check_file_exists:
+                fileloc = cachekey['location']
+                if os.path.exists(fileloc):
+                    filename = urlobj.get_full_filename()
+                    if os.path.abspath(fileloc) == os.path.abspath(filename):
+                        # Check if we have the data for the URL
+                        data = cachekey.get('data','')
+                        if len(data):
+                            return (cachekey.get('last-modified', -1), data)
+                        else:
+                            return -1
+            else:
+                # Get the data
+                data = cachekey.get('data','')
+                return (cachekey.get('last-modified', -1), data)
+        else:
+            return (-1, '')
+                               
     def is_url_cache_uptodate(self, urlobj, filename, contentlen, urldata):
         """ Check with project cache and find out if the
         content needs update """
-
+        
         # Sep 16 2003, fixed a bug in this, we need to check
         # the file existence also.
 
@@ -462,10 +507,11 @@ class HarvestManDataManager(object):
 
         nlinks, nservers, ndirs = ruleschecker.get_stats()
         nfailed = self._numfailed
+
         numstillfailed = len(self._downloaddict['_failedurls'])
         numfiles = len(self._downloaddict['_savedfiles'])
-        numfilesinrepos = len(self._downloaddict['_reposfiles'])
-        numfilesincache = len(self._downloaddict['_cachefiles'])
+        numfilesinrepos = self._downloaddict['_reposfiles']
+        numfilesincache = self._downloaddict['_cachefiles']
 
         numretried = self._numfailed  - numstillfailed
         fetchtime = float((math.modf((self._cfg.endtime-self._cfg.starttime)*100.0)[1])/100.0)
@@ -489,25 +535,6 @@ class HarvestManDataManager(object):
 
         self._bytes += count
 
-    def update_dead_links(self, url):
-        """ Add this link to the 404 (dead links) database """
-
-        try:
-            self._downloaddict['_invalidurls'].index(url)
-        except:
-            self._downloaddict['_invalidurls'].append(url)
-
-    def is_a_dead_link(self, url):
-        """ Check whether the passed url is a dead (404) link """
-
-        dead = False
-        try:
-            self._downloaddict['_invalidurls'].index( url )
-            dead = True
-        except:
-            pass
-
-        return dead
 
     def update_failed_files(self, urlObject):
         """ Add the passed information to the failed files list """
@@ -548,13 +575,14 @@ class HarvestManDataManager(object):
         # Status == 1 or 2 means look up in "_savedfiles"
         # Status == 3 means look up in "_reposfiles"
         # Status == 4 means look up in "_cachefiles"
-        lookuplist=[]
         if status == 1 or status == 2:
             lookuplist = self._downloaddict['_savedfiles']
+            if not filename in lookuplist:
+                lookuplist.append( filename )
         elif status == 3:
-            lookuplist = self._downloaddict['_reposfiles']
+            self._downloaddict['_reposfiles'] += 1
         elif status == 4:
-            lookuplist = self._downloaddict['_cachefiles']            
+            self._downloaddict['_cachefiles'] += 1            
         else:
             return -1
         
@@ -565,9 +593,6 @@ class HarvestManDataManager(object):
         except:
             pass
             
-        if not filename in lookuplist:
-            lookuplist.append( filename )
-
         return 0
     
     def update_links(self, filename, urlobjlist):
@@ -641,59 +666,55 @@ class HarvestManDataManager(object):
         no_threads = (not self._cfg.usethreads) or \
                      urlobj.is_webpage() or \
                      urlobj.is_stylesheet()
-        try:
-            data=""
-            if no_threads:
-                # New logic - Update a local dictionary on the URLs
-                # each fetcher is in charge of
-                # Get the calling thread
-                self._fetcherstatus[caller] = urlobj.get_full_url()
-                server = urlobj.get_domain()
-                conn_factory = GetObject('connectorfactory')
 
-                # This call will block if we exceed the number of connections
-                conn = conn_factory.create_connector( server )
-                res = conn.save_url( urlobj )
-                
-                conn_factory.remove_connector(server)
-                
-                # Return values for res
-                # 0 => error, file not downloaded
-                # 1 => file downloaded ok
-                # 2 => file downloaded with filename modification
-                # 3 => file was not downloaded because cache was uptodate
-                # 4 => file was copied from cache, since cache was uptodate
-                # but file was deleted.
-                # 5 => Some rules related to file content/mime-type
-                # prevented file download.
-                filename = urlobj.get_full_filename()
-                if res:
-                    if res==2:
-                        # There was a filename modification, so get the new filename
-                        filename = GetObject('modfilename')
-                    else:
-                        filename = urlobj.get_full_filename()
+        data=""
+        if no_threads:
+            # New logic - Update a local dictionary on the URLs
+            # each fetcher is in charge of
+            # Get the calling thread
+            self._fetcherstatus[caller] = urlobj.get_full_url()
+            server = urlobj.get_domain()
+            conn_factory = GetObject('connectorfactory')
 
-                    if res==1:
-                        moreinfo("Saved to",filename)
+            # This call will block if we exceed the number of connections
+            conn = conn_factory.create_connector( server )
+            res = conn.save_url( urlobj )
 
-                    self.update_file_stats( urlobj, res )
+            conn_factory.remove_connector(server)
 
-                    data = conn.get_data()
-                    
+            # Return values for res
+            # 0 => error, file not downloaded
+            # 1 => file downloaded ok
+            # 2 => file downloaded with filename modification
+            # 3 => file was not downloaded because cache was uptodate
+            # 4 => file was copied from cache, since cache was uptodate
+            # but file was deleted.
+            # 5 => Some rules related to file content/mime-type
+            # prevented file download.
+            filename = urlobj.get_full_filename()
+            if res:
+                if res==2:
+                    # There was a filename modification, so get the new filename
+                    filename = GetObject('modfilename')
                 else:
-                    fetchurl = urlobj.get_full_url()
-                    extrainfo( "Failed to download url", fetchurl)
-                    self.update_failed_files(urlobj)
-                        
-                del conn
+                    filename = urlobj.get_full_filename()
+
+                if res==1:
+                    moreinfo("Saved to",filename)
+
+                self.update_file_stats( urlobj, res )
+
+                data = conn.get_data()
             else:
-                self.thread_download( urlobj )
+                fetchurl = urlobj.get_full_url()
+                extrainfo( "Failed to download url", fetchurl)
+                self.update_failed_files(urlobj)
 
-            return data
+            del conn
+        else:
+            self.thread_download( urlobj )
 
-        finally:
-            pass
+        return data
 
     def is_file_downloaded(self, filename):
         """ Find if the <filename> is present in the
@@ -709,7 +730,6 @@ class HarvestManDataManager(object):
         """ Check for fetchers in charge of URL url.
         Return True if found, False otherwise """
 
-        # Added this method - Anand Jan 10 06
         return url in self._fetcherstatus.values()
         
     def check_duplicate_download(self, urlobj):
@@ -741,17 +761,7 @@ class HarvestManDataManager(object):
         # Clean up project cache
         self._projectcache.clear()
         self._projectcache = {}
-
-        # Clean up download dictionary
-        for k, v in self._downloaddict.iteritems():
-            # v is a list
-            while 1:
-                try:
-                    v.pop()
-                except IndexError:
-                    break
-
-            self._downloaddict[k] = []
+        self._downloaddict = {}
         # Clean up links dictionary
         self._linksdict.clear()
         # Reset byte count
@@ -866,6 +876,10 @@ class HarvestManDataManager(object):
     def localise_links(self):
         """ Localise all links (urls) of the downloaded html pages """
 
+        # Dont confuse 'localising' with language localization.
+        # This means just converting the outward (Internet) pointing
+        # URLs in files to local files.
+        
         info('Localising links of downloaded web pages...',)
 
         links_dict = self.get_links_dictionary()
@@ -893,6 +907,10 @@ class HarvestManDataManager(object):
         except (OSError, IOError),e:
             return -1
 
+        # Regex1 to replace ( at the end
+        r1 = re.compile(r'\)+$')
+        r2 = re.compile(r'\(+$')        
+        
         # MOD: Replace any <base href="..."> line
         basehrefre = re.compile(r'<base href=.*>', re.IGNORECASE)
         if basehrefre.search(data):
@@ -916,11 +934,12 @@ class HarvestManDataManager(object):
             # unbalanced parantheses at the end.
             # Remove it. Otherwise it will crash
             # the regular expressions below.
-            v = v.replace(')','').replace('(','')
+            v = r1.sub('', v)
+            v2 = r2.sub('', v)
             
-            # bug fix, dont localize cgi links
+            # Bug fix, dont localize cgi links
             if typ != 'base':
-                if url_object.is_cgi(): # or not url_object.is_filename_url():
+                if url_object.is_cgi(): 
                     continue
                 
                 fullfilename = os.path.abspath( url_object.get_full_filename() )
@@ -947,8 +966,6 @@ class HarvestManDataManager(object):
                 # replace '\\' with '/'
                 urlfilename = urlfilename.replace('\\','/')
 
-                # extrainfo('Filename=>',urlfilename)
-                
                 newurl=''
                 oldurl=''
             
@@ -986,8 +1003,7 @@ class HarvestManDataManager(object):
                 # Get the location of the link in the file
                 try:
                     if oldurl != newurl:
-                        # Bugfix: Replace only once, otherwise you get
-                        # invalid URls - Fix for 1.4.5 final.
+                        info('Replacing %s with %s...' % (oldurl, newurl))
                         data = re.sub(oldurlre, newurl, data,1)
                 except Exception, e:
                     debug(str(e))
@@ -1007,8 +1023,7 @@ class HarvestManDataManager(object):
                     try:
                         oldurl = "".join((item, "=\"", v, "\""))
                         if oldurl != newurl:
-                            # Bugfix: Replace only once, otherwise you get
-                            # invalid URls - Fix for 1.4.5 final.                            
+                            info('Replacing %s with %s...' % (oldurl, newurl))                            
                             data = re.sub(oldurlre, newurl, data,1)
                     except:
                         pass
@@ -1345,7 +1360,7 @@ class harvestManController(tg.Thread):
 
         ddict = self._dmgr._downloaddict
         
-        lsaved = len(ddict['_savedfiles'])
+        lsaved = len(ddict.get('_savedfiles', []))
         lmax = self._cfg.maxfiles
 
         if lsaved < lmax:

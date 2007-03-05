@@ -716,7 +716,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         
         moreinfo('Downloading file for url', self._url)
         data = mgr.download_url(self, self._urlobject)
-
+        # print data, self._urlobject.typ
+        
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')
 
@@ -772,7 +773,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             except (SGMLParseError, IOError), e:
                 extrainfo('SGML parse error:',str(e))
                 extrainfo('Error in parsing web-page %s' % self._url)
-
+            except ValueError, e:
+                pass
+            
             if self._configobj.robots:
                 # Check for NOFOLLOW tag
                 if not self.wp.can_follow:
@@ -865,10 +868,25 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     
                 except urlparser.HarvestManUrlParserError:
                     continue
-                
-            if not self._crawlerqueue.push((self._urlobject, urlobjidxlist), 'fetcher'):
-                if self._pushflag:                
-                    self.buffer.append((self._urlobject, urlobjidxlist))
+
+            if not self._configobj.urlserver:
+                if not self._crawlerqueue.push((self._urlobject, urlobjidxlist), 'fetcher'):
+                    if self._pushflag:                
+                        self.buffer.append((self._urlobject, urlobjidxlist))
+            else:
+                # We need to pass the priority, index of parent urlobject
+                # and a string created from indices of child url objects
+                # Separating each with a '#'
+                idxstring = '#'.join(map(lambda x: str(x), urlobjidxlist))
+                send_str = '#'.join((str(url_obj.priority), str(url_obj.index), idxstring))
+
+                # print 'Send string=>',send_str
+                try:
+                    send_url(send_str,
+                             self._configobj.urlhost,
+                             self._configobj.urlport)
+                except:
+                    pass                
 
             # Update links called here
             mgr.update_links(self._urlobject.get_full_filename(), urlobjlist)

@@ -16,6 +16,13 @@
                       and another with re-resolving URLs.
     Feb 8 2007        Added hooks support.
 
+    Mar 5 2007        Modified cache check logic slightly to add
+                      support for HTTP 304 errors. HarvestMan will
+                      now use HTTP 304 if caching is enabled and
+                      we have data cache for the URL being checked.
+                      This adds true server-side cache check.
+                      Older caching logic retained as fallback.
+                      
    Copyright (C) 2004 Anand B Pillai.    
                               
 """
@@ -87,7 +94,6 @@ class MyRedirectHandler(urllib2.HTTPRedirectHandler):
                     newreq.add_header('Cookie',  cookie)
                     break
 
-            newreq.add_header('OLDURL', fp.geturl())
             return newreq
         
         else:
@@ -542,11 +548,21 @@ class HarvestManUrlConnector(object):
         else:
             return self.__freq
     
-    def connect(self, urltofetch, url_obj = None, fetchdata=True, retries=1):
+    def connect(self, urltofetch, url_obj = None, fetchdata=True, retries=1, lastmodified=-1):
         """ Connect to the Internet fetch the data of the passed url """
 
-        data = ''
+        # This routine has four possible return values
+        #
+        # -1 => Could not connect to URL and download data due
+        #       to some error.
+        # 0 => Downloaded URL and got data without error.
+        # 1 => Server returned a 304 error because our local
+        #      cache was uptodate.
+        # 2 => There was a rules violation, so we dont bother
+        #      to download this URL.
         
+        data = '' 
+
         dmgr = GetObject('datamanager')
         rulesmgr = GetObject('ruleschecker')
 
@@ -558,7 +574,9 @@ class HarvestManUrlConnector(object):
             except HarvestManUrlParserError, e:
                 debug(str(e))
 
+        
         numtries = 0
+        three_oh_four = False
         
         while numtries <= retries and not self.__error['fatal']:
 
@@ -573,12 +591,19 @@ class HarvestManUrlConnector(object):
 
                 # create a request object
                 request = urllib2.Request(urltofetch)
+                
+                if lastmodified != -1:
+                    ts = time.strftime("%a, %d %b %Y %H:%M:%S GMT",
+                                       time.localtime(lastmodified))
+                    request.add_header('If-Modified-Since', ts)
+                                       
+                
                 self.__freq = urllib2.urlopen(request)
 
                 # Check constraint on file size
                 if not self.check_content_length():
                     extrainfo("Url does not match size constraints =>",urltofetch)
-                    return 5
+                    return 2
 
                 # The actual url information is used to
                 # differentiate between directory like urls
@@ -638,6 +663,7 @@ class HarvestManUrlConnector(object):
                         debug('Error:',str(e))
                 break
             except urllib2.HTTPError, e:
+
                 try:
                     errbasic, errdescn = (str(e)).split(':',1)
                     parts = errbasic.strip().split()
@@ -656,6 +682,15 @@ class HarvestManUrlConnector(object):
                 except:
                     pass
 
+                if errnum==304:
+                    # Page not modified
+                    three_oh_four = True
+                    self.__error['fatal'] = False
+                    # Need to do this to ensure that the crawler
+                    # proceeds further!
+                    content_type = self.get_content_type()
+                    hu.manage_content_type(content_type)                    
+                    break
                 if errnum == 407: # Proxy authentication required
                     self.__proxy_query(1, 1)
                 elif errnum == 503: # Service unavailable
@@ -677,7 +712,6 @@ class HarvestManUrlConnector(object):
                     break
 
             except urllib2.URLError, e:
-
                 try:
                     errbasic, errdescn = (str(e)).split(':',1)
                     parts = errbasic.split()                            
@@ -753,12 +787,17 @@ class HarvestManUrlConnector(object):
             # attempt reconnect after some time
             time.sleep(self.__sleeptime)
 
+        
         if data: self.__data = data
 
         if url_obj:
             url_obj.status = self.__error['number']
             url_obj.fatal = self.__error['fatal']
 
+        # If three_oh_four, return ok
+        if three_oh_four:
+            return 1
+            
         if data:
             return 0
         else:
@@ -814,7 +853,8 @@ class HarvestManUrlConnector(object):
     def get_content_type(self):
 
         d = self.get_http_headers()        
-        
+
+        ctyp = ''
         for k in d:
             if k.lower() == 'content-type':
                 ctyp = d[k]
@@ -865,26 +905,22 @@ class HarvestManUrlConnector(object):
 
         return 1
 
-    def save_url(self, urlObj):
-        """ Download data for the url object <urlObj> and
-        write its file """
-
-        return self.__save_url_file(urlObj)
-
-    def __save_url_file(self, urlobj):
+    def save_url(self, urlobj):
         """ Download data from the url <url> and write to
         the file <filename> """
 
+        # Rearranged this to take care of http 304
+        
         url = urlobj.get_full_url()
-        
-        res = self.connect(url, urlobj, True, self._cfg.retryfailed)
 
-        # If it was a rules violation, skip it
-        if res==5:
-            return res
-
+        # See if this URL is in cache, then get its lmt time & data
         dmgr=GetObject('datamanager')
+        lmt,cache_data = dmgr.get_last_modified_time_and_data(urlobj)
+        res = self.connect(url, urlobj, True, self._cfg.retryfailed, lmt)
         
+        # If it was a rules violation, skip it
+        if res==2: return res
+
         retval=0
         # Apply word filter
         if not urlobj.starturl:
@@ -897,36 +933,46 @@ class HarvestManUrlConnector(object):
             extrainfo("Html filter prevents download of url =>", url)
             return 5
 
-        # Find out if we need to update this file
-        # by checking with the cache.
-
         # Get last modified time
         timestr = self.get_last_modified_time()
-        update, fileverified = False, False
-        
-        lmt = -1
-        if timestr:
-            try:
-                lmt = time.mktime( time.strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
-            except ValueError, e:
-                debug(e)
-
-        datalen = self.get_content_length()
-
         filename = urlobj.get_full_filename()
-        directory = urlobj.get_local_directory()
-        
-        # Optimization: We need to do all these checks
-        # only if the cache was loaded in the beginning.
+
         if self._cfg.cachefound:
-            if lmt != -1:
-                url, filename = urlobj.get_full_url(), urlobj.get_full_filename()
-                update, fileverified = dmgr.is_url_uptodate(urlobj, filename, lmt, self.__data)
-                # No need to download
-                if update and fileverified:
-                    extrainfo("Project cache is uptodate =>", url)
-                    return 3
+            # Three levels of cache check.
+            # If this caused a 304 error, then our copy is up-to-date
+            # so nothing to be done.
+            if res==1:
+                extrainfo("Project cache is uptodate =>", url)
+                # Set the data as cache-data
+                self.__data = cache_data
+                return 3
+            
+            # Most of the web-servers will work with above logic. For
+            # some reason if the server does not return 304, we have
+            # two fall-back checks.
+            #
+            # 1. If a time-stamp is returned, this is compared with
+            # local timestamp.
+            # 2. If no time-stamp is returned, we do the actual check
+            # of comparing a checksum of the downloaded data with the
+            # existing checksum.
+            
+            update, fileverified = False, False
+            
+            if timestr:
+                try:
+                    lmt = time.mktime( time.strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
+                    update, fileverified = dmgr.is_url_uptodate(urlobj, filename, lmt, self.__data)
+
+                    # No need to download
+                    if update and fileverified:
+                        extrainfo("Project cache is uptodate =>", url)
+                        return 3                        
+                except ValueError, e:
+                    pass
+
             else:
+                datalen = self.get_content_length()
                 update, fileverified = dmgr.is_url_cache_uptodate(urlobj, filename, datalen, self.__data)
                 # No need to download
                 if update and fileverified:
@@ -940,14 +986,15 @@ class HarvestManUrlConnector(object):
                 if dmgr.write_file_from_cache(urlobj):
                     return 4
         else:
-            # Modified this logic - Anand Jan 10 06            
-            # If cache is not found, update cache information
-            # straight away.
+            # If no cache was loaded, then create the cache.
             if timestr:
                 dmgr.wrapper_update_cache_for_url2(urlobj, filename, lmt, self.__data)
             else:
+                datalen = self.get_content_length()
                 dmgr.wrapper_update_cache_for_url(urlobj, filename, datalen, self.__data)
 
+
+        directory = urlobj.get_local_directory()
         if dmgr.create_local_directory(directory) == 0:
             retval=self.__write_url( filename )
         else:
@@ -957,7 +1004,7 @@ class HarvestManUrlConnector(object):
 
     def url_to_file(self, url, filename):
         """ Save the contents of this url <url> to the file <filename>.
-        This is a function used by the test code only """
+        This is used by the -N option of HarvestMan """
 
         ret = self.connect(url)
             

@@ -1114,12 +1114,23 @@ class HarvestManUrlParser(object):
             else:
                 self.typ = 'file'
         else:
-            # Do some generic tests
-            klass, typ = content_type.split('/')
-            if klass == 'image':
-                self.typ = 'image'
-            elif typ == 'html':
-                self.typ = 'webpage'
+            if content_type:
+                # Do some generic tests
+                klass, typ = content_type.split('/')
+                if klass == 'image':
+                    self.typ = 'image'
+                elif typ == 'html':
+                    self.typ = 'webpage'
+            else:
+                # Do static checks
+                if self.is_webpage():
+                    self.typ = 'webpage'
+                elif self.is_image():
+                    self.typ = 'image'
+                elif self.is_stylesheet():
+                    self.typ = 'stylesheet'
+                else:
+                    self.typ = 'file'
 
     # ============ End - Set Methods =========== #
 

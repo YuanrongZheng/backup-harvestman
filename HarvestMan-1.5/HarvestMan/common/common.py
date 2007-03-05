@@ -121,7 +121,7 @@ class Registry(object):
         setattr(self.instance, name, value)
 
 
-if sys.version_info[0]==2 and sys.version_info[1]==4:
+if sys.version_info[0]==2 and sys.version_info[1]>=4:
     import collections
 
     class MyDeque(collections.deque):
@@ -174,13 +174,22 @@ else:
 # Single instance of the global lookup object
 RegisterObj = Registry()
 
+def SysExceptHook(typ, val, tracebak):
+    """ Dummy function to replace sys.excepthook """
+
+    pass
+
 def GetState():
     """ Return a snapshot of the current state of this
     object and its containing threads for serializing """
         
     d = {}
-    d['urlmappings'] = RegisterObj.urlmappings
-    return copy.deepcopy(d)
+    urlmap = {}
+    for key,val in RegisterObj.urlmappings.copy().items():
+        urlmap[key] = val
+        
+    d['urlmappings'] = urlmap
+    return d
 
 def GetObject(objkey):
     """ Get the registered instance of the HarvestMan program

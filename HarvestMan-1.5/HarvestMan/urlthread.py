@@ -12,6 +12,8 @@
     Jan 10 2006  Anand  Converted from dos to unix format (removed Ctrl-Ms).
     Jan 20 2006  Anand  Small change in printing debug info in download
                         method.
+
+    Mar 05 2007  Anand  Implemented http 304 handling in notify(...).
     
     Copyright (C) 2004 Anand B Pillai.
 
@@ -404,9 +406,12 @@ class harvestManUrlThreadPool(Queue):
 
         err = thread.get_error()
 
-        if err.get('number',0)==0:
+        tstatus = thread.get_status()
+        
+        # Either file was fetched or file was uptodate
+        if err.get('number',0) in (0, 304):
             # thread succeeded, increment file count stats on the data manager
-            dmgr.update_file_stats( urlObj, thread.get_status())
+            dmgr.update_file_stats( urlObj, tstatus)
         else:
             dmgr.update_failed_files( urlObj )
             

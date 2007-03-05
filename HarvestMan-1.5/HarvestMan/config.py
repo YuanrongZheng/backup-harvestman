@@ -24,8 +24,9 @@
                               option to read multiple start URLs from a file.
                               Modified behaviour so that if a source of URL is
                               specified (command-line, URL file etc), any URLs
-                              in config file is skipped.
-                              
+                              in config file is skipped. Set urlserver option
+                              as default.
+
    Copyright (C) 2004 Anand B Pillai.                              
 
 """
@@ -165,7 +166,7 @@ class HarvestManStateObject(dict):
         self.timelimit = -1
         self.terminate = False
         self.datacache = True
-        self.urlserver = False
+        self.urlserver = True
         self.urlhost = '127.0.0.1'
         self.urlport = 0
         self.urlserver_protocol='tcp'
@@ -444,7 +445,7 @@ class HarvestManStateObject(dict):
             self.set_option_xml('url',self.process_value(args[0]))
             # Since we set a URL from outside, we dont want to read
             # URLs from the config file.
-            self.items_to_skip = ['url','name','basedir','verbosity_value']
+            self.items_to_skip = ['url','name','basedir']
             
         cfgfile = False
         

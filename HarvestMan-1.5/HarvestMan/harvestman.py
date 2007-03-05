@@ -461,22 +461,18 @@ class HarvestMan(object):
             if not self._cfg.testnocrawl:
                 self.start_project()
         except (KeyboardInterrupt, EOFError, Exception), e:
-           logconsole('Exception received=>',str(e))
-           if not self._cfg.ignoreinterrupts:
-               # dont allow to write cache, since it
-               # screws up existing cache.
-               GetObject('datamanager').conditional_cache_set()
-               self.save_current_state()
-               self.clean_up()
+            
+            if not self._cfg.ignoreinterrupts:
+                # dont allow to write cache, since it
+                # screws up existing cache.
+                GetObject('datamanager').conditional_cache_set()
+                self.save_current_state()
+                
+                sys.excepthook = SysExceptHook
+                sys.tracebacklimit = 0
+                self.clean_up()
 
-        # Clean up actions
-        try:
-            sys.excepthook = None
-            sys.tracebacklimit = 0
-            self.finish_project()
-        except Exception, e:
-            # To catch errors at interpreter shutdown
-            pass
+        self.finish_project()
 
     def reset_state(self):
         """ Reset state of certain objects/modules """
