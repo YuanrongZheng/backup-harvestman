@@ -59,42 +59,117 @@ class AsyncoreThread(threading.Thread):
         self.flag=False
         self.map=None
 
-class HarvestManSimpleUrlServer(object):
+class MyTCPServer(SocketServer.ThreadingTCPServer):
+
+    def __init__(self, host, port):
+        SocketServer.ThreadingTCPServer.__init__(self, (host, port), harvestManUrlHandler)
+        self.host, self.port = self.socket.getsockname()
+        # For storing data from crawlers
+        self.urls = PriorityQueue(0)
+        # For storing data from fetchers
+        self.urls2 = PriorityQueue(0)
+        self.urlmap = {}
+        self.flag = True
+        
+    def serve_forever(self):
+        pass
+            
+    def get_port(self):
+        return self.port
+
+    def seturl(self, url):
+        self.urlmap['lasturl'] = url
+
+    def seturllist(self, urllist):
+        self.urlmap['lastlist'] = urllist
+        
+    def geturl(self):
+        return self.urlmap['lasturl']
+
+    def geturllist(self):
+        return self.urlmap['lastlist']
+    
+class HarvestManSimpleUrlServer(threading.Thread):
     """ A simple url server based upon SocketServer's
     threading TCP server """
 
     def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        self.server = SocketServer.ThreadingTCPServer((self.host, self.port), 
-                                          harvestManUrlHandler)
-        self.server.serve_forever()
+        threading.Thread.__init__(self, None, None, 'server thread')        
+        self.server = MyTCPServer(host, port)
+        self.port = self.server.get_port()
+        self.flag = True
+        
+    def run(self):
+        while self.flag:
+            self.server.handle_request()
+        
+    def get_port(self):
+        return self.port
 
+    def stop(self):
+        self.server.socket.close()
+        self.flag = False
+        raise Exception
+    
 class harvestManUrlHandler(SocketServer.BaseRequestHandler):
     """ The Request handler class for harvestManSimpleUrlServer """
 
     urls = []
 
-    def __init__(self, req, caddr, server):
-        SocketServer.BaseRequestHandler.__init__(self, req, caddr, server)
-
     def handle(self):
 
         while True:
             data = self.request.recv(8192)
-            if not data:break
 
-            if data.lower() == "get url":
-                if len(self.urls)==0:
-                    self.request.sendall('empty')
+            if data:
+                # Replace any newlines
+                data.strip()
+
+                if data in ('ping', 'flush', 'get last url', 'get url','get list','get last list'):
+                    if data.lower() == 'ping':
+                        self.request.sendall('ping')
+                    elif data.lower() == "flush":
+                        while True:
+                            try:
+                                self.server.urls.get_nowait()
+                            except Empty:
+                                break
+                        self.request.sendall("Flushed Repository")
+                    elif data.lower() == "get last url":
+                        self.request.sendall((self.server.geturl()).strip())
+                    elif data.lower() == "get last list":
+                        self.request.sendall((self.server.geturllist()).strip())                    
+                    elif data.lower() == "get url":
+                        try:
+                            prior, url=self.server.urls.get_nowait()
+                            self.server.seturl(url)
+                            self.request.sendall(url.strip())                        
+                        except Empty:
+                            self.request.sendall("empty")
+                    elif data.lower() == 'get list':
+                        try:
+                            prior, rest = self.server.urls2.get_nowait()
+                            self.server.seturllist(rest)
+                            self.request.sendall(rest.strip())
+                        except Empty:
+                            self.request.sendall('empty')
                 else:
-                    url = self.urls.pop()
-                    self.request.sendall(url.strip())
-            else:
-                self.urls.append(data)
-                self.request.sendall("Recieved")
-        self.request.close()
+                    # Split w.r.t '#'
+                    pieces = data.split('#')
+                    # print 'Pieces=>',pieces
+                    if len(pieces)==2:
+                        # Sent by crawler, put to urls queue
+                        self.server.urls.put_nowait(pieces)
+                    else:
+                        # Sent by fetcher, put to urls2 queue
+                        self.server.urls2.put_nowait((pieces[0], '#'.join(pieces[1:])))
 
+                    self.request.sendall("Recieved")
+            else:
+                self.request.close()            
+                break
+
+    
 class HarvestManUrlServer(asyncore.dispatcher_with_send):
     """ An asynchronous url server class for HarvestMan.
     This class can replace the url queue and work as a url
@@ -109,6 +184,8 @@ class HarvestManUrlServer(asyncore.dispatcher_with_send):
         self.host = host
         self.protocol = protocol
         self.urlmap = {}
+        self._lock = threading.Condition(threading.RLock())
+        
         asyncore.dispatcher_with_send.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -118,7 +195,7 @@ class HarvestManUrlServer(asyncore.dispatcher_with_send):
         except socket.error:
             raise
 
-        self.listen(5)
+        self.listen(20)
 
     def get_port(self):
         return self.port
@@ -136,13 +213,21 @@ class HarvestManUrlServer(asyncore.dispatcher_with_send):
         return self.urlmap['lastlist']
     
     def handle_accept(self):
-        newSocket, address = self.accept()
-        secondary_url_server(sock=newSocket, addr=address,
-                             url_server=self)
+
+        try:
+            self._lock.acquire()
+            newSocket, address = self.accept()
+            sec = secondary_url_server(sock=newSocket, addr=address,url_server=self)
+        finally:
+            self._lock.release()
+        
 
     def handle_close(self):
         pass
 
+    def handle_expt(self):
+        pass
+    
     def notify(self, handler):
         """ Notify method for secondary socket server
         to add urls. (Not Used) """
@@ -161,6 +246,9 @@ class secondary_url_server(asyncore.dispatcher):
         self._client_address = addr
 
     def handle_write(self):
+        pass
+
+    def handle_expt(self):
         pass
     
     def handle_read(self):

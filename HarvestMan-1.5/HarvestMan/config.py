@@ -192,7 +192,7 @@ class HarvestManStateObject(dict):
         # Control var for swish integration
         self.swishplugin = False
         # Time to sleep between requests
-        self.sleeptime = 0.5
+        self.sleeptime = 0.3
         self.randomsleep = True
         
     def _init2(self):
@@ -440,13 +440,6 @@ class HarvestManStateObject(dict):
         except GenericOptionParserError, e:
             sys.exit('Error: ' + str(e))
 
-        if args:
-            # Any option without an argument is assumed to be a URL
-            self.set_option_xml('url',self.process_value(args[0]))
-            # Since we set a URL from outside, we dont want to read
-            # URLs from the config file.
-            self.items_to_skip = ['url','name','basedir']
-            
         cfgfile = False
         
         for option, value in optdict.items():
@@ -555,6 +548,14 @@ class HarvestManStateObject(dict):
             self.set_option_xml('name','')
             # Set basedir to dot
             self.set_option_xml('basedir','.')
+
+        
+        if args:
+            # Any option without an argument is assumed to be a URL
+            self.set_option_xml('url',self.process_value(args[0]))
+            # Since we set a URL from outside, we dont want to read
+            # URLs from the config file.
+            self.items_to_skip = ['url','name','basedir','verbosity_value']
 
         # If urlfile option set, read all URLs from a file
         # and load them.

@@ -916,6 +916,7 @@ class HarvestManUrlConnector(object):
         # See if this URL is in cache, then get its lmt time & data
         dmgr=GetObject('datamanager')
         lmt,cache_data = dmgr.get_last_modified_time_and_data(urlobj)
+        print 'LMT=>',lmt
         res = self.connect(url, urlobj, True, self._cfg.retryfailed, lmt)
         
         # If it was a rules violation, skip it

@@ -103,10 +103,10 @@ class HarvestMan(object):
         # Stop url server if it is running
         if self._cfg.urlserver:
             info('Stoppping url server at port %d...' % self._cfg.urlport)
-            async_t= GetObject('asyncorethread')
-            if async_t:
+            server = GetObject('simpleurlserver')
+            if server:
                 try:
-                    async_t.end()
+                    server.stop()
                     moreinfo("Done.")
                 except socket.error, e:
                     logconsole(e)
@@ -216,36 +216,31 @@ class HarvestMan(object):
         if self._cfg.urlserver:
             import socket
 
-            flag, count, errmsg = 0, 0, ''
-
-            # Try 10 attempts
-            while flag == 0 and count<10:
-                host, port = self._cfg.urlhost, self._cfg.urlport
-                # Initialize server
-                try:
-                    server = urlserver.HarvestManUrlServer(host, port)
-                    port = server.get_port()
-                    self._cfg.urlport = port
-                    flag = 1
-
-                    info("Url server bound to port %d" % port)
-                    break
-                except socket.error, (errno, errmsg):
-                    self._cfg.urlport += 1
-                    count += 1
-
-            if flag==0:
+            host, port = self._cfg.urlhost, self._cfg.urlport
+            # Initialize server
+            try:
+                # server = urlserver.HarvestManUrlServer(host, port)
+                server = urlserver.HarvestManSimpleUrlServer(host, port)
+                server.setDaemon(True)
+                SetObject(server)
+                port = server.get_port()
+                self._cfg.urlport = port
+                flag = 1
+                server.start()
+                
+                info("Url server bound to port %d" % port)
+            except socket.error, (errno, errmsg):
                 sys.exit('Error starting url server => '+errmsg)
                 
             # Register It
             SetObject(server)
             # Start asyncore thread
-            async_t = urlserver.AsyncoreThread(timeout=30.0, use_poll=True)
-            async_t.setDaemon(True)
-            SetObject(async_t)
+            #async_t = urlserver.AsyncoreThread(timeout=30.0, use_poll=True)
+            #async_t.setDaemon(True)
+            #SetObject(async_t)
 
             extrainfo("Starting url server at port %d..." % self._cfg.urlport)
-            async_t.start()
+            #async_t.start()
             
             # Test running server by pinging it 
             time.sleep(1.0)

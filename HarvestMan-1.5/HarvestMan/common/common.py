@@ -64,6 +64,7 @@ class Registry(object):
                      'trackerqueue',
                      'crawler',
                      'urlserver',
+                     'simpleurlserver',
                      'asyncorethread',
                      'logger')
 
@@ -83,6 +84,7 @@ class Registry(object):
                               'HarvestManCrawlerQueue' : 'trackerqueue',
                               'HarvestMan' : 'crawler',
                               'HarvestManUrlServer' : 'urlserver',
+                              'HarvestManSimpleUrlServer' : 'simpleurlserver',                              
                               'AsyncoreThread'      : 'asyncorethread',
                               'HarvestManLogger'    : 'logger',
                               }
@@ -434,17 +436,18 @@ def send_url_tcp(data, host, port):
 
     # Return's server response if connection
     # succeeded and null string if failed.
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host,port))
-        sock.sendall(data)
-        response = sock.recv(8192)
-        sock.close()
-        return response
-    except socket.error:
-        pass
+    #try:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((host,port))
+    sock.sendall(data)
+    response = sock.recv(8192)
+    sock.close()
+    return response
+    #except socket.error, e:
+    #    print 'url server error:',e
+    #    pass
 
-    return ''
+    #return ''
 
 def send_url_udp(data, host, port):
     """ Send url to url server """

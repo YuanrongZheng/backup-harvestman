@@ -551,15 +551,15 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                         self.buffer.append(url_obj)
             else:
                 # Serialize url object
-                try:
-                    send_str = '#'.join((str(url_obj.priority), str(url_obj.index)))
-                    # print 'Send string2=>',send_str
-                    
-                    send_url(send_str,
-                             self._configobj.urlhost,
-                             self._configobj.urlport)
-                except:
-                    pass
+                #try:
+                send_str = '#'.join((str(url_obj.priority), str(url_obj.index)))
+                # print 'Send string2=>',send_str
+                
+                send_url(send_str,
+                         self._configobj.urlhost,
+                         self._configobj.urlport)
+                #except:
+                #    pass
             # Thread was able to push data, set status to busy...
             self._status = 1
 
@@ -827,12 +827,12 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 send_str = '#'.join((str(url_obj.priority), str(url_obj.index), idxstring))
 
                 # print 'Send string=>',send_str
-                try:
-                    send_url(send_str,
-                             self._configobj.urlhost,
-                             self._configobj.urlport)
-                except:
-                    pass
+                #try:
+                send_url(send_str,
+                         self._configobj.urlhost,
+                         self._configobj.urlport)
+                #except:
+                #    pass
                 
 
             # Update links called here
@@ -881,12 +881,12 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 send_str = '#'.join((str(url_obj.priority), str(url_obj.index), idxstring))
 
                 # print 'Send string=>',send_str
-                try:
-                    send_url(send_str,
-                             self._configobj.urlhost,
-                             self._configobj.urlport)
-                except:
-                    pass                
+                #try:
+                send_url(send_str,
+                         self._configobj.urlhost,
+                         self._configobj.urlport)
+                #except:
+                #    pass                
 
             # Update links called here
             mgr.update_links(self._urlobject.get_full_filename(), urlobjlist)
