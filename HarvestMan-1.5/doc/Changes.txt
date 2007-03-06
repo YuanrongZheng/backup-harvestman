@@ -1,5 +1,6 @@
+
 *==========================================================*
-|            -Changes.txt file for HarvestMan-             |
+|            -Changelog.txt file for HarvestMan-           |
 |                                                          |
 |           URL: http://harvestman.freezope.org            |
 *==========================================================*
@@ -28,10 +29,13 @@ threads which allows the program to handle exceptions very
 well.
 6. Command line options can be now mixed with a configuration
 file when using the -C option.
-7. Ability to parse stylesheets and download stylesheets which
-are imported in them.
-8. Support for META robot tags.
-9. Support for META REFRESH tags.
+7. New command line option to read a list of URLs and use
+them for crawling.
+8. Ability to parse stylesheets and download URLs and
+other stylesheets referred in them.
+9. Support for META robot tags (INDEX, FOLLOW, NOINDEX, NOFOLLOW)
+10. Support for META REFRESH tags.
+11. Support for HTML embed, object tags.
 
 Other Changes
 =============
@@ -65,13 +69,25 @@ removed or updated.
   2. -m,--simulate: New option to simulate crawling.
   3. -g,--plugin: New option to apply a given plugin.
   4. -S,--savesession: New option to turn session saver feature on/off.
- 
+  5. --urllistfile, --urltreefile: Removed, can be used by combining with config.xml
+    option.
+  6. -F, --urlfile: Read list of start URLs from a file (New option).
+
 12. Default value for maximum file size (for single file) increased
 to 5MB (was 1 MB earlier).
 13. Changed sleep times inside the loops of fetcher/crawler thread
 clases to random times ranging from 0 to 0.3 second. This allows
 for more better resource allocation and pooling.
-
+14. Sleep times is available as a configuration option. This can
+be used to increase sleep-times for slow/traffic intense websites.
+15. Caching now supports HTTP 304 for projects run a second time
+with datacache enabled. If datacache is available, HarvestMan will
+use the HTTP header 'If-Modified-Since' to see if the file on 
+server-side is modified.
+16. Changes in data cache format. Data cache for each URL is
+dumped separately into a <hash>.data file where <hash> is the 
+hash value of the associated URL. The .data files are stored
+in a .cache-data folder in the project's cache directory.
 
 Bug-fixes
 =========
@@ -83,13 +99,14 @@ them etc.
 4. Bug-fix in rules module to speed up rules checks
 5. Bug-fix to avoid exceptions thrown at program exit (interpreter 
 shutdown)
-6. Fixed a small bug in urlparser which was throwing a syntax
-warning for the __TEST__ global variable.
-7. Fixed a bug which was causing a fetcher thread to download
+6. Fixed a bug which was causing a fetcher thread to download
 the same content twice.
-8. As usual, localizing of URLs gets many bug-fixes :)
-9. Fixed a minor bug in datamgr which was incorrectly printing
+7. As usual, localizing of URLs gets many bug-fixes :)
+8. Fixed a minor bug in datamgr which was incorrectly printing
 download rate stats as bps (should be kbps).
+9. Fixed problem with URLs not downloaded when base url is
+redefined. This was causing a deep-crawling problem for
+some sites.
 
 
 Version 1.4.6 final

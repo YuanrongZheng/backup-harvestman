@@ -1,22 +1,24 @@
 
 FEATURE/FIX                                  |  STATUS
 -------------------------------------------------------------------------------------
-1.Localization still has problems. Some      | Kind of fixed. A few sample sites
-downloaded files are still not localized     | such as http://www.oligopolywatch.com
-correctly.                                   | now localize correctly.
-                                             |
-2. Memory consumption problem                | Fixed with changes in urlqueue
-                                             | and using binaries. 
-3. Scheduler to start crawling at a given    | Later.
-time.                                        |
-4. Ability to pick up and add URLs from/to   | Later.
-a URL database.                              |
-5. Thread checkpointing and data migration   | Done in current code.
-for crawlers.                                |
-6. Cache creation using C extensions.        | Done - but will not be used in 1.5
-7. Developer API                             | Not yet.
-8. Crawling language-specific pages          | Not yet
-9. A basic UI.                               | Much much later. 
+1.Localization still has problems. Some      | Can be always be improved.
+downloaded files are still not localized     | 
+correctly.                                   | 
+2. Improvements in the common module for     |
+storing URL objects - try a weakrefdictionary|
+3. Changing the default url store from the   |
+queue module to the url server.              | 
+  3.1. Adding code in urlserver to try       |
+       next higher port numbers.             |
+  3.2. Just run it for a set of say 10 sites |
+       and see that things work.             |
+4. Change name of __hooks__ attribute to
+'__plugins__'.
+5. Change the mode of inserting child url
+objects from the current list of url objects
+to something else<maybe a list of url indices?>
+5. Deep crawling problem - sample site is
+www.evvs.dk - Fix after all above is done.
 ---------------------------------------------------------------------------------------
 
 
