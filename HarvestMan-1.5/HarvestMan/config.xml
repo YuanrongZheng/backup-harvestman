@@ -7,7 +7,7 @@
       
       <project skip="0">
 
-        <url>http://www.python.org/doc/</url>
+        <url>http://www.python.org/doc/current/tut/tut.html</url>
         <name>pytut</name>
 
         <basedir>~/websites</basedir>
@@ -38,7 +38,7 @@
         <forms value="1"/>
         <cookies value="1"/>
       </types> 
-      <cache status="0">
+      <cache status="1">
         <datacache value="1"/>
       </cache>
       <misc>

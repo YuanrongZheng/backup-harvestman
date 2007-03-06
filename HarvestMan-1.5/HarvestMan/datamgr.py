@@ -162,9 +162,11 @@ class HarvestManDataManager(object):
         obj = cachereader.read_project_cache()
 
         if obj:
+            print 'Setting cachefound to 1...'
             self._projectcache = obj
             self._cfg.cachefound = 1
         else:
+            print 'Cache not found'
             self._cfg.cachefound = 0
 
     def write_file_from_cache(self, urlobj):
@@ -298,13 +300,14 @@ class HarvestManDataManager(object):
                         if len(data):
                             return (cachekey.get('last-modified', -1), data)
                         else:
-                            return -1
+                            return (-1, '')
+
             else:
                 # Get the data
                 data = cachekey.get('data','')
                 return (cachekey.get('last-modified', -1), data)
-        else:
-            return (-1, '')
+
+        return (-1, '')
                                
     def is_url_cache_uptodate(self, urlobj, filename, contentlen, urldata):
         """ Check with project cache and find out if the
@@ -404,6 +407,7 @@ class HarvestManDataManager(object):
                 cmt = cachekey['last-modified']
                 # If the latest page has a modified time greater than this
                 # page is out of date, otherwise it is uptodate
+                print lmt, cmt
                 if lmt<=cmt:
                     uptodate=True
 

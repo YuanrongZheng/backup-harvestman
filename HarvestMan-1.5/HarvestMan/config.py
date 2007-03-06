@@ -194,6 +194,8 @@ class HarvestManStateObject(dict):
         # Time to sleep between requests
         self.sleeptime = 0.3
         self.randomsleep = True
+        # Internal flag for asyncore
+        self.useasyncore = False
         
     def _init2(self):
         

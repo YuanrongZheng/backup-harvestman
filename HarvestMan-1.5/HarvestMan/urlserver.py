@@ -55,7 +55,7 @@ class AsyncoreThread(threading.Thread):
         while self.map and self.flag:
             poll_fun(self.timeout,self.map)
 
-    def end(self):
+    def stop(self):
         self.flag=False
         self.map=None
 

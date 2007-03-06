@@ -212,8 +212,6 @@ def GetObject(objkey):
 def GetUrlObject(key):
     """ Get url object based on its index (key) """
 
-    #print 'Length of dict=>',len(RegisterObj.urlmappings)
-    #print 'Called by',key,threading.currentThread()
     return RegisterObj.urlmappings.get(key, None)
 
 def SetUrlObject(obj):
@@ -269,7 +267,6 @@ def SetConfig(configobject):
 def SetLogFile():
 
     global RegisterObj
-    # print 'Verbosity=>',RegisterObj.config.verbosity
     
     logfile = RegisterObj.config.logfile
     # if logfile: RegisterObj.logger.setLogFile(logfile)
@@ -436,18 +433,18 @@ def send_url_tcp(data, host, port):
 
     # Return's server response if connection
     # succeeded and null string if failed.
-    #try:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((host,port))
-    sock.sendall(data)
-    response = sock.recv(8192)
-    sock.close()
-    return response
-    #except socket.error, e:
-    #    print 'url server error:',e
-    #    pass
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host,port))
+        sock.sendall(data)
+        response = sock.recv(8192)
+        sock.close()
+        return response
+    except socket.error, e:
+        print 'url server error:',e
+        pass
 
-    #return ''
+    return ''
 
 def send_url_udp(data, host, port):
     """ Send url to url server """

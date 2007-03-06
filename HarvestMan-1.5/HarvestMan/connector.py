@@ -916,7 +916,6 @@ class HarvestManUrlConnector(object):
         # See if this URL is in cache, then get its lmt time & data
         dmgr=GetObject('datamanager')
         lmt,cache_data = dmgr.get_last_modified_time_and_data(urlobj)
-        print 'LMT=>',lmt
         res = self.connect(url, urlobj, True, self._cfg.retryfailed, lmt)
         
         # If it was a rules violation, skip it
@@ -989,6 +988,7 @@ class HarvestManUrlConnector(object):
         else:
             # If no cache was loaded, then create the cache.
             if timestr:
+                lmt = time.mktime( time.strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
                 dmgr.wrapper_update_cache_for_url2(urlobj, filename, lmt, self.__data)
             else:
                 datalen = self.get_content_length()
