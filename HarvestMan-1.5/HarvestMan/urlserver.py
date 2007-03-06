@@ -10,7 +10,10 @@
     Mar 02 2007  Anand  Added support for crawler threads. Now enabling
                         url server makes all the flow go through the url
                         server.
-
+  
+    Mar 06 2007  Anand  Moved out handling code to MyHandler class. Force
+                        asyncore to use asyncore.poll.
+    
    Copyright (C) 2006 Anand B Pillai.
 
 """
@@ -44,13 +47,15 @@ class AsyncoreThread(threading.Thread):
         if not self.map:
             self.map = asyncore.socket_map
 
-        if self.use_poll:
-            if hasattr(select, 'poll'):
-                poll_fun = asyncore.poll3
-            else:
-                poll_fun = asyncore.poll2
-        else:
-            poll_fun=asyncore.poll
+        #if self.use_poll:
+        #    if hasattr(select, 'poll'):
+        #        print 'Using poll3'
+        #        poll_fun = asyncore.poll3
+        #    else:
+        #        print 'Using poll2'
+        #        poll_fun = asyncore.poll2
+        #else:
+        poll_fun=asyncore.poll
 
         while self.map and self.flag:
             poll_fun(self.timeout,self.map)
@@ -110,146 +115,11 @@ class HarvestManSimpleUrlServer(threading.Thread):
         self.server.socket.close()
         self.flag = False
         raise Exception
-    
-class harvestManUrlHandler(SocketServer.BaseRequestHandler):
-    """ The Request handler class for harvestManSimpleUrlServer """
 
-    urls = []
-
-    def handle(self):
-
-        while True:
-            data = self.request.recv(8192)
-
-            if data:
-                # Replace any newlines
-                data.strip()
-
-                if data in ('ping', 'flush', 'get last url', 'get url','get list','get last list'):
-                    if data.lower() == 'ping':
-                        self.request.sendall('ping')
-                    elif data.lower() == "flush":
-                        while True:
-                            try:
-                                self.server.urls.get_nowait()
-                            except Empty:
-                                break
-                        self.request.sendall("Flushed Repository")
-                    elif data.lower() == "get last url":
-                        self.request.sendall((self.server.geturl()).strip())
-                    elif data.lower() == "get last list":
-                        self.request.sendall((self.server.geturllist()).strip())                    
-                    elif data.lower() == "get url":
-                        try:
-                            prior, url=self.server.urls.get_nowait()
-                            self.server.seturl(url)
-                            self.request.sendall(url.strip())                        
-                        except Empty:
-                            self.request.sendall("empty")
-                    elif data.lower() == 'get list':
-                        try:
-                            prior, rest = self.server.urls2.get_nowait()
-                            self.server.seturllist(rest)
-                            self.request.sendall(rest.strip())
-                        except Empty:
-                            self.request.sendall('empty')
-                else:
-                    # Split w.r.t '#'
-                    pieces = data.split('#')
-                    # print 'Pieces=>',pieces
-                    if len(pieces)==2:
-                        # Sent by crawler, put to urls queue
-                        self.server.urls.put_nowait(pieces)
-                    else:
-                        # Sent by fetcher, put to urls2 queue
-                        self.server.urls2.put_nowait((pieces[0], '#'.join(pieces[1:])))
-
-                    self.request.sendall("Recieved")
-            else:
-                self.request.close()            
-                break
-
-    
-class HarvestManUrlServer(asyncore.dispatcher_with_send):
-    """ An asynchronous url server class for HarvestMan.
-    This class can replace the url queue and work as a url
-    server multiplexing several url requests simultaneously """
-
-    def __init__(self, host, port, protocol='tcp'):
-        # For storing data from crawlers
-        self.urls = PriorityQueue(0)
-        # For storing data from fetchers
-        self.urls2 = PriorityQueue(0)
-        self.port = port
-        self.host = host
-        self.protocol = protocol
-        self.urlmap = {}
-        self._lock = threading.Condition(threading.RLock())
-        
-        asyncore.dispatcher_with_send.__init__(self)
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        try:
-            self.bind((self.host, port))
-            self.port = self.getsockname()[1]
-        except socket.error:
-            raise
-
-        self.listen(20)
-
-    def get_port(self):
-        return self.port
-
-    def seturl(self, url):
-        self.urlmap['lasturl'] = url
-
-    def seturllist(self, urllist):
-        self.urlmap['lastlist'] = urllist
-        
-    def geturl(self):
-        return self.urlmap['lasturl']
-
-    def geturllist(self):
-        return self.urlmap['lastlist']
-    
-    def handle_accept(self):
-
-        try:
-            self._lock.acquire()
-            newSocket, address = self.accept()
-            sec = secondary_url_server(sock=newSocket, addr=address,url_server=self)
-        finally:
-            self._lock.release()
-        
-
-    def handle_close(self):
-        pass
-
-    def handle_expt(self):
-        pass
-    
-    def notify(self, handler):
-        """ Notify method for secondary socket server
-        to add urls. (Not Used) """
-
-        for url in handler.urls:
-            self.urls.put(url)
-
-class secondary_url_server(asyncore.dispatcher):
-    """ Secondary url server class for asynchronous url
-    server. An instance of this class is created every time
-    to handle a client connection """
-
-    def __init__(self, sock, addr, url_server):
-        asyncore.dispatcher.__init__(self, sock)
-        self._urlserver = url_server
-        self._client_address = addr
-
-    def handle_write(self):
-        pass
-
-    def handle_expt(self):
-        pass
+class MyHandler(object):
+    """ A base class for harvestManUrlHandler and
+    secondary_url_server which implements the handle
+    method """
     
     def handle_read(self):
         """ Read data from the client and
@@ -267,43 +137,154 @@ class secondary_url_server(asyncore.dispatcher):
                 elif data.lower() == "flush":
                     while True:
                         try:
-                            self._urlserver.urls.get_nowait()
+                            self.server.urls.get_nowait()
                         except Empty:
                             break
                     self.sendall("Flushed Repository")
                 elif data.lower() == "get last url":
-                    self.sendall((self._urlserver.geturl()).strip())
+                    self.sendall((self.server.geturl()).strip())
                 elif data.lower() == "get last list":
-                    self.sendall((self._urlserver.geturllist()).strip())                    
+                    self.sendall((self.server.geturllist()).strip())                    
                 elif data.lower() == "get url":
                     try:
-                        prior, url=self._urlserver.urls.get_nowait()
-                        self._urlserver.seturl(url)
-                        self.sendall(url.strip())                        
+                        prior, url=self.server.get1()
+                        self.server.seturl(url)
+                        self.sendall(url.strip())
+                        self.server.count1 += 1
+                        
                     except Empty:
                         self.sendall("empty")
+
                 elif data.lower() == 'get list':
                     try:
-                        prior, rest = self._urlserver.urls2.get_nowait()
-                        self._urlserver.seturllist(rest)
+                        prior, rest = self.server.get2()
+                        self.server.seturllist(rest)
                         self.sendall(rest.strip())
                     except Empty:
                         self.sendall('empty')
+
             else:
                 # Split w.r.t '#'
-                pieces = data.split('#')
-                # print 'Pieces=>',pieces
-                if len(pieces)==2:
-                    # Sent by crawler, put to urls queue
-                    self._urlserver.urls.put_nowait(pieces)
-                else:
+                if data.startswith('CRAWLER:'):
+                    content = data.split(':')
+                    pieces = content[1].split('#')
+                    self.server.urls.put_nowait(pieces)
+                elif data.startswith('FETCHER:'):
+                    content = data.split(':')
+                    pieces = content[1].split('#')
                     # Sent by fetcher, put to urls2 queue
-                    self._urlserver.urls2.put_nowait((pieces[0], '#'.join(pieces[1:])))
+                    self.server.urls2.put_nowait((pieces[0], '#'.join(pieces[1:])))
                     
                 self.sendall("Recieved")
         else:
             self.close()
+    
+class harvestManUrlHandler(SocketServer.BaseRequestHandler, MyHandler):
+    """ The Request handler class for harvestManSimpleUrlServer """
 
+    urls = []
+
+    def handle(self):
+        MyHandler.handle_read(self)
+    
+class HarvestManUrlServer(asyncore.dispatcher_with_send):
+    """ An asynchronous url server class for HarvestMan.
+    This class can replace the url queue and work as a url
+    server multiplexing several url requests simultaneously """
+
+    def __init__(self, host, port, protocol='tcp'):
+        # For storing data from crawlers
+        self.urls = PriorityQueue(0)
+        # For storing data from fetchers
+        self.urls2 = PriorityQueue(0)
+        self.port = port
+        self.host = host
+        self.protocol = protocol
+        self.urlmap = {}
+
+        # Count of gets
+        self.count1 = 0
+        self.count2 = 0
+        
+        asyncore.dispatcher_with_send.__init__(self)
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        try:
+            self.bind((self.host, port))
+            self.port = self.getsockname()[1]
+        except socket.error:
+            raise
+
+        self.listen(20)
+
+    def get1(self):
+        #if self.count1>1:
+        #    return self.urls.get()
+        #else:
+        return self.urls.get_nowait()
+
+    def get2(self):
+        #if self.count2>1:
+        #    return self.urls2.get()
+        #else:
+        return self.urls2.get_nowait()        
+            
+    def get_port(self):
+        return self.port
+
+    def seturl(self, url):
+        self.urlmap['lasturl'] = url
+
+    def seturllist(self, urllist):
+        self.urlmap['lastlist'] = urllist
+        
+    def geturl(self):
+        return self.urlmap['lasturl']
+
+    def geturllist(self):
+        return self.urlmap['lastlist']
+    
+    def handle_accept(self):
+
+        newSocket, address = self.accept()
+        # print newSocket, address
+        sec = secondary_url_server(sock=newSocket, addr=address,url_server=self)
+
+    def handle_close(self):
+        pass
+
+    def handle_expt(self):
+        pass
+    
+    def notify(self, handler):
+        """ Notify method for secondary socket server
+        to add urls. (Not Used) """
+
+        for url in handler.urls:
+            self.urls.put(url)
+
+class secondary_url_server(asyncore.dispatcher, MyHandler):
+    """ Secondary url server class for asynchronous url
+    server. An instance of this class is created every time
+    to handle a client connection """
+
+    def __init__(self, sock, addr, url_server):
+        asyncore.dispatcher.__init__(self, sock)
+        self.server = url_server
+        self._client_address = addr
+
+    def handle_write(self):
+        pass
+
+    def handle_expt(self):
+        pass
+    
+    def handle_read(self):
+        """ Read data from the client and
+        send resposnse """
+
+        MyHandler.handle_read(self)
+        
     def handle_close(self):
         pass
 

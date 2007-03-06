@@ -30,6 +30,8 @@ import binascii
 import copy
 import threading
 
+mylock = threading.Condition(threading.RLock())
+
 class UrlDict(dict):
 
     countdict = {}
@@ -434,15 +436,19 @@ def send_url_tcp(data, host, port):
     # Return's server response if connection
     # succeeded and null string if failed.
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host,port))
-        sock.sendall(data)
-        response = sock.recv(8192)
-        sock.close()
-        return response
-    except socket.error, e:
-        print 'url server error:',e
-        pass
+        mylock.acquire()
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((host,port))
+            sock.sendall(data)
+            response = sock.recv(8192)
+            sock.close()
+            return response
+        except socket.error, e:
+            print 'url server error:',e
+            pass
+    finally:
+        mylock.release()
 
     return ''
 

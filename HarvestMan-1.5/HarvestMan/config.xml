@@ -23,7 +23,7 @@
         <proxypasswd></proxypasswd>
         <proxyport value="80"/>
       </proxy>
-      <urlserver status="1">
+      <urlserver status="0">
         <urlhost>localhost</urlhost>
         <urlport value="0"/>
       </urlserver>

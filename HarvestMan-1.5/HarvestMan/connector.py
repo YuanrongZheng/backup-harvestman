@@ -712,6 +712,9 @@ class HarvestManUrlConnector(object):
                     break
 
             except urllib2.URLError, e:
+                print 'Error=>',e
+                errdescn = ''
+                
                 try:
                     errbasic, errdescn = (str(e)).split(':',1)
                     parts = errbasic.split()                            
@@ -727,8 +730,11 @@ class HarvestManUrlConnector(object):
                     self.__error['number'] = int(parts[-1])
                 except:
                     pass
-
-                self.__error['msg'] = errdescn                      
+                
+                if errdescn:
+                    self.__error['msg'] = errdescn
+                else:
+                    print 'errdescn is null!'
 
                 if self.__error['msg']:
                     extrainfo(self.__error['msg'], '=> ',urltofetch)

@@ -306,7 +306,7 @@ class HarvestManCrawlerQueue(object):
                 # Flush url server of any previous urls by
                 # sending a flush command.
                 send_url("flush", self._configobj.urlhost, self._configobj.urlport)
-                send_url(str(self._baseUrlObj.priority) + '#' + str(self._baseUrlObj.index),
+                send_url('CRAWLER:' + str(self._baseUrlObj.priority) + '#' + str(self._baseUrlObj.index),
                          self._configobj.urlhost,
                          self._configobj.urlport)
             except:
@@ -631,7 +631,6 @@ class HarvestManCrawlerQueue(object):
                     ntries += 1
                     self.data_q.put_nowait(stuff)
                     status = 1
-                    print 'Put links for URL %s...' % obj[0].get_full_url()
                     break
                 except Full:
                     sleep(0.5)

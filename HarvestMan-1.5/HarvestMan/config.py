@@ -26,6 +26,7 @@
                               specified (command-line, URL file etc), any URLs
                               in config file is skipped. Set urlserver option
                               as default.
+   Mar 06 2007       Anand    Reset default option to queue.
 
    Copyright (C) 2004 Anand B Pillai.                              
 
@@ -101,7 +102,7 @@ class HarvestManStateObject(dict):
         self.sitepasswd=''     
         self.proxyport=0
         self.errorfile='errors.log'
-        self.localise=2
+        self.localise=0
         self.jitlocalise=0
         self.images=1
         self.depth=10
@@ -166,7 +167,7 @@ class HarvestManStateObject(dict):
         self.timelimit = -1
         self.terminate = False
         self.datacache = True
-        self.urlserver = True
+        self.urlserver = False
         self.urlhost = '127.0.0.1'
         self.urlport = 0
         self.urlserver_protocol='tcp'
@@ -195,7 +196,7 @@ class HarvestManStateObject(dict):
         self.sleeptime = 0.3
         self.randomsleep = True
         # Internal flag for asyncore
-        self.useasyncore = False
+        self.useasyncore = True
         
     def _init2(self):
         

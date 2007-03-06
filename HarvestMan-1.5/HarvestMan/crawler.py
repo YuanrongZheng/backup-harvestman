@@ -23,6 +23,10 @@
                           happens when a page redefines its base URL as
                           something else and when that URL is already crawled.
                           We need to modify our logic of applying base URLs.
+    Mar 06 2007 Anand     Reset the logic of url-server to old one (only
+                          crawlers send data to url server). This is because
+                          sending both data to the server causes it to fail
+                          in a number of ways.
 
  Copyright (C) 2004 Anand B Pillai.
    
@@ -281,6 +285,23 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
 
         self._status = 0
 
+    def send_url_tcp(self, data, host, port):
+        """ Send url to url server """
+
+        # Return's server response if connection
+        # succeeded and null string if failed.
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((host,port))
+            sock.sendall(data)
+            response = sock.recv(8192)
+            sock.close()
+            return response
+        except socket.error, e:
+            pass
+
+        return ''
+
 class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
     """ The crawler class which crawls urls and fetches their links.
     These links are posted to the url queue """
@@ -327,19 +348,17 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
             try:
                 num_tries = 0
                 while True: # and num_tries<5: (should this be enabled?)
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.connect((self._configobj.urlhost, self._configobj.urlport))
                     
                     if err:
                         # There was error in network data, so request
                         # url data again.
-                        sock.sendall("get last list")
-                        num_tries += 1                        
+                        response = self.send_url_tcp("get last list",
+                                                     self._configobj.urlhost,
+                                                     self._configobj.urlport)
                     else:
-                        sock.sendall("get list")
-                        num_tries += 1
-                    response = sock.recv(8192)
-                    # print 'Response',response
+                        response = self.send_url_tcp("get list",
+                                                     self._configobj.urlhost,
+                                                     self._configobj.urlport)
                     
                     if response=='empty':
                         break
@@ -349,7 +368,6 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                         # where <index0> is the index of the parent URL
                         # and rest the indices of child URLs
                         pieces = response.split('#')
-                        # print pieces
                         
                         index1 = int(pieces[0])
                         indices = map(lambda x: int(x), pieces[1:])
@@ -360,13 +378,12 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                     except Exception, e:
                         err = True
 
-                    sock.close()    
             except socket.error, e:
                 logconsole(e)
 
             return res
         finally:
-            sock.close()
+            pass
             
     def action(self):
         
@@ -381,26 +398,26 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                     if self.buffer and self._pushflag:
                         self.push_buffer()
 
-                    if not self._configobj.urlserver:
-                        obj = self._crawlerqueue.get_url_data( "crawler" )
+                    #if not self._configobj.urlserver:
+                    obj = self._crawlerqueue.get_url_data( "crawler" )
 
-                        if not obj:
-                            if self._endflag: break
+                    if not obj:
+                        if self._endflag: break
 
-                            if self.buffer and self._pushflag:
-                                self.push_buffer()
+                        if self.buffer and self._pushflag:
+                            self.push_buffer()
 
+                        continue
+
+                    self.set_url_object(obj)
+                    if not self._urlobject:
                             continue
-
-                        self.set_url_object(obj)
-                        if not self._urlobject:
-                            continue
-                    else:
-                        if self.receive_url() != 1:
-                            # Time gap helps to reduce
-                            # network errors.
-                            self.sleep()
-                            continue                        
+                    #else:
+                    #    if self.receive_url() != 1:
+                    #        # Time gap helps to reduce
+                    #        # network errors.
+                    #        self.sleep()
+                    #        continue                        
                     
                     # Set status to one to denote busy state
                     self._status = 1
@@ -496,11 +513,6 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         # Data manager object
         mgr = GetObject('datamanager')
         
-        # Check whether I was crawled
-        #if ruleschecker.add_source_link(self._url):
-        #    print 'I was crawled before!',self._url
-        #    return None
-        
         ruleschecker.add_link(self._url)
 
         # Configuration object
@@ -508,6 +520,8 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
  
         priority_indx = 0
 
+        send_str = ''
+        
         for url_obj in self.links:
 
             # Check for status flag to end loop
@@ -551,18 +565,15 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                         self.buffer.append(url_obj)
             else:
                 # Serialize url object
-                #try:
                 send_str = '#'.join((str(url_obj.priority), str(url_obj.index)))
-                # print 'Send string2=>',send_str
+
+                self.send_url_tcp('CRAWLER:' + send_str,
+                                  self._configobj.urlhost,
+                                  self._configobj.urlport)
+
                 
-                send_url(send_str,
-                         self._configobj.urlhost,
-                         self._configobj.urlport)
-                #except:
-                #    pass
             # Thread was able to push data, set status to busy...
             self._status = 1
-
 
 class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
     """ This is the fetcher class, which downloads data for a url
@@ -599,7 +610,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             time.sleep(random.random()*self._configobj.sleeptime)
         else:
             time.sleep(self._configobj.sleeptime)
-            
+
     def receive_url(self):
         """ Receive urls from the asynchronous url server. """
 
@@ -610,18 +621,18 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             try:
                 num_tries = 0
                 while True: # and num_tries<5: (should this be enabled?)
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.connect((self._configobj.urlhost, self._configobj.urlport))
                     
                     if err:
                         # There was error in network data, so request
                         # url data again.
-                        sock.sendall("get last url")
-                        num_tries += 1                        
+                        response = self.send_url_tcp("get last url",
+                                                     self._configobj.urlhost,
+                                                     self._configobj.urlport)
                     else:
-                        sock.sendall("get url")
-                        num_tries += 1
-                    response = sock.recv(8192)
+                        response = self.send_url_tcp("get url",
+                                                     self._configobj.urlhost,
+                                                     self._configobj.urlport)
+
                     if response=='empty':
                         break
                     try:
@@ -633,13 +644,12 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     except Exception, e:
                         err = True
 
-                    sock.close()    
             except socket.error, e:
                 logconsole(e)
 
             return res
         finally:
-            sock.close()
+            pass
             
     def action(self):
         
@@ -716,7 +726,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         
         moreinfo('Downloading file for url', self._url)
         data = mgr.download_url(self, self._urlobject)
-        # print data, self._urlobject.typ
         
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')
@@ -815,25 +824,20 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 except urlparser.HarvestManUrlParserError:
                     continue
 
-            if not self._configobj.urlserver:            
-                if not self._crawlerqueue.push((url_obj, urlobjidxlist), 'fetcher'):
-                    if self._pushflag:                
-                        self.buffer.append((url_obj, urlobjidxlist))
-            else:
-                # We need to pass the priority, index of parent urlobject
-                # and a string created from indices of child url objects
-                # Separating each with a '#'
-                idxstring = '#'.join(map(lambda x: str(x), urlobjidxlist))
-                send_str = '#'.join((str(url_obj.priority), str(url_obj.index), idxstring))
-
-                # print 'Send string=>',send_str
-                #try:
-                send_url(send_str,
-                         self._configobj.urlhost,
-                         self._configobj.urlport)
-                #except:
-                #    pass
-                
+            #if not self._configobj.urlserver:            
+            if not self._crawlerqueue.push((url_obj, urlobjidxlist), 'fetcher'):
+                if self._pushflag:                
+                    self.buffer.append((url_obj, urlobjidxlist))
+            #else:
+            #    # We need to pass the priority, index of parent urlobject
+            #    # and a string created from indices of child url objects
+            #    # Separating each with a '#'
+            #    idxstring = '#'.join(map(lambda x: str(x), urlobjidxlist))
+            #    send_str = '#'.join((str(url_obj.priority), str(url_obj.index), idxstring))
+            # 
+            #    self.send_url_tcp('FETCHER:'+send_str,
+            #                      self._configobj.urlhost,
+            #                      self._configobj.urlport)
 
             # Update links called here
             mgr.update_links(url_obj.get_full_filename(), urlobjlist)
@@ -880,13 +884,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 idxstring = '#'.join(map(lambda x: str(x), urlobjidxlist))
                 send_str = '#'.join((str(url_obj.priority), str(url_obj.index), idxstring))
 
-                # print 'Send string=>',send_str
-                #try:
-                send_url(send_str,
-                         self._configobj.urlhost,
-                         self._configobj.urlport)
-                #except:
-                #    pass                
+                self.send_url_tcp(send_str,
+                                  self._configobj.urlhost,
+                                  self._configobj.urlport)
 
             # Update links called here
             mgr.update_links(self._urlobject.get_full_filename(), urlobjlist)

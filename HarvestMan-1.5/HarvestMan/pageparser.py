@@ -14,7 +14,7 @@
 
    Jan 2007       Anand              Complete support for META robot tags implemented.
                                      Requested by jim sloan of MCHS.
-
+   Mar 06 2007    Anand              Added support for HTML EMBED & OBJECT tags.
 
   Copyright (C) 2004 Anand B Pillai.                                     
                                      
@@ -54,7 +54,9 @@ class HarvestManSimpleParser(SGMLParser):
                 'script' : (('src', 'javascript'),),
                 'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet')),
                 'area' : (('href', 'normal'),),
-                'meta' : (('CONTENT','normal'),('content','normal'))
+                'meta' : (('CONTENT','normal'),('content','normal')),
+                'embed': (('src','normal'),),
+                'object': (('data','normal'),)
                 }
 
     # Valid 'rel' values - Added Jan 10 06 -Anand
@@ -143,18 +145,9 @@ class HarvestManSimpleParser(SGMLParser):
         page along with its attributes as a list of
         tuples """
 
-        # We handle the following tags
-        # a => hypertext links
-        # img => image links
-        # link => css/icon etc
-        # form => cgi forms
-        # body => for background images
-        # frame => for redirects
-
         if not attrs: return
         isBaseTag = not self.base and tag == 'base'
 
-        # print tag, attrs
         
         if tag in self.handled:
 
@@ -354,9 +347,10 @@ if __name__=="__main__":
     urls = ['http://projecteuler.net/index.php?section=problems']
     urls = ['http://www.evvs.dk/index.php?cPath=30&osCsid=3b110c689f01d722dbbe53c5cee0bf2d']
 
-    fname = '/home/anand/websites/macosx2/arstechnica.com/reviews/os/macosx-10.4.ars/3'
+    fname = 'arstechnica.com/arstechnica.com/reviews/apps/lightroom.ars/6'
     p.feed(open(fname).read())
-    print p.links
+    for item in p.links:
+        print item
     
     ## for url in urls:
 ##        if os.system('wget %s -O index.html' % url ) == 0:

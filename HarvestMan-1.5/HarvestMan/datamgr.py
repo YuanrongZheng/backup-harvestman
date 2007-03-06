@@ -74,10 +74,10 @@ class HarvestManDataManager(object):
             self._urlThreadPool = None
 
         # Regexp to parse stylesheet imports
-        self._importcss1 = re.compile(r'(\@import\s+\"?)(?!url)([\w.-:/]+)(\"?)', re.MULTILINE|re.UNICODE)
-        self._importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.UNICODE)
+        self._importcss1 = re.compile(r'(\@import\s+\"?)(?!url)([\w.-:/]+)(\"?)', re.MULTILINE|re.LOCALE|re.UNICODE)
+        self._importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.LOCALE|re.UNICODE)
         # Regexp to parse URLs inside CSS files
-        self._cssurl = re.compile(r'(url\()(.*)(\))')
+        self._cssurl = re.compile(r'(url\()([^\)]+)(\))', re.LOCALE|re.UNICODE)
 
     def get_state(self):
         """ Return a snapshot of the current state of this
@@ -162,11 +162,9 @@ class HarvestManDataManager(object):
         obj = cachereader.read_project_cache()
 
         if obj:
-            print 'Setting cachefound to 1...'
             self._projectcache = obj
             self._cfg.cachefound = 1
         else:
-            print 'Cache not found'
             self._cfg.cachefound = 0
 
     def write_file_from_cache(self, urlobj):
@@ -407,7 +405,6 @@ class HarvestManDataManager(object):
                 cmt = cachekey['last-modified']
                 # If the latest page has a modified time greater than this
                 # page is out of date, otherwise it is uptodate
-                print lmt, cmt
                 if lmt<=cmt:
                     uptodate=True
 
