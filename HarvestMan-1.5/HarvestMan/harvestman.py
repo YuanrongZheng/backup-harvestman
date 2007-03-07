@@ -31,6 +31,8 @@
                                      renamed it as finish(...). finish is never
                                      called at project end, but by default at
                                      program end.
+     Mar 7 2007          Anand       Disabled urlserver option.
+     
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -70,10 +72,6 @@ class HarvestMan(object):
         
     def finish_project(self):
         """ Actions to take after download is over for the current project """
-
-        # Disable tracebacks
-        # sys.excepthook = None
-        # sys.tracebacklimit = 0
         
         # Localise file links
         # This code sits in the data manager class
@@ -217,45 +215,52 @@ class HarvestMan(object):
 
         # Start url server if requested
         if self._cfg.urlserver:
-            import socket
+            # Currently url server feature is disabled
+            logconsole('Url server feature is disabled, reverting to using queues')
+            self._cfg.urlserver = False
 
-            host, port = self._cfg.urlhost, self._cfg.urlport
-            # Initialize server
-            try:
-                if self._cfg.useasyncore:
-                    server = urlserver.HarvestManUrlServer(host, port)
-                else:
-                    server = urlserver.HarvestManSimpleUrlServer(host, port)
-                    server.setDaemon(True)
-                    extrainfo("Starting url server at port %d..." % self._cfg.urlport)
-                    server.start()
-                    
-                SetObject(server)
-                port = server.get_port()
-                self._cfg.urlport = port
+    def start_url_server(self):
+        """ Start url server """
+        
+        import socket
 
-                if self._cfg.useasyncore:
-                    print 'Using asyncore server...'
-                    extrainfo("Starting url server at port %d..." % self._cfg.urlport)
-                    # Start asyncore thread
-                    async_t = urlserver.AsyncoreThread(timeout=30.0, use_poll=True)
-                    async_t.setDaemon(True)
-                    SetObject(async_t)
-                    async_t.start()
-                
-                info("Url server bound to port %d" % port)
-            except socket.error, (errno, errmsg):
-                sys.exit('Error starting url server => '+errmsg)
-                
-            # Test running server by pinging it 
-            time.sleep(1.0)
-            response = ping_urlserver(host, port)
-            if not response:
-                msg = """Unable to connect to url server at port %d\nCheck your settings""" % (self._cfg.urlport)
-                
-                sys.exit(msg)
+        host, port = self._cfg.urlhost, self._cfg.urlport
+        # Initialize server
+        try:
+            if self._cfg.useasyncore:
+                server = urlserver.HarvestManUrlServer(host, port)
             else:
-                extrainfo("Successfully started url server.")
+                server = urlserver.HarvestManSimpleUrlServer(host, port)
+                server.setDaemon(True)
+                extrainfo("Starting url server at port %d..." % self._cfg.urlport)
+                server.start()
+
+            SetObject(server)
+            port = server.get_port()
+            self._cfg.urlport = port
+
+            if self._cfg.useasyncore:
+                print 'Using asyncore server...'
+                extrainfo("Starting url server at port %d..." % self._cfg.urlport)
+                # Start asyncore thread
+                async_t = urlserver.AsyncoreThread(timeout=30.0, use_poll=True)
+                async_t.setDaemon(True)
+                SetObject(async_t)
+                async_t.start()
+
+            info("Url server bound to port %d" % port)
+        except socket.error, (errno, errmsg):
+            sys.exit('Error starting url server => '+errmsg)
+
+        # Test running server by pinging it 
+        time.sleep(1.0)
+        response = ping_urlserver(host, port)
+        if not response:
+            msg = """Unable to connect to url server at port %d\nCheck your settings""" % (self._cfg.urlport)
+
+            sys.exit(msg)
+        else:
+            extrainfo("Successfully started url server.")
         
     def start_project(self):
         """ Start the current project """

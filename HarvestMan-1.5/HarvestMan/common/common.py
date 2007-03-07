@@ -29,23 +29,27 @@ import socket
 import binascii
 import copy
 import threading
+from types import *
 
-mylock = threading.Condition(threading.RLock())
+class CaselessDict(dict):
 
-class UrlDict(dict):
+    
+    def __setitem__(self, name, value):
 
-    countdict = {}
-    def get(self, key):
-        if key in self.countdict:
-            self.countdict[key] += 1
+        if type(name) in StringTypes:
+            super(CaselessDict, self).__setitem__(name.lower(), value)
         else:
-            self.countdict[key] = 1
-        val = self.countdict[key]
-        if val==2:
-            return super(UrlDict, self).pop(key)
-        else:
-            return super(UrlDict, self).get(key,None)
+            super(CaselessDict, self).__setitem__(name, value)
 
+    def __getitem__(self, name):
+        if type(name) in StringTypes:
+            return super(CaselessDict, self).__getitem__(name.lower())
+        else:
+            return super(CaselessDict, self).__getitem__(name)
+
+    def __copy__(self):
+        pass
+            
 class Registry(object):
 
     class __registrySingleton(object):
@@ -436,19 +440,15 @@ def send_url_tcp(data, host, port):
     # Return's server response if connection
     # succeeded and null string if failed.
     try:
-        mylock.acquire()
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((host,port))
-            sock.sendall(data)
-            response = sock.recv(8192)
-            sock.close()
-            return response
-        except socket.error, e:
-            print 'url server error:',e
-            pass
-    finally:
-        mylock.release()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host,port))
+        sock.sendall(data)
+        response = sock.recv(8192)
+        sock.close()
+        return response
+    except socket.error, e:
+        # print 'url server error:',e
+        pass
 
     return ''
 

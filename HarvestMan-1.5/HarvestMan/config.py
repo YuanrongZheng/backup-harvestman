@@ -132,7 +132,7 @@ class HarvestManStateObject(dict):
         self.urlprioritydict = {}
         self.serverprioritydict = {}
         self.verbosity=2
-        self.timeout=240
+        self.timeout=300.0
         self.fetchertimeout=self.timeout
         self.getimagelinks=1
         self.getstylesheets=1
@@ -142,7 +142,6 @@ class HarvestManStateObject(dict):
         self.browsepage=0
         self.htmlparser=0
         self.checkfiles=1
-        self.cookies=1
         self.pagecache=1
         self.cachefound=0
         self._error=''
@@ -197,6 +196,8 @@ class HarvestManStateObject(dict):
         self.randomsleep = True
         # Internal flag for asyncore
         self.useasyncore = True
+        # For http compression
+        self.httpcompress = True
         
     def _init2(self):
         
@@ -283,7 +284,8 @@ class HarvestManStateObject(dict):
                                                  ('serverexclfilter', 'list'),
                                                  ('allserverfilters', 'list')),
                          'urlprioritydict_value': ('urlprioritydict', 'dict'),
-                         'serverprioritydict_value': ('serverprioritydict', 'dict')
+                         'serverprioritydict_value': ('serverprioritydict', 'dict'),
+                         'http_compress' : ('httpcompress', 'int')
                          
                          }
 

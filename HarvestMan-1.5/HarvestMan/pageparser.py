@@ -29,13 +29,6 @@ from HTMLParser import HTMLParser
 from common.common import *
 import re
 
-class CaselessDict(dict):
-
-    def has_key(self, key):
-        if key in self or key.lower() in self:
-            return True
-        return False
-    
 class HarvestManSimpleParser(SGMLParser):
     """ An HTML/XHTML parser derived from SGMLParser """
 
@@ -152,6 +145,7 @@ class HarvestManSimpleParser(SGMLParser):
         if tag in self.handled:
 
             d = CaselessDict(attrs)
+            
             _values = (self.handled[tag])
 
             link = ''

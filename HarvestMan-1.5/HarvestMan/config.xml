@@ -23,7 +23,7 @@
         <proxypasswd></proxypasswd>
         <proxyport value="80"/>
       </proxy>
-      <urlserver status="0">
+      <urlserver status="1">
         <urlhost>localhost</urlhost>
         <urlport value="0"/>
       </urlserver>
@@ -36,11 +36,13 @@
         <javascript value="1"/>
         <javaapplet value="1"/>
         <forms value="1"/>
-        <cookies value="1"/>
       </types> 
       <cache status="1">
         <datacache value="1"/>
       </cache>
+      <protocol>
+        <http compress="1" type="gzip" />
+      </protocol>
       <misc>
         <retries value="1"/>
       </misc>

@@ -22,7 +22,9 @@
                       we have data cache for the URL being checked.
                       This adds true server-side cache check.
                       Older caching logic retained as fallback.
-                      
+
+   Mar 7 2007         Added HTTP compression (gzip) support.
+   
    Copyright (C) 2004 Anand B Pillai.    
                               
 """
@@ -37,6 +39,8 @@ import threading as tg
 
 import urllib2 
 import urlparse
+import gzip
+import cStringIO
 
 from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
@@ -347,7 +351,7 @@ class HarvestManNetworkConnector(object):
             # For Python 2.4, use cookielib support
             # To fix HTTP cookie errors such as those
             # produced by http://www.eidsvoll.kommune.no/
-            if minor_version==4:
+            if minor_version>=4:
                 import cookielib
                 cj = cookielib.MozillaCookieJar()
                 cookiehandler = urllib2.HTTPCookieProcessor(cj)
@@ -483,7 +487,9 @@ class HarvestManUrlConnector(object):
         self.network_conn = GetObject('connector')
         # Config object
         self._cfg = GetObject('config')        
-
+        # Http header for current connection
+        self._headers = CaselessDict()
+        
     def __del__(self):
         del self.__data
         self.__data = None
@@ -577,6 +583,9 @@ class HarvestManUrlConnector(object):
         
         numtries = 0
         three_oh_four = False
+
+        # Reset the http headers
+        self._headers.clear()
         
         while numtries <= retries and not self.__error['fatal']:
 
@@ -591,7 +600,10 @@ class HarvestManUrlConnector(object):
 
                 # create a request object
                 request = urllib2.Request(urltofetch)
-                
+                # If we accept http-compression, add the required header.
+                if self._cfg.httpcompress:
+                    request.add_header('Accept-Encoding', 'gzip')
+                    
                 if lastmodified != -1:
                     ts = time.strftime("%a, %d %b %Y %H:%M:%S GMT",
                                        time.localtime(lastmodified))
@@ -600,6 +612,9 @@ class HarvestManUrlConnector(object):
                 
                 self.__freq = urllib2.urlopen(request)
 
+                # Set http headers
+                self.set_http_headers()
+                
                 # Check constraint on file size
                 if not self.check_content_length():
                     extrainfo("Url does not match size constraints =>",urltofetch)
@@ -655,9 +670,21 @@ class HarvestManUrlConnector(object):
 
                 if fetchdata:
                     try:
+                        # If gzip-encoded, need to deflate data
+                        encoding = self.get_content_encoding()
+                        
                         data = self.__freq.read()
-                        self.__freq.close()
+                        self.__freq.close()                        
                         dmgr.update_bytes(len(data))
+                        
+                        if encoding.strip().startswith('gzip'):
+                            try:
+                                gzfile = gzip.GzipFile(fileobj=cStringIO.StringIO(data))
+                                data = gzfile.read()
+                                gzfile.close()
+                            except (IOError, EOFError), e:
+                                extrainfo('Error deflating HTTP compressed data:',str(e))
+                            
                     except MemoryError, e:
                         # Catch memory error for sockets
                         debug('Error:',str(e))
@@ -712,7 +739,7 @@ class HarvestManUrlConnector(object):
                     break
 
             except urllib2.URLError, e:
-                print 'Error=>',e
+                # print 'Error=>',e
                 errdescn = ''
                 
                 try:
@@ -817,32 +844,31 @@ class HarvestManUrlConnector(object):
         url object """
 
         # set this on the url object
-        urlobj.set_url_content_info(self.get_http_headers())
+        urlobj.set_url_content_info(self._headers)
 
-    def get_http_headers(self):
-        """ Return all the http headers """
+    def set_http_headers(self):
+        """ Set http header dictionary from current request """
+
+        self._headers.clear()
+        for key,val in dict(self.__freq.headers).iteritems():
+            self._headers[key] = val
         
-        return dict(self.__freq.headers)
-
     def print_http_headers(self):
         """ Print the HTTP headers for this connection """
 
         print 'HTTP Headers '
-        for k,v in self.get_http_headers().iteritems():
+        for k,v in self._headers().iteritems():
             print k,'=> ', v
 
         print '\n'
 
     def get_content_length(self):
 
-        d = self.get_http_headers()
-
-        for k in d:
-            if k.lower() == 'content-length':
-                # Sometimes this could be two numbers
-                # separated by commas.
-                return d[k].split(',')[0].strip()
-
+        clength = self._headers.get('content-length', 0)
+        if clength != 0:
+            # Sometimes this could be two numbers
+            # separated by commas.
+            return clength.split(',')[0].strip()
         else:
             return len(self.__data)
 
@@ -858,38 +884,27 @@ class HarvestManUrlConnector(object):
         
     def get_content_type(self):
 
-        d = self.get_http_headers()        
-
-        ctyp = ''
-        for k in d:
-            if k.lower() == 'content-type':
-                ctyp = d[k]
-                # Sometimes content type
-                # definition might have
-                # the charset information,
-                # - .stx files for example.
-                # Need to strip out that
-                # part, if any
-                if ctyp.find(';') != -1:
-                    ctyp2, charset = ctyp.split(';')
-                    if ctyp2: ctyp = ctyp2
-
-                break
+        ctype = self._headers.get('content-type','')
+        if ctype:
+            # Sometimes content type
+            # definition might have
+            # the charset information,
+            # - .stx files for example.
+            # Need to strip out that
+            # part, if any
+            if ctype.find(';') != -1:
+                ctype2, charset = ctype.split(';')
+                if ctype2: ctype = ctype2
             
-        return ctyp
+        return ctype
             
     def get_last_modified_time(self):
 
-        s=""
-        d = self.get_http_headers()
-        
-        for k in d:
-            if k.lower() == 'last-modified':
-                s=d[k]
-                break
+        return self._headers.get('last-modified','')
 
-        return s
-    
+    def get_content_encoding(self):
+        return self._headers.get('content-encoding', 'plain')
+                                 
     # End New functions ...
 
     def __write_url(self, filename):

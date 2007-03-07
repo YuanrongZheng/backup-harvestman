@@ -874,10 +874,10 @@ class HarvestManRulesChecker(object):
 
         # url filter string
         urlfilterstr = self._configobj.urlfilter
-        print 'URL FILTER STRING=>',urlfilterstr
+        # print 'URL FILTER STRING=>',urlfilterstr
         
         url_filters = self.__make_filter(urlfilterstr)
-        print 'URL FILTERS=>',url_filters
+        # print 'URL FILTERS=>',url_filters
         
         self._configobj.set_option('urlfilterre_value', url_filters)
 
@@ -976,8 +976,8 @@ class HarvestManRulesChecker(object):
                 else:
                     exclude.append(s)
 
-        print 'Exclude=>',exclude
-        print 'Include=>',include
+        # print 'Exclude=>',exclude
+        # print 'Include=>',include
         
         exclusionfilter=self.__create_filter(exclude,servers)
         inclusionfilter=self.__create_filter(include,servers)
@@ -1034,7 +1034,7 @@ class HarvestManRulesChecker(object):
             else:
                 fstr += s
 
-            print 'Fstr=>',fstr
+            # print 'Fstr=>',fstr
             
             refilter.append(re.compile(fstr, re.IGNORECASE))
 
