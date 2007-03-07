@@ -36,6 +36,7 @@ other stylesheets referred in them.
 9. Support for META robot tags (INDEX, FOLLOW, NOINDEX, NOFOLLOW)
 10. Support for META REFRESH tags.
 11. Support for HTML embed, object tags.
+12. Support for HTTP compression.
 
 Other Changes
 =============
