@@ -26,6 +26,8 @@
    Mar 7 2007         Added HTTP compression (gzip) support.
    Mar 8 2007         Added connect2 method for grabbing URLs.
                       Added interactive progress bar for connect2 method.
+                      Improved interactive progress bar to resize
+                      with changing size of terminal.
                       
    Copyright (C) 2004 Anand B Pillai.    
                               
@@ -43,6 +45,11 @@ import urllib2
 import urlparse
 import gzip
 import cStringIO
+import struct
+import os
+
+if os.name == 'posix':
+    import fcntl
 
 from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
@@ -88,7 +95,27 @@ class DataReaderThread(tg.Thread):
         l = len(self._data)
         bandwidth = float(l)/float(time.time() - self._start)
         if bandwidth:
-            eta = (self._clength - l)/float(bandwidth)
+            eta = int((self._clength - l)/float(bandwidth))
+            # Convert to hr:min:sec
+            hh = eta/3600
+            if hh:
+                eta = (hh % 3600)
+            
+            mm = eta/60
+
+            if mm:
+                ss = (eta % 60)
+            else:
+                ss = eta
+
+            if hh<10:
+                hh = '0'+str(hh)
+            if mm<10:
+                mm = '0'+str(mm)
+            if ss<10:
+                ss = '0'+str(ss)
+                
+            eta = ':'.join((str(hh),str(mm),str(ss)))
         else:
             eta = 'NaN'
         
@@ -949,18 +976,37 @@ class HarvestManUrlConnector(object):
                     
                     self._reader = DataReaderThread(self.__freq, urltofetch, clength)
                     self._reader.start()
-                    
+
+                    lastlen = 0
+                    prevblock = 0
                     while True:
                         percent,l,bw,eta = self._reader.get_info()
+                        # Get line,col size of terminal
+                        s = struct.pack("HHHH", 0, 0, 0, 0)
+                        lines, cols = struct.unpack("HHHH", fcntl.ioctl(sys.stdout.fileno(),
+                                                                        0x5413, s))[:2]
+                        #print cols
                         if percent:
+                            cols = int(cols)
                             bw = float(bw)/1024.0
-                            sys.stdout.write("\b"*120)
-                            num_blocks = int(percent*0.01*(74))
-                            num_spaces = 74 - num_blocks
-                            #print num_spaces + num_blocks
-                            s = ''.join(('%3d%% [' % percent,'='*num_blocks,'>',' '*num_spaces,'] %3d %12.2fK/s' % (l, bw)))
+                            #sys.stdout.write(" "*cols)                            
+                            sys.stdout.write("\b"*cols)
+                            if cols<=45:
+                                blocksz = 0
+                            elif (lastlen and (lastlen - cols)>=15) or (lastlen==0):
+                                blocksz = int(0.4*cols)
+                            else:
+                                blocksz = prevblock
+                                
+                            num_blocks = int(percent*0.01*(blocksz))
+                            num_spaces = cols - num_blocks - 48
+                            s = ''.join(('%3d%% [' % percent,'='*num_blocks,'>',' '*num_spaces,'] %3d %4.2fK/s ETA: %8s    ' % (l, bw, eta)))
+                            lastlen = len(s)
+                            prevblock = blocksz
                             sys.stdout.write(s)
                             if percent==100.0: break
+
+                        time.sleep(0.1)
                         
                     print ''
                     
