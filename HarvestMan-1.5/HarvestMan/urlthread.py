@@ -41,7 +41,7 @@ class HarvestManUrlThreadInterrupt(Exception):
     def __str__(self):
         return str(self.value)
 
-class harvestManUrlThread(threading.Thread):
+class HarvestManUrlThread(threading.Thread):
     """ Class to download a url in a separate thread """
 
     def __init__(self, name, timeout, threadpool):
@@ -254,7 +254,7 @@ class harvestManUrlThread(threading.Thread):
 
         self.__timeout = value
 
-class harvestManUrlThreadPool(Queue):
+class HarvestManUrlThreadPool(Queue):
     """ Thread group/pool class to manage download threads """
 
     def __init__(self):
@@ -311,7 +311,7 @@ class harvestManUrlThreadPool(Queue):
         self.queue = state.get('queue', deque([]))
         
         for name,tdict in state.get('threadinfo').items():
-            fetcher = harvestManUrlThread(name, self.__timeout, self)
+            fetcher = HarvestManUrlThread(name, self.__timeout, self)
             fetcher.set_urlobject(tdict.get('__urlobject'))
             fetcher.set_busy_flag(tdict.get('__busyflag', False))
             fetcher.set_status(tdict.get('__downloadstatus', 0))
@@ -334,7 +334,7 @@ class harvestManUrlThreadPool(Queue):
 
         for x in range(self.__numthreads):
             name = 'Worker-'+ str(x+1)
-            fetcher = harvestManUrlThread(name, self.__timeout, self)
+            fetcher = HarvestManUrlThread(name, self.__timeout, self)
             fetcher.setDaemon(True)
             # Append this thread to the list of threads
             self.__threads.append(fetcher)

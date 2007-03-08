@@ -48,10 +48,11 @@ def apply_plugin():
 
     cfg = GetObject('config')
 
-    # Makes sense to activate the plugin only if swish-integration
+    # Makes sense to activate the callback only if swish-integration
     # is enabled.
     if cfg.swishplugin:
-        hooks.register_post_callback_method('crawler:fetcher_process_url_callback',process_url_further)
+        hooks.register_post_callback_method('crawler:fetcher_process_url_callback',
+                                            process_url_further)
         # Turn off caching, since no files are saved
         cfg.pagecache = 0
         # Turn off console-logging
@@ -59,3 +60,5 @@ def apply_plugin():
         logger.disableConsoleLogging()
         # Turn off session-saver feature
         cfg.savesessions = False
+        # Turn off interrupt handling
+        cfg.ignoreinterrupts = True

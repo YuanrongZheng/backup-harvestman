@@ -43,7 +43,7 @@ def apply_plugin():
     
     cfg = GetObject('config')
     if cfg.simulate:
-        hooks.register_plugin_function('connector:save_url_hook', save_url)
+        hooks.register_plugin_function('connector:save_url_plugin', save_url)
         # Turn off caching, since no files are saved
         cfg.pagecache = 0
         print 'Simulation mode turned on. Crawl will be simulated and no files will be saved.'

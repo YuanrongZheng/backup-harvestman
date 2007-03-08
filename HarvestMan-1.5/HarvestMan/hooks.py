@@ -27,7 +27,7 @@ class HarvestManHooksException(Exception):
 class HarvestManHooks(Singleton):
     """ Class which manages pluggable hooks and callbacks for HarvestMan """
     
-    supported_modules = ('crawler','harvestman', 'urlqueue', 'datamgr', 'connector')
+    supported_modules = ('crawler','harvestman', 'urlqueue', 'datamgr', 'connector', 'rules')
     module_plugins = {}
     module_callbacks = {}
     
@@ -266,6 +266,6 @@ def myfunc(self):
     pass
 
 if __name__ == "__main__":
-    register_plugin_function('datamgr:download_url_hook', myfunc)
+    register_plugin_function('datamgr:download_url_plugin', myfunc)
     register_post_callback_method('crawler:fetcher_process_url_callback', myfunc)
     print HarvestManHooks.getInstance().get_all_hook_funcs()

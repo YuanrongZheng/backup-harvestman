@@ -33,7 +33,15 @@ import copy
 import robotparser
 
 from common.common import *
+from common.methodwrapper import MethodWrapperMetaClass
+
 import urlparser
+
+# Defining pluggable functions
+__plugins__ = {'violates_basic_rules_plugin': 'HarvestManRulesChecker:violates_basic_rules'}
+
+# Defining functions with callbacks
+__callbacks__ = {'violates_basic_rules_callback' : 'HarvestManRulesChecker:violates_basic_rules'}
 
 class HarvestManRulesChecker(object):
     """ Class which checks the download rules for urls. These
@@ -41,6 +49,9 @@ class HarvestManRulesChecker(object):
     checks, external server/directory checks, duplicate url
     checks, maximum limits check etc. """
 
+    # For supporting callbacks
+    __metaclass__ = MethodWrapperMetaClass
+    
     def __init__(self):
 
         self._links = []

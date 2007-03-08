@@ -52,13 +52,11 @@ from common.methodwrapper import MethodWrapperMetaClass
 import urlparser
 import pageparser
 
-from datamgr import harvestManController
-
 # Defining pluggable functions
 # Plugin name is the key and value is <class>:<function>
 
-__plugins__ = { 'fetcher_process_url_hook': 'HarvestManUrlFetcher:process_url',
-                'crawler_crawl_url_hook': 'HarvestManUrlCrawler:crawl_url' }
+__plugins__ = { 'fetcher_process_url_plugin': 'HarvestManUrlFetcher:process_url',
+                'crawler_crawl_url_plugin': 'HarvestManUrlCrawler:crawl_url' }
 
 # Defining functions with pre & post callbacks
 # Callback name is the key and value is <class>:<function>

@@ -58,10 +58,27 @@ import glob
 import urlserver
 
 from common.common import *
+from common.methodwrapper import MethodWrapperMetaClass
+
+# Defining callback points
+__callbacks__ = { 'run_saved_state_callback':'HarvestMan:run_saved_state',
+                  'restore_state_callback':'HarvestMan:restore_state',
+                  'run_projects_callback':'HarvestMan:run_projects',
+                  'start_project_callback':'HarvestMan:start_project',
+                  'finish_project_callback':'HarvestMan:finish_project' }
+
+# Defining pluggable functions
+__plugins__ = { 'clean_up_plugin':'HarvestMan:clean_up',
+                'save_current_state_plugin': 'HarvestMan:save_current_state',
+                'restore_state_plugin': 'HarvestMan:restore_state',
+                'reset_state_plugin': 'HarvestMan:reset_state' }
 
 class HarvestMan(object):
     """ Top level application class """
 
+    # For supporting callbacks
+    __metaclass__ = MethodWrapperMetaClass
+    
     def __init__(self):
         """ Constructor """
 
@@ -133,7 +150,7 @@ class HarvestMan(object):
                 logconsole(str(x+1),':', RegisterObj.userdebug[x])
 
         RegisterObj.userdebug = []
-        print 'HarvestMan session finished.'
+        logconsole('HarvestMan session finished.')
         
     def save_current_state(self):
         """ Save state of objects to disk so program
@@ -465,16 +482,16 @@ class HarvestMan(object):
             if not self._cfg.testnocrawl:
                 self.start_project()
         except (KeyboardInterrupt, EOFError, Exception), e:
-            
-            if not self._cfg.ignoreinterrupts:
-                # dont allow to write cache, since it
-                # screws up existing cache.
-                GetObject('datamanager').conditional_cache_set()
-                self.save_current_state()
-                
-                sys.excepthook = SysExceptHook
-                sys.tracebacklimit = 0
-                self.clean_up()
+           if not self._cfg.ignoreinterrupts:
+               logconsole('Exception received=>',str(e))
+               # dont allow to write cache, since it
+               # screws up existing cache.
+               GetObject('datamanager').conditional_cache_set()
+               self.save_current_state()
+               
+               sys.excepthook = SysExceptHook
+               sys.tracebacklimit = 0
+               self.clean_up()
 
         self.finish_project()
 
@@ -552,12 +569,15 @@ class HarvestMan(object):
         """ Download URL for the nocrawl option """
 
         import urlparser
-        
-        connfact = GetObject('connectorfactory')
-        conn = connfact.create_connector(None)
-        urlobj = urlparser.HarvestManUrlParser(self._cfg.url)
-        print 'Connecting to %s...' % urlobj.get_full_domain()
-        ret = conn.url_to_file(urlobj.get_full_url(), urlobj.get_filename())
+
+        try:
+            connfact = GetObject('connectorfactory')
+            conn = connfact.create_connector(None)
+            urlobj = urlparser.HarvestManUrlParser(self._cfg.url)
+            ret = conn.url_to_file(urlobj)
+        except KeyboardInterrupt:
+            conn.get_reader().stop()
+            print ''
         
     def run_saved_state(self):
 
@@ -656,7 +676,7 @@ class HarvestMan(object):
                         sys.exit(0)
                         
     def main(self):
-
+        """ Main routine """
 
         # Prepare myself
         self.__prepare()

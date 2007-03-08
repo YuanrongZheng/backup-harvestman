@@ -35,16 +35,26 @@ import threading as tg
 # Utils
 import utils
 
-from urlthread import harvestManUrlThreadPool
+from urlthread import HarvestManUrlThreadPool
 from connector import *
 from common.common import *
+from common.methodwrapper import MethodWrapperMetaClass
 
 # Defining pluggable functions
-__plugins__ = { 'download_url_hook': 'HarvestManDataManager:download_url' }
+__plugins__ = { 'download_url_plugin': 'HarvestManDataManager:download_url',
+                'post_download_setup_plugin': 'HarvestManDataManager:post_download_setup',
+                'print_project_info_plugin': 'HarvestManDataManager:print_project_info',
+                'dump_url_tree_plugin': 'HarvestManDataManager:dump_url_tree'}
+
+# Defining functions with callbacks
+__callbacks__ = { 'download_url_callback': 'HarvestManDataManager:download_url' }
 
 class HarvestManDataManager(object):
     """ The data manager cum indexer class """
 
+    # For supporting callbacks
+    __metaclass__ = MethodWrapperMetaClass
+    
     def __init__(self):
 
         self._numfailed = 0
@@ -68,7 +78,7 @@ class HarvestManDataManager(object):
         self._redownload = False
         # Url thread group class for multithreaded downloads
         if self._cfg.usethreads and self._cfg.fastmode:
-            self._urlThreadPool = harvestManUrlThreadPool()
+            self._urlThreadPool = HarvestManUrlThreadPool()
             self._urlThreadPool.spawn_threads()
         else:
             self._urlThreadPool = None
@@ -1261,7 +1271,7 @@ class HarvestManDataManager(object):
         stream.write('</html>\n')
 
 
-class harvestManController(tg.Thread):
+class HarvestManController(tg.Thread):
     """ A controller class for managing exceptional
     conditions such as file limits. Right now this
     is written with the sole aim of managing file

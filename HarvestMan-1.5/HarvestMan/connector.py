@@ -24,7 +24,9 @@
                       Older caching logic retained as fallback.
 
    Mar 7 2007         Added HTTP compression (gzip) support.
-   
+   Mar 8 2007         Added connect2 method for grabbing URLs.
+                      Added interactive progress bar for connect2 method.
+                      
    Copyright (C) 2004 Anand B Pillai.    
                               
 """
@@ -47,12 +49,57 @@ from common.methodwrapper import MethodWrapperMetaClass
 
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 
-# Overrideable hooks defined by this module
-__plugins__ = { 'save_url_hook': 'HarvestManUrlConnector:save_url' }
+# Defining pluggable functions
+__plugins__ = { 'save_url_plugin': 'HarvestManUrlConnector:save_url' }
+
+# Defining functions with callbacks
 __callbacks__ = { 'connect_callback' : 'HarvestManUrlConnector:connect' }
 
 __protocols__=["http", "ftp"]
 
+class DataReaderThread(tg.Thread):
+
+    def __init__(self, request, urltofetch, clength):
+        self._request = request
+        self._data = ''
+        self._clength = int(clength)
+        self._url = urltofetch
+        self._bs = 1024*8
+        self._flag = False
+        self._start = 0.0
+        tg.Thread.__init__(self, None, None, 'reader')
+
+    def run(self):
+        print 'Downloading data for %s...' % self._url
+        self._start = time.time()
+        while not self._flag:
+            block = self._request.read(self._bs)
+            if block=='':
+                self._flag = True
+                break
+            
+            self._data += block
+
+    def get_info(self):
+        """ Return percentage, data downloaded, bandwidth, estimated time to
+        complete as a tuple """
+        
+        per = float(100.0*len(self._data))/float(self._clength)
+        l = len(self._data)
+        bandwidth = float(l)/float(time.time() - self._start)
+        if bandwidth:
+            eta = (self._clength - l)/float(bandwidth)
+        else:
+            eta = 'NaN'
+        
+        return (per, l, bandwidth, eta)
+
+    def get_data(self):
+        return self._data
+
+    def stop(self):
+        self._flag = True
+    
 class MyRedirectHandler(urllib2.HTTPRedirectHandler):
     # maximum number of redirections to any single URL
     # this is needed because of the state that cookies introduce
@@ -489,6 +536,9 @@ class HarvestManUrlConnector(object):
         self._cfg = GetObject('config')        
         # Http header for current connection
         self._headers = CaselessDict()
+        # Data reader thread - only used for
+        # -N option
+        self._reader = None
         
     def __del__(self):
         del self.__data
@@ -836,6 +886,191 @@ class HarvestManUrlConnector(object):
         else:
             return -1
 
+    def connect2(self, urlobj):
+        """ Connect to the Internet fetch the data of the passed url.
+        This is called by the stand-alone URL grabber """
+
+        # This routine has two return values
+        #
+        # -1 => Could not connect to URL and download data due
+        #       to some error.
+        # 0 => Downloaded URL and got data without error.
+        
+        data = '' 
+
+        # Reset the http headers
+        self._headers.clear()
+        retries = 1
+        numtries = 0
+
+        urltofetch = urlobj.get_full_url()
+        filename = urlobj.get_filename()
+        
+        while numtries <= retries and not self.__error['fatal']:
+
+            errnum = 0
+            try:
+                # Reset error
+                self.__error = { 'number' : 0,
+                                 'msg' : '',
+                                 'fatal' : False }
+
+                numtries += 1
+
+                # create a request object
+                request = urllib2.Request(urltofetch)
+
+                print 'Connecting to %s...' % urlobj.get_full_domain()
+                self.__freq = urllib2.urlopen(request)
+                print 'Connected.'
+
+                # Set http headers
+                self.set_http_headers()
+                
+                # Check constraint on file size
+                #if not self.check_content_length():
+                #    print "Url does not match size constraints =>",urltofetch
+                #    return 2
+
+                # if this is the not the first attempt, print a success msg
+                if numtries>1:
+                    print "Reconnect succeeded => ", urltofetch
+
+                try:
+                    # If gzip-encoded, need to deflate data
+                    encoding = self.get_content_encoding()
+                    ctype = self.get_content_type()
+                    clength = int(self.get_content_length())
+                    clength_mb = clength/(1024*1024)
+                    
+                    print 'Length: %d (%dM) %s' % (clength, clength_mb, ctype)
+                    print 'Content Encoding:',encoding
+                    print ''
+                    
+                    self._reader = DataReaderThread(self.__freq, urltofetch, clength)
+                    self._reader.start()
+                    
+                    while True:
+                        percent,l,bw,eta = self._reader.get_info()
+                        if percent:
+                            bw = float(bw)/1024.0
+                            sys.stdout.write("\b"*120)
+                            num_blocks = int(percent*0.01*(74))
+                            num_spaces = 74 - num_blocks
+                            #print num_spaces + num_blocks
+                            s = ''.join(('%3d%% [' % percent,'='*num_blocks,'>',' '*num_spaces,'] %3d %12.2fK/s' % (l, bw)))
+                            sys.stdout.write(s)
+                            if percent==100.0: break
+                        
+                    print ''
+                    
+                    data = self._reader.get_data()
+
+                except MemoryError, e:
+                    # Catch memory error for sockets
+                    pass
+                    
+                break
+            except urllib2.HTTPError, e:
+
+                try:
+                    errbasic, errdescn = (str(e)).split(':',1)
+                    parts = errbasic.strip().split()
+                    self.__error['number'] = int(parts[-1])
+                    self.__error['msg'] = errdescn.strip()
+                except:
+                    pass
+
+                if self.__error['msg']:
+                    print self.__error['msg'], '=> ',urltofetch
+                else:
+                    print 'HTTPError:',urltofetch
+
+                try:
+                    errnum = int(self.__error['number'])
+                except:
+                    pass
+
+                if errnum == 407: # Proxy authentication required
+                    self.__proxy_query(1, 1)
+                elif errnum == 503: # Service unavailable
+                    self.__error['fatal']=True                        
+                elif errnum == 504: # Gateway timeout
+                    self.__error['fatal']=True                        
+                elif errnum in range(500, 505): # Server error
+                    self.__error['fatal']=True
+                elif errnum == 404:
+                    self.__error['fatal']=True
+                elif errnum == 401: # Site authentication required
+                    self.__error['fatal']=True
+                    break
+
+            except urllib2.URLError, e:
+                errdescn = ''
+                
+                try:
+                    errbasic, errdescn = (str(e)).split(':',1)
+                    parts = errbasic.split()                            
+                except:
+                    try:
+                        errbasic, errdescn = (str(e)).split(',')
+                        parts = errbasic.split('(')
+                        errdescn = (errdescn.split("'"))[1]
+                    except:
+                        pass
+
+                try:
+                    self.__error['number'] = int(parts[-1])
+                except:
+                    pass
+                
+                if errdescn:
+                    self.__error['msg'] = errdescn
+
+                if self.__error['msg']:
+                    print self.__error['msg'], '=> ',urltofetch
+                else:
+                    print 'URLError:',urltofetch
+
+                errnum = self.__error['number']
+                if errnum == 10049 or errnum == 10061: # Proxy server error
+                    self.__proxy_query(1, 1)
+
+            except IOError, e:
+                self.__error['number'] = 31
+                self.__error['fatal']=True
+                self.__error['msg'] = str(e)                    
+                # Generated by invalid ftp hosts and
+                # other reasons,
+                # bug(url: http://www.gnu.org/software/emacs/emacs-paper.html)
+                print e,'=>',urltofetch
+
+            except ValueError, e:
+                self.__error['number'] = 41
+                self.__error['msg'] = str(e)                    
+                print e,'=>',urltofetch
+
+            except AssertionError, e:
+                self.__error['number'] = 51
+                self.__error['msg'] = str(e)
+                print e,'=>',urltofetch
+
+            except socket.error, e:
+                self.__error['msg'] = str(e)
+                errmsg = self.__error['msg']
+
+                print 'Socket Error: ',errmsg,'=> ',urltofetch
+
+            # attempt reconnect after some time
+            time.sleep(self.__sleeptime)
+
+        if data: self.__data = data
+            
+        if data:
+            return 0
+        else:
+            return -1
+        
     def get_error(self):
         return self.__error
 
@@ -905,8 +1140,6 @@ class HarvestManUrlConnector(object):
     def get_content_encoding(self):
         return self._headers.get('content-encoding', 'plain')
                                  
-    # End New functions ...
-
     def __write_url(self, filename):
         """ Write downloaded data to the passed file """
 
@@ -1024,20 +1257,21 @@ class HarvestManUrlConnector(object):
             
         return retval
 
-    def url_to_file(self, url, filename):
+    def url_to_file(self, urlobj):
         """ Save the contents of this url <url> to the file <filename>.
         This is used by the -N option of HarvestMan """
 
-        ret = self.connect(url)
-            
+        ret = self.connect2(urlobj)
+        url = urlobj.get_full_url()
+        
         if self.__data:
-            print 'Data fetched from ',url
-            res=self.__write_url( filename )
+            filename = urlobj.get_filename()
+            res=self.__write_url(filename)
             if res:
-                print 'Data wrote to file',filename
+                print 'Saved to %s.' % filename
                 return res
         else:
-            print 'Error in fetching data from ',url ,'\n'
+            print 'Error in getting data from ',url ,'\n'
 
         return 0
 
@@ -1049,6 +1283,11 @@ class HarvestManUrlConnector(object):
 
         return self.__error
 
+    def get_reader(self):
+        """ Return reader thread """
+
+        return self._reader
+    
 class HarvestManUrlConnectorFactory(object):
     """ This class acts as a factory for HarvestManUrlConnector
     objects. It also has methods to control the number of

@@ -261,7 +261,7 @@ class HarvestManCrawlerQueue(object):
         # Start harvestman controller thread
         import datamgr
         
-        self._controller = datamgr.harvestManController()
+        self._controller = datamgr.HarvestManController()
         self._controller.start()
 
         # Start base tracker
@@ -317,7 +317,7 @@ class HarvestManCrawlerQueue(object):
             # Start harvestman controller thread
             import datamgr
             
-            self._controller = datamgr.harvestManController()
+            self._controller = datamgr.HarvestManController()
             self._controller.start()
             
             # Create the number of threads in the config file
