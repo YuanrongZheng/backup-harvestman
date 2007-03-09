@@ -28,6 +28,9 @@
                       Added interactive progress bar for connect2 method.
                       Improved interactive progress bar to resize
                       with changing size of terminal.
+
+   Mar 9 2007         Made progress bar use Progress class borrowed
+                      from SMART package manager.
                       
    Copyright (C) 2004 Anand B Pillai.    
                               
@@ -54,6 +57,7 @@ if os.name == 'posix':
 
 from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
+from common.progress import TextProgress
 
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 
@@ -980,30 +984,19 @@ class HarvestManUrlConnector(object):
 
                     lastlen = 0
                     prevblock = 0
+                    prog = TextProgress()
+                    prog.setHasSub(True)
+                    prog.set(100, 100)
+                    
                     while True:
                         percent,l,bw,eta = self._reader.get_info()
-                        # Get line,col size of terminal
-                        s = struct.pack("HHHH", 0, 0, 0, 0)
-                        lines, cols = struct.unpack("HHHH",
-                                                    fcntl.ioctl(sys.stdout.fileno(),
-                                                                termios.TIOCGWINSZ, s))[:2]
-                        #print cols
                         if percent:
-                            cols = int(cols)
                             bw = float(bw)/1024.0
-                            #sys.stdout.write(" "*cols)                            
-                            sys.stdout.write("\b"*cols)
-                            if cols<=45:
-                                blocksz = 0
-                            else:
-                                blocksz = int(0.4*cols)
-                                
-                            num_blocks = int(percent*0.01*(blocksz))
-                            num_spaces = blocksz - num_blocks
-                            s = ''.join(('%3d%% [' % percent,'='*num_blocks,'>',' '*num_spaces,'] %3d %4.2fK/s ETA: %8s' % (l, bw, eta)))
-                            lastlen = len(s)
-                            prevblock = blocksz
-                            sys.stdout.write(s)
+                            prog.setSubTopic(1,filename)
+                            subdata = {'speed': '%3.2fK/s'%bw,
+                                       'eta': eta }
+                            prog.setSub(1, percent, 100)
+                            prog.show()
                             if percent==100.0: break
 
                         time.sleep(0.1)
