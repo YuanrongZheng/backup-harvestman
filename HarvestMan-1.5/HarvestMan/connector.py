@@ -40,6 +40,7 @@ import sys
 import socket
 import time
 import threading as tg
+import termios
 
 import urllib2 
 import urlparse
@@ -983,8 +984,9 @@ class HarvestManUrlConnector(object):
                         percent,l,bw,eta = self._reader.get_info()
                         # Get line,col size of terminal
                         s = struct.pack("HHHH", 0, 0, 0, 0)
-                        lines, cols = struct.unpack("HHHH", fcntl.ioctl(sys.stdout.fileno(),
-                                                                        0x5413, s))[:2]
+                        lines, cols = struct.unpack("HHHH",
+                                                    fcntl.ioctl(sys.stdout.fileno(),
+                                                                termios.TIOCGWINSZ, s))[:2]
                         #print cols
                         if percent:
                             cols = int(cols)
@@ -993,14 +995,12 @@ class HarvestManUrlConnector(object):
                             sys.stdout.write("\b"*cols)
                             if cols<=45:
                                 blocksz = 0
-                            elif (lastlen and (lastlen - cols)>=15) or (lastlen==0):
-                                blocksz = int(0.4*cols)
                             else:
-                                blocksz = prevblock
+                                blocksz = int(0.4*cols)
                                 
                             num_blocks = int(percent*0.01*(blocksz))
-                            num_spaces = cols - num_blocks - 48
-                            s = ''.join(('%3d%% [' % percent,'='*num_blocks,'>',' '*num_spaces,'] %3d %4.2fK/s ETA: %8s    ' % (l, bw, eta)))
+                            num_spaces = blocksz - num_blocks
+                            s = ''.join(('%3d%% [' % percent,'='*num_blocks,'>',' '*num_spaces,'] %3d %4.2fK/s ETA: %8s' % (l, bw, eta)))
                             lastlen = len(s)
                             prevblock = blocksz
                             sys.stdout.write(s)
