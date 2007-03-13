@@ -30,7 +30,8 @@
                       with changing size of terminal.
 
    Mar 9 2007         Made progress bar use Progress class borrowed
-                      from SMART package manager.
+                      from SMART package manager (Thanks to Vaibhav
+                      for pointing this out!)
                       
    Copyright (C) 2004 Anand B Pillai.    
                               
@@ -57,7 +58,6 @@ if os.name == 'posix':
 
 from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
-from common.progress import TextProgress
 
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 
@@ -69,37 +69,55 @@ __callbacks__ = { 'connect_callback' : 'HarvestManUrlConnector:connect' }
 
 __protocols__=["http", "ftp"]
 
-class DataReaderThread(tg.Thread):
-
+class DataReader(tg.Thread):
+    """ Data reader thread class which is used by
+    the HarvestMan hget interface """
+    
     def __init__(self, request, urltofetch, clength):
         self._request = request
         self._data = ''
         self._clength = int(clength)
         self._url = urltofetch
         self._bs = 1024*8
-        self._flag = False
         self._start = 0.0
-        tg.Thread.__init__(self, None, None, 'reader')
+        self._flag = False
+        tg.Thread.__init__(self, None, None, 'data reader')
 
-    def run(self):
-        print 'Downloading data for %s...' % self._url
+    def initialize(self):
         self._start = time.time()
+        
+    def run(self):
+        self.initialize()
+
         while not self._flag:
             block = self._request.read(self._bs)
             if block=='':
                 self._flag = True
                 break
-            
+            else:
+                self._data += block
+        
+    def readNext(self):
+
+        block = self._request.read(self._bs)
+        if block=='':
+            self._flag = True
+            return False
+        else:
             self._data += block
 
     def get_info(self):
         """ Return percentage, data downloaded, bandwidth, estimated time to
         complete as a tuple """
-        
-        per = float(100.0*len(self._data))/float(self._clength)
+
+        if self._clength:
+            per = float(100.0*len(self._data))/float(self._clength)
+        else:
+            per = -1
+            
         l = len(self._data)
         bandwidth = float(l)/float(time.time() - self._start)
-        if bandwidth:
+        if bandwidth and self._clength:
             eta = int((self._clength - l)/float(bandwidth))
             # Convert to hr:min:sec
             hh = eta/3600
@@ -131,7 +149,7 @@ class DataReaderThread(tg.Thread):
 
     def stop(self):
         self._flag = True
-    
+        
 class MyRedirectHandler(urllib2.HTTPRedirectHandler):
     # maximum number of redirections to any single URL
     # this is needed because of the state that cookies introduce
@@ -701,6 +719,7 @@ class HarvestManUrlConnector(object):
                 if not self.check_content_length():
                     extrainfo("Url does not match size constraints =>",urltofetch)
                     return 2
+                    #pass
 
                 # The actual url information is used to
                 # differentiate between directory like urls
@@ -759,7 +778,7 @@ class HarvestManUrlConnector(object):
                         self.__freq.close()                        
                         dmgr.update_bytes(len(data))
                         
-                        if encoding.strip().startswith('gzip'):
+                        if encoding.strip().find('gzip') != -1:
                             try:
                                 gzfile = gzip.GzipFile(fileobj=cStringIO.StringIO(data))
                                 data = gzfile.read()
@@ -897,8 +916,13 @@ class HarvestManUrlConnector(object):
 
                     if sockerrs>=4:
                         self._cfg.connections -= 1
-                        self.network_conn.decrement_socket_errors(4)                        
+                        self.network_conn.decrement_socket_errors(4)
+            except Exception, e:
+                self.__error['msg'] = str(e)
+                errmsg = self.__error['msg']
 
+                extrainfo('General Error: ', errmsg,'=> ',urltofetch)
+                
             # attempt reconnect after some time
             time.sleep(self.__sleeptime)
 
@@ -918,6 +942,36 @@ class HarvestManUrlConnector(object):
         else:
             return -1
 
+    def set_progress_object(self, topic, n=0, subtopics=[], nolengthmode=False):
+        """ Create a progress bar object with the given topic
+        and sub-topics """
+
+        # n=> number of subtopics
+        # topic => Topic
+        # subtopics => List of subtopics
+
+        # n should be = len(subtopics)
+        if n != len(subtopics):
+            return False
+
+        # Create progress object
+        prog = self._cfg.progressobj
+        prog.setTopic(topic)
+        prog.set(100, 100)
+        
+        if nolengthmode:
+            prog.setNoLengthMode(True)
+
+        if n>0:
+            prog.setHasSub(True)
+            if not nolengthmode:
+                for x in range(1,n+1):
+                    prog.setSubTopic(x, subtopics[x-1])
+                    prog.setSub(x, 0.0, 100)
+        else:
+            pass
+            
+                               
     def connect2(self, urlobj):
         """ Connect to the Internet fetch the data of the passed url.
         This is called by the stand-alone URL grabber """
@@ -937,6 +991,8 @@ class HarvestManUrlConnector(object):
 
         urltofetch = urlobj.get_full_url()
         filename = urlobj.get_filename()
+
+        dmgr = GetObject('datamanager')
         
         while numtries <= retries and not self.__error['fatal']:
 
@@ -951,56 +1007,104 @@ class HarvestManUrlConnector(object):
 
                 # create a request object
                 request = urllib2.Request(urltofetch)
-
-                print 'Connecting to %s...' % urlobj.get_full_domain()
+                byterange = urlobj.range
+                if byterange:
+                    range1 = byterange[0]
+                    range2 = byterange[-1]
+                    request.add_header('Range','bytes=%d-%d' % (range1,range2))
+                
                 self.__freq = urllib2.urlopen(request)
-                print 'Connected.'
-
+                
                 # Set http headers
                 self.set_http_headers()
-                
+
+                encoding = self.get_content_encoding()
+                ctype = self.get_content_type()
+                clength = int(self.get_content_length())
+
+                if clength==0:
+                    clength_str = 'Unknown'
+                elif clength>=1024*1024:
+                    clength_str = '%dM' % (clength/(1024*1024))
+                elif clength >=1024:
+                    clength_str = '%dK' % (clength/1024)
+                else:
+                    clength_str = '%d bytes' % clength
+
+                if clength:
+                    print 'Length: %d (%s) Type: %s' % (clength, clength_str, ctype)
+                    nolengthmode = False
+                else:
+                    print 'Length: (%s) Type: %s' % (clength_str, ctype)
+                    nolengthmode = True
+
+                print 'Content Encoding:',encoding
+                print ''
+
                 # Check constraint on file size
-                #if not self.check_content_length():
-                #    print "Url does not match size constraints =>",urltofetch
-                #    return 2
+                if not byterange and not self.check_content_length():
+                    print "Url does not match size constraints"
+                    print 'Trying multi-part download'
+                    urlobj.trymultipart = True
+                    ret = dmgr.download_multipart_url(urlobj, clength)
+                    if ret==1:
+                        print 'Cannot do multipart download, piece size greater than maxfile size!'
+                        return 3
+                    elif ret==0:
+                        # Set progress object
+                        self.set_progress_object(filename, self._cfg.numparts,
+                                                 [filename]*self._cfg.numparts,
+                                                 nolengthmode)
+                        return 2
+                    
+                    # Try downloading using multipart HTTP
+                    #return 2
 
                 # if this is the not the first attempt, print a success msg
                 if numtries>1:
                     print "Reconnect succeeded => ", urltofetch
 
                 try:
-                    # If gzip-encoded, need to deflate data
-                    encoding = self.get_content_encoding()
-                    ctype = self.get_content_type()
-                    clength = int(self.get_content_length())
-                    clength_mb = clength/(1024*1024)
+                    # Don't set progress object if multipart download - it
+                    # would have been done before.
+                    if not urlobj.range:
+                        self.set_progress_object(filename,1,[filename],nolengthmode)
+                    else:
+                        pass
                     
-                    print 'Length: %d (%dM) %s' % (clength, clength_mb, ctype)
-                    print 'Content Encoding:',encoding
-                    print ''
+                    prog = self._cfg.progressobj
+                                
+                    mypercent = 0.0
                     
-                    self._reader = DataReaderThread(self.__freq, urltofetch, clength)
-                    self._reader.start()
+                    self._reader = DataReader(self.__freq, urltofetch, clength)
+                    # Don't run as thread for multipart downloads
+                    if self._cfg.multipart:
+                        self._reader.initialize()
+                    else:
+                        self._reader.start()
 
-                    lastlen = 0
-                    prevblock = 0
-                    prog = TextProgress()
-                    prog.setHasSub(True)
-                    prog.set(100, 100)
-                    
                     while True:
-                        percent,l,bw,eta = self._reader.get_info()
-                        if percent:
-                            bw = float(bw)/1024.0
-                            prog.setSubTopic(1,filename)
-                            subdata = {'speed': '%3.2fK/s'%bw,
-                                       'eta': eta }
-                            prog.setSub(1, percent, 100)
-                            prog.show()
-                            if percent==100.0: break
-
-                        time.sleep(0.1)
-                        
+                        if self._cfg.multipart: self._reader.readNext()
+                        prog.setScreenWidth(prog.getScreenWidth())
+                        if clength:
+                            percent,l,bw,eta = self._reader.get_info()
+                            if percent:
+                                bw = float(bw)/1024.0
+                                subdata = {'speed': '%3.2fK/s'%bw,
+                                           'eta': eta }
+                                prog.setSub(1, percent, 100) #, subdata=subdata)
+                                prog.show()
+                                if percent==100.0: break
+                        else:
+                            if mypercent:
+                                prog.setSubTopic(1,filename)
+                                prog.setSub(1, mypercent, 100)                            
+                                prog.show()
+                                
+                            if self._reader._flag: break
+                            mypercent += 2.0
+                            if mypercent==100.0: mypercent=0.0
+                            
                     print ''
                     
                     data = self._reader.get_data()
@@ -1300,9 +1404,18 @@ class HarvestManUrlConnector(object):
         """ Save the contents of this url <url> to the file <filename>.
         This is used by the -N option of HarvestMan """
 
-        ret = self.connect2(urlobj)
         url = urlobj.get_full_url()
-        
+        print 'Connecting to %s...' % urlobj.get_full_domain()
+        ret = self.connect2(urlobj)
+        if ret==2:
+            # Trying multipart download...
+            pool = GetObject('datamanager').get_url_threadpool()
+            while not pool.get_download_status(url):
+                time.sleep(1.0)
+            print 'Data download completed.'
+            data = pool.get_url_data(url)
+            self.__data = data
+                
         if self.__data:
             filename = urlobj.get_filename()
             res=self.__write_url(filename)

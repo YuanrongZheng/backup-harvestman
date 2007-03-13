@@ -18,6 +18,9 @@
 
    Feb 25 2007      Anand    Added .ars as a web-page extension to support
                              the popular ars-technica website.
+   Mar 12 2007      Anand    Added more fields for multipart. Fixed a bug in
+                             is_webpage - anchor links should be returned
+                             as web-page links.
                              
    Copyright (C) 2004 Anand B Pillai.
    
@@ -34,9 +37,6 @@ import urlproc
 
 from common.common import *
 
-# Testing flag
-TEST = 0
-
 class HarvestManUrlParserError(Exception):
 
     def __init__(self, value):
@@ -51,7 +51,8 @@ class HarvestManUrlParserError(Exception):
 class HarvestManUrlParser(object):
     """ New HarvestMan Url Parser class re-written
     to make the code more readable """
-    
+
+    TEST = 0
     IDX = 0
     URLSEP = '/'
     PROTOSEP = '//'
@@ -170,6 +171,14 @@ class HarvestManUrlParser(object):
         # rules violation cache flags
         self.violatesrules = False
         self.rulescheckdone = False
+        # Bytes range - used for HTTP/1.1
+        # multipart downloads. This has to
+        # be set to an xrange object 
+        self.range = None
+        # Flag to try multipart
+        self.trymultipart = False
+        # Multipart index
+        self.mindex = 0
         self.dirpath = []
         
         self.baseurl = {}
@@ -188,10 +197,46 @@ class HarvestManUrlParser(object):
                 self.rootdir = os.getcwd()
         else:
             self.rootdir = rootdir
-
+            
         self.anchorcheck()
         self.resolveurl()
 
+    def __copy__(self):
+        h = HarvestManUrlParser(self.origurl)
+        h.dirpath = self.dirpath[:]
+        h.range = self.range
+        h.trymultipart = self.trymultipart
+        h.baseurl = self.baseurl
+        h.rootdir = self.rootdir
+        h.url = self.url
+        h.origurl = self.origurl
+        h.typ = self.typ
+        h.cgi = self.cgi
+        h.anchor = self.anchor
+        h.index = self.index
+        h.filename = self.filename
+        h.validfilename = self.validfilename
+        h.lastpath = self.lastpath
+        h.protocol = self.protocol
+        h.defproto = self.defproto
+        h.filelike = self.filelike
+        h.status = self.status
+        h.fatal = self.fatal
+        h.starturl = self.starturl
+        h.hasextn = self.hasextn
+        h.isrel = self.isrel
+        h.isrels = self.isrels
+        h.port = self.port
+        h.domain = self.domain
+        h.rpath = self.rpath[:]
+        h.rdepth = self.rdepth 
+        h.contentdict = self.contentdict.copy()
+        h.generation = self.generation 
+        h.priority = self.priority
+        h.violatesrules = self.violatesrules
+        h.rulescheckdone = self.rulescheckdone
+
+        return h
     def wrapper_resolveurl(self):
         self.anchorcheck()
         self.resolveurl()
@@ -567,9 +612,9 @@ class HarvestManUrlParser(object):
         # php, psp, asp, pl, jsp, and cgi as possible html candidates, though
         # actually they might be generating non-html content (like dynamic
         # images.)
-        if self.typ in ('webpage', 'base'):
+        if self.typ in ('webpage', 'base', 'anchor'):
             return True
-        elif self.typ == 'normal':
+        elif self.typ in ('normal'):
             if self.validfilename:
                 extn = ((os.path.splitext(self.validfilename))[1]).lower()
                 
@@ -852,7 +897,7 @@ class HarvestManUrlParser(object):
         This is created w.r.t the local directory where we save
         the url data """
 
-        if not TEST:
+        if not self.__class__.TEST:
             cfg = GetObject('config')
             if cfg.rawsave:
                 return self.get_filename()
@@ -1141,9 +1186,7 @@ if __name__=="__main__":
     
     # Test code
 
-    global TEST
-
-    TEST = 1
+    HarvestManUrlParser.TEST = 1
     hulist = [ HarvestManUrlParser('http://www.yahoo.com/photos/my photo.gif'),
                HarvestManUrlParser('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
                HarvestManUrlParser('http://cwc2003.rediffblogs.com'),

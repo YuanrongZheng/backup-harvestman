@@ -59,6 +59,7 @@ import options
 import urlparser
 
 from common.optionparser import *
+from common.progress import TextProgress
 
 class HarvestManStateObject(dict):
     """ Internal config class for the program """
@@ -102,7 +103,7 @@ class HarvestManStateObject(dict):
         self.sitepasswd=''     
         self.proxyport=0
         self.errorfile='errors.log'
-        self.localise=0
+        self.localise=2
         self.jitlocalise=0
         self.images=1
         self.depth=10
@@ -177,7 +178,9 @@ class HarvestManStateObject(dict):
         self.urltreefile = ''
         self.urllistfile = ''
         self.urlfile = ''
-        self.maxfilesize=5242880
+        self.maxfilesize=524288000
+        #self.maxfilesize=50        
+        #self.maxfilesize=50        
         self.minfilesize=0
         self.format = 'xml'
         self.rawsave = False
@@ -198,6 +201,14 @@ class HarvestManStateObject(dict):
         self.useasyncore = True
         # For http compression
         self.httpcompress = True
+        # Number of parts to split a file
+        # to, for multipart http downloads
+        self.numparts = 5
+        # Flag to indicate that a multipart
+        # download is in progress
+        self.multipart = False
+        # Current progress object
+        self.progressobj = TextProgress()
         
     def _init2(self):
         

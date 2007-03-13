@@ -35,18 +35,9 @@
 import posixpath
 import time
 import sys
-import signal
 import struct
 import fcntl
 import termios
-
-def getScreenWidth():
-    s = struct.pack('HHHH', 0, 0, 0, 0)
-    try:
-        x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
-    except IOError:
-        return 80
-    return struct.unpack('HHHH', x)[1]
 
 import thread
 import time
@@ -68,6 +59,16 @@ class Progress(object):
         self.__lasttime = 0
         self.__lock = thread.allocate_lock()
         self.__hassub = False
+
+    def getScreenWidth(self):
+        s = struct.pack('HHHH', 0, 0, 0, 0)
+        try:
+            x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
+        except IOError:
+            return 80
+
+        return struct.unpack('HHHH', x)[1]
+
 
     def lock(self):
         self.__lock.acquire()
@@ -318,10 +319,12 @@ class TextProgress(Progress):
         self._lastsubkey = None
         self._lastsubkeystart = 0
         self._fetchermode = False
+        self._nolengthmode = False
+        self._current = 0.0
         self._seentopics = {}
         self._addline = False
-        self.setScreenWidth(getScreenWidth())
-        signal.signal(signal.SIGWINCH, self.handleScreenWidth)
+        self.setScreenWidth(self.getScreenWidth())
+        #signal.signal(signal.SIGWINCH, self.handleScreenWidth)
 
     def setScreenWidth(self, width):
         self._screenwidth = width
@@ -332,16 +335,20 @@ class TextProgress(Progress):
                                                self._topicwidth-5)
 
     def handleScreenWidth(self, signum, frame):
-        self.setScreenWidth(getScreenWidth())
+        self.setScreenWidth(self.getScreenWidth())
 
     def setFetcherMode(self, flag):
         self._fetchermode = flag
 
+    def setNoLengthMode(self, flag):
+        self._nolengthmode = flag
+        
     def stop(self):
         Progress.stop(self)
         print
 
     def expose(self, topic, percent, subkey, subtopic, subpercent, data, done):
+
         out = sys.stdout
         if not out.isatty() and not done:
             return
@@ -353,7 +360,6 @@ class TextProgress(Progress):
                     print
                 else:
                     self._addline = True
-                print topic
             if not subkey:
                 return
             if not done:
@@ -374,6 +380,7 @@ class TextProgress(Progress):
             topic = subtopic
         else:
             current = percent
+
         n = data.get("item-number")
         if n:
             if len(topic) > self._topicwidth-6:
@@ -395,17 +402,28 @@ class TextProgress(Progress):
         else:
             suffix = "[%3d%%] \n" % percent
 
-        hashwidth = self._hashwidth -len(suffix)
-        
-        hashes = int(hashwidth*current/100)
-
-        out.write("[")
-        out.write("="*(hashes-1))
-        out.write(">")
-        out.write(" "*(hashwidth-hashes-1))
-        out.write("]")
-        out.write(suffix)
-        out.flush()
+        if self._nolengthmode:
+            hashwidth = self._hashwidth - 8
+            hashes = int(hashwidth*current/100)
+            suffix = "(%3s) \r" % '...'
+            out.write("[")
+            out.write(" "*(hashes-1))
+            out.write("<=>")
+            out.write(" "*(hashwidth-hashes-3))
+            out.write("]")
+            out.write(suffix)
+            out.flush()
+        else:
+            hashwidth = self._hashwidth -len(suffix)
+            hashes = int(hashwidth*current/100)
+            
+            out.write("[")
+            out.write("="*(hashes-1))
+            out.write(">")
+            out.write(" "*(hashwidth-hashes-1))
+            out.write("]")
+            out.write(suffix)
+            out.flush()            
 
 def test():
     prog = TextProgress()

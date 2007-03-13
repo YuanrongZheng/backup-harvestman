@@ -67,9 +67,13 @@ class HarvestManUrlThread(threading.Thread):
         self.__busyflag = False
         # end flag
         self.__endflag = False
+        # Grab mode is 1, default is 0
+        self.__mode = 0
+        # Url data, only used for mode 1
+        self.__data = ''
         # initialize threading
         threading.Thread.__init__(self, None, None, name)
-
+        
     def get_error(self):
         """ Get error value of this thread """
 
@@ -80,6 +84,11 @@ class HarvestManUrlThread(threading.Thread):
 
         return self.__downloadstatus
 
+    def get_data(self):
+        """ Return the data of this thread """
+
+        return self.__data
+    
     def set_status(self, status):
         """ Set the download status of this thread """
 
@@ -139,7 +148,11 @@ class HarvestManUrlThread(threading.Thread):
         # moreinfo("Creating connector for url ", urlobj.get_full_url())
         conn = conn_factory.create_connector( server )
 
-        res = conn.save_url(url_obj)
+        if self.__mode==0:
+            res = conn.save_url(url_obj)
+        elif self.__mode==1:
+            res = conn.connect2(url_obj)
+            self.__data = conn.get_data()
 
         # Remove the connector from the factory
         conn_factory.remove_connector(server)
@@ -164,35 +177,45 @@ class HarvestManUrlThread(threading.Thread):
         """ Run this thread """
 
         while not self.__endflag:
-            if os.name=='nt' or sys.platform == 'win32':
-              self.__starttime=time.clock()
-            else:
-                self.__starttime=time.time()
+            try:
+                if os.name=='nt' or sys.platform == 'win32':
+                  self.__starttime=time.clock()
+                else:
+                    self.__starttime=time.time()
 
-            url_obj = self.__pool.get_next_urltask()
-            if self.__pool.check_duplicates(url_obj):
-                continue
+                url_obj = self.__pool.get_next_urltask()
 
-            if not url_obj:
-                time.sleep(0.1)
-                continue
-            
-            # set busy flag to 1
-            self.__busyflag = True
+                if self.__pool.check_duplicates(url_obj):
+                    continue
 
-            # Save reference
-            self.__urlobject = url_obj
+                if not url_obj:
+                    time.sleep(0.1)
+                    continue
 
-            filename, url = url_obj.get_full_filename(), url_obj.get_full_url()
-            if not filename and not url:
-                return
+                # set busy flag to 1
+                self.__busyflag = True
 
-            # Perf fix: Check end flag
-            # in case the program was terminated
-            # between start of loop and now!
-            if not self.__endflag: self.download(url_obj)
-            # reset busyflag
-            self.__busyflag = False
+                # Save reference
+                self.__urlobject = url_obj
+
+                filename, url = url_obj.get_full_filename(), url_obj.get_full_url()
+                if not filename and not url:
+                    return
+
+                # Perf fix: Check end flag
+                # in case the program was terminated
+                # between start of loop and now!
+                if not self.__endflag: self.download(url_obj)
+                # reset busyflag
+                self.__busyflag = False
+            except Exception, e:
+               # Now I am dead - so I need to tell the pool
+               # object to migrate my data and produce a new thread.
+               self._crawlerqueue._cond.acquire()
+               self._crawlerqueue.dead_thread_callback(self)
+               self._crawlerqueue._cond.release()                
+        
+               extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))                
 
     def get_url(self):
 
@@ -214,7 +237,6 @@ class HarvestManUrlThread(threading.Thread):
         return self.__urlobject
 
     def set_urlobject(self, urlobject):
-          
             
         self.__urlobject = urlobject
         
@@ -254,6 +276,11 @@ class HarvestManUrlThread(threading.Thread):
 
         self.__timeout = value
 
+    def set_download_mode(self, mode):
+        """ Set download mode """
+
+        self.__mode = mode
+        
 class HarvestManUrlThreadPool(Queue):
     """ Thread group/pool class to manage download threads """
 
@@ -274,8 +301,16 @@ class HarvestManUrlThreadPool(Queue):
         self._ltrt = 0.0
         # Local buffer
         self.buffer = []
+        # Mode flag
+        self.__mode = 0
+        # Data dictionary for multi-part downloads
+        # Keys are URLs and value is the data
+        self.__multipartdata = {}
+        # Status of URLs being downloaded in
+        # multipart. Keys are URLs
+        self.__multipartstatus = {}
         Queue.__init__(self, self.__numthreads + 5)
-
+        
     def get_state(self):
         """ Return a snapshot of the current state of this
         object and its containing threads for serializing """
@@ -379,6 +414,8 @@ class HarvestManUrlThreadPool(Queue):
         # current url's info when we get one
         try:
             self.put( urlObj )
+            # If this URL was multipart, mark it as such
+            self.__multipartstatus[url] = False
         except Full:
             self.buffer.append(urlObj)
         
@@ -396,11 +433,39 @@ class HarvestManUrlThreadPool(Queue):
     def notify(self, thread):
         """ Method called by threads to notify that they
         have finished """
-
+        
         # Mark the time stamp (last thread report time)
         self._ltrt = time.time()
 
         urlObj = thread.get_urlobject()
+
+        # See if this was a multi-part download
+        if urlObj.trymultipart:
+            print 'Thread %s reported with data!' % thread
+            # Get data
+            data = thread.get_data()
+            
+            url = urlObj.get_full_url()
+            datalist = []
+            print 'Range=>',urlObj.range
+            
+            if url in self.__multipartdata:
+                datalist = self.__multipartdata[url]
+                datalist.append((urlObj.range[0],data))
+            else:
+                datalist.append((urlObj.range[0],data))
+                self.__multipartdata[url] = datalist
+
+            parts = GetObject('config').numparts
+            print 'Length of data list is',len(datalist)
+            if len(datalist)==parts:
+                # Sort the data list  according to byte-range
+                datalist.sort()
+                # Download of this URL is complete...
+                data = ''.join([item[1] for item in datalist])
+                self.__multipartdata[url] = data
+                self.__multipartstatus[url] = True
+                
         # if the thread failed, update failure stats on the data manager
         dmgr = GetObject('datamanager')
 
@@ -515,5 +580,45 @@ class HarvestManUrlThreadPool(Queue):
 
         return self._ltrt
 
+    def set_download_mode(self, mode):
+        """ Set the download mode on the threads """
 
+        # This has two flags
+        # 0 -> regular crawler
+        # 1 -> grab url mode
+        self.__mode = mode
+        # Set this on all threads
+        for t in self.__threads:
+            t.set_download_mode(mode)
 
+    def get_download_status(self, url):
+        """ Get status of multipart downloads """
+
+        return self.__multipartstatus.get(url, False)
+
+    def get_url_data(self, url):
+        """ Return data for multipart downloads """
+
+        return self.__multipartdata.get(url,'')
+
+    def dead_thread_callback(self, t):
+        """ Call back function called by a thread if it
+        dies with an exception. This class then creates
+        a fresh thread, migrates the data of the dead
+        thread to it """
+
+        
+        new_t = HarvestManUrlThread(t.getName(), self.__timeout, self)
+        # Migrate data and start thread
+        if new_t:
+            new_t._url = t._url
+            new_t.set_urlobject(t.get_urlobject())
+            new_t.set_download_mode(self.__mode)
+            # Replace dead thread in the list
+            idx = self.__threads.index(t)
+            self.__threads[idx] = new_t
+            new_t.start()
+        else:
+            # Could not make new thread, remove
+            # current thread anyway
+            self.__threads.remove(t)

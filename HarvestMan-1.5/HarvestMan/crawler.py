@@ -732,7 +732,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         # download the url
         url_obj = self._urlobject
 
-        if self._urlobject.typ in ('webpage','base') and data:
+        print 'Webpage=>',self._urlobject.is_webpage(),self._url
+        
+        if self._urlobject.typ in ('webpage','base', 'anchor') and data:
 
             urlobjlist = []
             

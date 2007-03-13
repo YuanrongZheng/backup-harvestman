@@ -571,12 +571,18 @@ class HarvestMan(object):
         import urlparser
 
         try:
-            connfact = GetObject('connectorfactory')
-            conn = connfact.create_connector(None)
+            # Set url thread pool to grab mode
+            pool = GetObject('datamanager').get_url_threadpool()
+            pool.set_download_mode(1)
+            # Set number of connections to two plus numparts
+            self._cfg.connections = self._cfg.numparts + 2
+            self._cfg.requests = self._cfg.numparts + 2
+            conn = connector.HarvestManUrlConnector()
             urlobj = urlparser.HarvestManUrlParser(self._cfg.url)
             ret = conn.url_to_file(urlobj)
         except KeyboardInterrupt:
-            conn.get_reader().stop()
+            reader = conn.get_reader()
+            reader.stop()
             print ''
         
     def run_saved_state(self):

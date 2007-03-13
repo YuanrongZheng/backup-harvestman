@@ -668,6 +668,40 @@ class HarvestManDataManager(object):
 
         return 0
 
+    def download_multipart_url(self, urlobj, clength):
+        """ Download a URL using HTTP/1.1 multipart download """
+        
+        parts = self._cfg.numparts
+        # Calculate size of each piece
+        piecesz = clength/parts
+        # If each piece size is greater than maxsize
+        # give this the skip
+        if piecesz>self._cfg.maxfilesize:
+            return 1
+        
+        # Calculate size of each piece
+        pcsizes = [piecesz]*parts
+        # For last URL add the reminder
+        pcsizes[-1] += clength % parts 
+
+        # Create a URL object for each and set range
+        urlobjects = []
+        for x in range(parts):
+            urlobjects.append(copy.copy(urlobj))
+            
+        prev = 0
+        for x in range(parts):
+            curr = pcsizes[x]
+            next = curr + prev
+            urlobject = urlobjects[x]
+            urlobject.range = xrange(prev, next)
+            urlobject.mindex = x + 1
+            prev = next
+            self._urlThreadPool.push(urlobject)
+            
+        # Push this URL objects to the pool
+        return 0
+
     def download_url(self, caller, urlobj):
 
         # Modified - Anand Jan 10 06, added the caller thread
@@ -1270,6 +1304,10 @@ class HarvestManDataManager(object):
         stream.write('</body>\n')
         stream.write('</html>\n')
 
+    def get_url_threadpool(self):
+        """ Return the URL thread-pool object """
+
+        return self._urlThreadPool
 
 class HarvestManController(tg.Thread):
     """ A controller class for managing exceptional
