@@ -179,7 +179,7 @@ class HarvestManStateObject(dict):
         self.urllistfile = ''
         self.urlfile = ''
         self.maxfilesize=5242880
-        #self.maxfilesize=50        
+        self.maxfilesize=50        
         self.minfilesize=0
         self.format = 'xml'
         self.rawsave = False

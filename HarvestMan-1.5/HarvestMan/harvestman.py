@@ -366,6 +366,8 @@ class HarvestMan(object):
                     except OSError, e:
                         logconsole(e)
 
+
+
         # Get program options
         if not self._cfg.resuming:
             self._cfg.get_program_options()
@@ -579,10 +581,11 @@ class HarvestMan(object):
             urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.com/schemas/HarvestMan.xsd')
             bandwidth = conn.calc_bandwidth(urlobj)
             bw='bandwidth=%f\n' % bandwidth
-            try:
-                open(conf,'w').write(bw)
-            except IOError, e:
-                pass
+            if bw:
+                try:
+                    open(conf,'w').write(bw)
+                except IOError, e:
+                    pass
         else:
             r = re.compile(r'(bandwidth=)(.*)')
             try:
@@ -596,14 +599,14 @@ class HarvestMan(object):
         # Calculate max file size
         # Max-file size is estimated based on maximum of
         # 1 hour of download.
-        if bw:
-            maxsz = bw*3600
-        else:
-            # If cannot get bandwidth, put a default max
-            # file size of 50 MB
-            maxsz = 52428800
+        #if bw:
+        #    maxsz = bw*3600
+        #else:
+        #    # If cannot get bandwidth, put a default max
+        #    # file size of 50 MB
+        #    maxsz = 52428800
 
-        self._cfg.maxfilesize = maxsz
+        #self._cfg.maxfilesize = maxsz
         
         try:
             # Set url thread pool to grab mode

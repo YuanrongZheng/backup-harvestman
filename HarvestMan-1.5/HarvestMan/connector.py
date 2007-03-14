@@ -32,6 +32,9 @@
    Mar 9 2007         Made progress bar use Progress class borrowed
                       from SMART package manager (Thanks to Vaibhav
                       for pointing this out!)
+
+   Mar 14 2007        Completed implementation of multipart with
+                      range checks and all.
                       
    Copyright (C) 2004 Anand B Pillai.    
                               
@@ -1046,20 +1049,47 @@ class HarvestManUrlConnector(object):
                         print 'Content Encoding:',encoding
                         print ''
 
+                trynormal = False
                 # Check constraint on file size
                 if not byterange and not self.check_content_length():
                     print "Url does not match size constraints"
-                    print 'Trying multi-part download'
-                    urlobj.trymultipart = True
-                    ret = dmgr.download_multipart_url(urlobj, clength)
-                    if ret==1 and not silent:
-                        print 'Cannot do multipart download, piece size greater than maxfile size!'
-                        return 3
-                    elif ret==0:
-                        # Set progress object
-                        if showprogress:
-                            self.set_progress_object(filename,1,[filename],nolengthmode)
-                        return 2
+                    # Dont do range checking on FTP servers since they
+                    # typically support it by default.
+                    if urlobj.protocol != 'ftp':
+                        print 'Checking whether server supports multipart downloads...'
+                        # See if the server supports 'Range' header
+                        # by requesting half the length
+                        self._headers.clear()
+                        request.add_header('Range','bytes=%d-%d' % (0,clength/2))
+                        self.__freq = urllib2.urlopen(request)
+                        # Set http headers
+                        self.set_http_headers()
+                        range_result = self._headers.get('accept-ranges')
+                        if range_result.lower()=='bytes':
+                            print 'Server supports multipart downloads'
+                        else:
+                            print 'Server does not support multipart downloads'
+                            resp = raw_input('Do you still want to download this URL [y/n] ?')
+                            if resp.lower() !='y':
+                                print 'Aborting download.'
+                                return 3
+                            else:
+                                print 'Downloading URL %s...' % urltofetch
+                                trynormal = True
+
+
+                    if not trynormal:
+                        print 'Trying multipart download...'
+                        urlobj.trymultipart = True
+                        ret = dmgr.download_multipart_url(urlobj, clength)
+                        if ret==1 and not silent:
+                            print 'Cannot do multipart download, piece size greater than maxfile size!'
+                            return 3
+                        elif ret==0:
+                            # Set progress object
+                            if showprogress:
+                                self.set_progress_object(filename,1,[filename],nolengthmode)
+                            return 2
                     
                 # if this is the not the first attempt, print a success msg
                 if numtries>1 and not silent:
@@ -1420,7 +1450,7 @@ class HarvestManUrlConnector(object):
         if self.__data:
             return float(len(self.__data))/(t2-t1)
         else:
-            return -1
+            return 0
         
     def url_to_file(self, urlobj):
         """ Save the contents of this url <url> to the file <filename>.
@@ -1445,7 +1475,7 @@ class HarvestManUrlConnector(object):
                 print '\nSaved to %s.' % filename
                 return res
         else:
-            print 'Error in getting data from ',url ,'\n'
+            print 'Download of URL',url ,'not completed.\n'
 
         return 0
 
