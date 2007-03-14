@@ -356,6 +356,7 @@ class TextProgress(Progress):
             if topic != self._lasttopic:
                 self._lasttopic = topic
                 out.write(" "*(self._screenwidth-1)+"\r")
+
                 if self._addline:
                     print
                 else:
@@ -428,21 +429,38 @@ class TextProgress(Progress):
 def test():
     prog = TextProgress()
     data = {"item-number": 0}
-    total, subtotal = 1, 100
+    total, subtotal = 10, 10
     prog.setHasSub(True)
     prog.start()
     prog.setTopic("Installing packages..")
-    n = 1
     #data["item-number"] = 1
-    prog.set(1, 1)
-    prog.setSubTopic(n, "package-name%d" % n)
-    for i in range(0,subtotal+1):
-        prog.setSub(1, i, subtotal) #, subdata=data)
-        prog.show()
-        time.sleep(0.2)
+    for n in range(1, total+1):
+        prog.set(n, total)
+        for i in range(0,subtotal+1):
+            prog.setSubTopic(n, "package-name%d" % n)
+            prog.setSub(n, i, subtotal) #, subdata=data)
+            prog.show()
+            time.sleep(0.1)
         
     prog.stop()
 
+def test2():
+    prog = TextProgress()
+    data = {"item-number": 0}
+    total, subtotal = 10, 10
+    prog.setFetcherMode(True)
+    prog.setHasSub(True)
+    prog.start()
+    prog.setTopic("Installing packages...")
+    for n in range(1,total+1):
+        data["item-number"] = n
+        prog.set(n, total)
+        prog.setSubTopic(n, "package-name%d" % n)
+        for i in range(0,subtotal+1):
+            prog.setSub(n, i, subtotal, subdata=data)
+            prog.show()
+            # time.sleep(0.1)
+    prog.stop()
 if __name__ == "__main__":
     test()
 

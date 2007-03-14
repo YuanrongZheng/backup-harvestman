@@ -178,8 +178,7 @@ class HarvestManStateObject(dict):
         self.urltreefile = ''
         self.urllistfile = ''
         self.urlfile = ''
-        self.maxfilesize=524288000
-        #self.maxfilesize=50        
+        self.maxfilesize=5242880
         #self.maxfilesize=50        
         self.minfilesize=0
         self.format = 'xml'
@@ -414,16 +413,19 @@ class HarvestManStateObject(dict):
         option_val = self.xml_map.get(option, None)
         
         if option_val:
-            if type(option_val) is tuple:
-                self.assign_option(option_val, value)
-            elif type(option_val) is list:
-                # If the option_val is a list, there
-                # might be multiple vars to set.
-                for item in option_val:
-                    # The item has to be a tuple again...
-                    if type(item) is tuple:
-                        # Set it
-                        self.assign_option(item, value)
+            try:
+                if type(option_val) is tuple:
+                    self.assign_option(option_val, value)
+                elif type(option_val) is list:
+                    # If the option_val is a list, there
+                    # might be multiple vars to set.
+                    for item in option_val:
+                        # The item has to be a tuple again...
+                        if type(item) is tuple:
+                            # Set it
+                            self.assign_option(item, value)
+            except Exception, e:
+                return  
         else:
             pass
                        
@@ -451,7 +453,7 @@ class HarvestManStateObject(dict):
         
         args, optdict = '',{}
         try:
-            gopt = GenericOptionParser(options.getOptList(), USAGE % self )
+            gopt = GenericOptionParser(options.getOptList(), usage = USAGE % self )
             optdict, args = gopt.parse_arguments()
         except GenericOptionParserError, e:
             sys.exit('Error: ' + str(e))

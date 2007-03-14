@@ -676,29 +676,33 @@ class HarvestManDataManager(object):
         piecesz = clength/parts
         # If each piece size is greater than maxsize
         # give this the skip
-        if piecesz>self._cfg.maxfilesize:
-            return 1
+        #if piecesz>self._cfg.maxfilesize:
+        #    return 1
         
         # Calculate size of each piece
         pcsizes = [piecesz]*parts
         # For last URL add the reminder
         pcsizes[-1] += clength % parts 
-
+        # Set part-length size
+        urlobj.__class__.partlengths = [0]*parts
         # Create a URL object for each and set range
         urlobjects = []
         for x in range(parts):
             urlobjects.append(copy.copy(urlobj))
+
+        print 'Started multi-part download with %d Worker threads' % parts
             
         prev = 0
         for x in range(parts):
             curr = pcsizes[x]
             next = curr + prev
             urlobject = urlobjects[x]
+            urlobject.clength = clength
             urlobject.range = xrange(prev, next)
-            urlobject.mindex = x + 1
+            urlobject.mindex = x
             prev = next
             self._urlThreadPool.push(urlobject)
-            
+
         # Push this URL objects to the pool
         return 0
 

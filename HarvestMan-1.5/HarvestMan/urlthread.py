@@ -136,10 +136,15 @@ class HarvestManUrlThread(threading.Thread):
         url = url_obj.get_full_url()
         server = url_obj.get_domain()
 
-        if url_obj.is_image():
-            info('Downloading image ...', url)
+        if not url_obj.trymultipart:
+            if url_obj.is_image():
+                info('Downloading image ...', url)
+            else:
+                info('Downloading url ...', url)
         else:
-            info('Downloading url ...', url)
+            startrange = url_obj.range[0]
+            endrange = url_obj.range[-1]            
+            info('Downloading url %s, Range(%d - %d)' % (url,startrange,endrange))
             
         server = url_obj.get_domain()
 
@@ -209,13 +214,15 @@ class HarvestManUrlThread(threading.Thread):
                 # reset busyflag
                 self.__busyflag = False
             except Exception, e:
+        
+               print 'Worker thread %s has died due to error: %s' % (str(self), str(e))
+               
                # Now I am dead - so I need to tell the pool
                # object to migrate my data and produce a new thread.
-               self._crawlerqueue._cond.acquire()
-               self._crawlerqueue.dead_thread_callback(self)
-               self._crawlerqueue._cond.release()                
-        
-               extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))                
+               self.__pool._cond.acquire()
+               self.__pool.dead_thread_callback(self)
+               self.__pool._cond.release()                
+
 
     def get_url(self):
 
@@ -309,6 +316,8 @@ class HarvestManUrlThreadPool(Queue):
         # Status of URLs being downloaded in
         # multipart. Keys are URLs
         self.__multipartstatus = {}
+        # Condition object
+        self._cond = threading.Condition(threading.Lock())        
         Queue.__init__(self, self.__numthreads + 5)
         
     def get_state(self):
@@ -441,13 +450,12 @@ class HarvestManUrlThreadPool(Queue):
 
         # See if this was a multi-part download
         if urlObj.trymultipart:
-            print 'Thread %s reported with data!' % thread
+            #print 'Thread %s reported with data!' % thread
             # Get data
             data = thread.get_data()
             
             url = urlObj.get_full_url()
             datalist = []
-            print 'Range=>',urlObj.range
             
             if url in self.__multipartdata:
                 datalist = self.__multipartdata[url]
@@ -457,7 +465,7 @@ class HarvestManUrlThreadPool(Queue):
                 self.__multipartdata[url] = datalist
 
             parts = GetObject('config').numparts
-            print 'Length of data list is',len(datalist)
+            #print 'Length of data list is',len(datalist)
             if len(datalist)==parts:
                 # Sort the data list  according to byte-range
                 datalist.sort()
@@ -607,11 +615,9 @@ class HarvestManUrlThreadPool(Queue):
         a fresh thread, migrates the data of the dead
         thread to it """
 
-        
         new_t = HarvestManUrlThread(t.getName(), self.__timeout, self)
         # Migrate data and start thread
         if new_t:
-            new_t._url = t._url
             new_t.set_urlobject(t.get_urlobject())
             new_t.set_download_mode(self.__mode)
             # Replace dead thread in the list

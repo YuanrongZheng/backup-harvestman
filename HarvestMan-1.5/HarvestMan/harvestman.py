@@ -54,6 +54,7 @@ import time
 import threading
 import shutil
 import glob
+import re
 
 import urlserver
 
@@ -365,8 +366,6 @@ class HarvestMan(object):
                     except OSError, e:
                         logconsole(e)
 
-
-
         # Get program options
         if not self._cfg.resuming:
             self._cfg.get_program_options()
@@ -567,9 +566,45 @@ class HarvestMan(object):
 
     def grab_url(self):
         """ Download URL for the nocrawl option """
-
+                
         import urlparser
 
+        # Calculate bandwidth
+        bw = 0
+        # Look for hget.conf in user conf dir
+        conf = os.path.join(self._cfg.userconfdir, 'hget.conf')
+        if not os.path.isfile(conf):
+            print 'Checking bandwidth...'
+            conn = connector.HarvestManUrlConnector()
+            urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.com/schemas/HarvestMan.xsd')
+            bandwidth = conn.calc_bandwidth(urlobj)
+            bw='bandwidth=%f\n' % bandwidth
+            try:
+                open(conf,'w').write(bw)
+            except IOError, e:
+                pass
+        else:
+            r = re.compile(r'(bandwidth=)(.*)')
+            try:
+                data = open(conf).read()
+                m = r.findall(data)
+                if m:
+                    bw = float(m[0][-1])
+            except IOError, e:
+                pass
+
+        # Calculate max file size
+        # Max-file size is estimated based on maximum of
+        # 1 hour of download.
+        if bw:
+            maxsz = bw*3600
+        else:
+            # If cannot get bandwidth, put a default max
+            # file size of 50 MB
+            maxsz = 52428800
+
+        self._cfg.maxfilesize = maxsz
+        
         try:
             # Set url thread pool to grab mode
             pool = GetObject('datamanager').get_url_threadpool()
@@ -582,7 +617,7 @@ class HarvestMan(object):
             ret = conn.url_to_file(urlobj)
         except KeyboardInterrupt:
             reader = conn.get_reader()
-            reader.stop()
+            if reader: reader.stop()
             print ''
         
     def run_saved_state(self):

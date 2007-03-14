@@ -57,11 +57,12 @@ class GenericOptionParser:
     """ Generic option parser using
     either optparse or getopt """
 
-    def __init__(self, optlist, usage=''):
+    def __init__(self, optlist, usage='', description=''):
         self._optlist = self.__process_optlist(optlist)
         self._optdict = {}
         self._args = ''
         self._usage = usage
+        self._description = description
         self.maxw = 24
 
     def __process_optlist(self, optlist):
@@ -110,7 +111,7 @@ class GenericOptionParser:
     def _parse_arguments1(self):
         """ Parse command-line arguments using optparse """
 
-        p = self.optparse.OptionParser(usage=self._usage)
+        p = self.optparse.OptionParser(usage=self._usage, description=self._description)
         
         for option, itemdict in self._optlist:
             # Default action is 'store'

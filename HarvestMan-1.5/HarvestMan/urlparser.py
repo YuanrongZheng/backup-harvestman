@@ -110,6 +110,9 @@ class HarvestManUrlParser(object):
     # Special string replacements
     special_strings_repl = (' ','~','+','"','<','>','#','%','{','}','|','\\','^','[',']','`')
 
+    # Used only for multi-part
+    partlengths = []
+    
     def reset_IDX(cls):
         HarvestManUrlParser.IDX = 0
 
@@ -179,6 +182,10 @@ class HarvestManUrlParser(object):
         self.trymultipart = False
         # Multipart index
         self.mindex = 0
+        # Content-length for multi-part
+        # This is the content length of the original
+        # content.
+        self.clength = 0
         self.dirpath = []
         
         self.baseurl = {}
