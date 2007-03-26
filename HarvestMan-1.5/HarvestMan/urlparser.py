@@ -208,42 +208,6 @@ class HarvestManUrlParser(object):
         self.anchorcheck()
         self.resolveurl()
 
-    def __copy__(self):
-        h = HarvestManUrlParser(self.origurl)
-        h.dirpath = self.dirpath[:]
-        h.range = self.range
-        h.trymultipart = self.trymultipart
-        h.baseurl = self.baseurl
-        h.rootdir = self.rootdir
-        h.url = self.url
-        h.origurl = self.origurl
-        h.typ = self.typ
-        h.cgi = self.cgi
-        h.anchor = self.anchor
-        h.index = self.index
-        h.filename = self.filename
-        h.validfilename = self.validfilename
-        h.lastpath = self.lastpath
-        h.protocol = self.protocol
-        h.defproto = self.defproto
-        h.filelike = self.filelike
-        h.status = self.status
-        h.fatal = self.fatal
-        h.starturl = self.starturl
-        h.hasextn = self.hasextn
-        h.isrel = self.isrel
-        h.isrels = self.isrels
-        h.port = self.port
-        h.domain = self.domain
-        h.rpath = self.rpath[:]
-        h.rdepth = self.rdepth 
-        h.contentdict = self.contentdict.copy()
-        h.generation = self.generation 
-        h.priority = self.priority
-        h.violatesrules = self.violatesrules
-        h.rulescheckdone = self.rulescheckdone
-
-        return h
     def wrapper_resolveurl(self):
         self.anchorcheck()
         self.resolveurl()

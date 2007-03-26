@@ -133,7 +133,8 @@ class HarvestManStateObject(dict):
         self.urlprioritydict = {}
         self.serverprioritydict = {}
         self.verbosity=2
-        self.timeout=300.0
+        self.verbosity_default=2
+        self.timeout=1200.00
         self.fetchertimeout=self.timeout
         self.getimagelinks=1
         self.getstylesheets=1
@@ -160,7 +161,7 @@ class HarvestManStateObject(dict):
         self.getqueryforms = False
         self.requests = 5
         self.bytes = 20.00 # Not used!
-        self.projtimeout = 300 
+        self.projtimeout = 1800.00
         self.downloadtime = 0.0
         self.locale = 'C'
         self.defaultlocale = 'C'
@@ -179,7 +180,6 @@ class HarvestManStateObject(dict):
         self.urllistfile = ''
         self.urlfile = ''
         self.maxfilesize=5242880
-        self.maxfilesize=50        
         self.minfilesize=0
         self.format = 'xml'
         self.rawsave = False
@@ -208,7 +208,11 @@ class HarvestManStateObject(dict):
         self.multipart = False
         # Current progress object
         self.progressobj = TextProgress()
-        
+
+    def copy(self):
+        self.progressobj = None
+        return super(HarvestManStateObject, self).copy()
+    
     def _init2(self):
         
         # For mapping xml entities to config entities

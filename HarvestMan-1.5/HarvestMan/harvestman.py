@@ -32,7 +32,10 @@
                                      called at project end, but by default at
                                      program end.
      Mar 7 2007          Anand       Disabled urlserver option.
-     
+     Mar 15 2007         Anand       Added bandwidth calculation for determining
+                                     max filesize before crawl. Need to add
+                                     code to redetermine bandwidth when network
+                                     interface changes.
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -57,6 +60,7 @@ import glob
 import re
 
 import urlserver
+import urlparser
 
 from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
@@ -335,6 +339,10 @@ class HarvestMan(object):
 
         self._cfg = GetObject('config')
 
+        # Get program options
+        if not self._cfg.resuming:
+            self._cfg.get_program_options()
+
         # Create user's .harvestman directory on POSIX
         if os.name == 'posix':
             homedir = os.environ.get('HOME')
@@ -349,29 +357,39 @@ class HarvestMan(object):
                 
                 if not os.path.isdir(harvestman_dir):
                     try:
-                        info('Looks like you are running HarvestMan for the first time in this system')
+                        info('Looks like you are running HarvestMan for the first time in this machine')
                         info('Doing initial setup...')
                         info('Creating .harvestman directory in %s...' % homedir)
                         os.makedirs(harvestman_dir)
+                    except (OSError, IOError), e:
+                        logconsole(e)
+
+                if not os.path.isdir(harvestman_conf_dir):
+                    try:
                         info('Creating "conf" sub-directory in %s...' % harvestman_dir)
                         os.makedirs(harvestman_conf_dir)
                         # Copy config.xml to $HOMEDIR/.harvestman/config folder if found
                         if os.path.isfile('config.xml'):
                             info('Copying current config file to %s...' % harvestman_conf_dir)
                             shutil.copy2('config.xml',harvestman_conf_dir)
+                        
+                    except (OSError, IOError), e:
+                        logconsole(e)
+
+                if not os.path.isdir(harvestman_sessions_dir):
+                    try:
                         info('Creating "sessions" sub-directory in %s...' % harvestman_dir)
                         os.makedirs(harvestman_sessions_dir)                        
                         info('Done.')
-                            
-                    except OSError, e:
+                    except (OSError, IOError), e:
                         logconsole(e)
 
-
-
-        # Get program options
-        if not self._cfg.resuming:
-            self._cfg.get_program_options()
-
+                # Calculate bandwidth and set max file size
+                bw = self.calculate_bandwidth()
+                # Max file size is calculated as bw*timeout
+                # where timeout => max time for a worker thread
+                if bw: self._cfg.maxfilesize = bw*self._cfg.timeout
+                
         self.register_common_objects()
 
     def setdefaultlocale(self):
@@ -566,24 +584,25 @@ class HarvestMan(object):
         except (pickle.UnpicklingError, AttributeError, IndexError, EOFError), e:
             return -1
 
-    def grab_url(self):
-        """ Download URL for the nocrawl option """
-                
-        import urlparser
-
+    def calculate_bandwidth(self):
+        """ Calculate bandwidth. This also sets limit on
+        maximum file size """
+        
         # Calculate bandwidth
         bw = 0
-        # Look for hget.conf in user conf dir
-        conf = os.path.join(self._cfg.userconfdir, 'hget.conf')
+        # Look for harvestman.conf in user conf dir
+        conf = os.path.join(self._cfg.userconfdir, 'harvestman.conf')
         if not os.path.isfile(conf):
-            print 'Checking bandwidth...'
+            logconsole('Checking bandwidth...',)
             conn = connector.HarvestManUrlConnector()
             urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.com/schemas/HarvestMan.xsd')
-            bandwidth = conn.calc_bandwidth(urlobj)
-            bw='bandwidth=%f\n' % bandwidth
+            bw = conn.calc_bandwidth(urlobj)
+            logconsole('done.')
+            bwstr='bandwidth=%f\n' % bw
             if bw:
                 try:
-                    open(conf,'w').write(bw)
+                    open(conf,'w').write(bwstr)
+                    logconsole('Wrote bandwidth information to %s.' % conf)
                 except IOError, e:
                     pass
         else:
@@ -596,22 +615,28 @@ class HarvestMan(object):
             except IOError, e:
                 pass
 
+        return bw
+        
+    def grab_url(self):
+        """ Download URL for the nocrawl option """
+                
+        bw = self.calculate_bandwidth()
+        
         # Calculate max file size
         # Max-file size is estimated based on maximum of
         # 1 hour of download.
-        #if bw:
-        #    maxsz = bw*3600
-        #else:
-        #    # If cannot get bandwidth, put a default max
-        #    # file size of 50 MB
-        #    maxsz = 52428800
-
-        #self._cfg.maxfilesize = maxsz
+        if bw:
+            maxsz = bw*3600
+        else:
+            # If cannot get bandwidth, put a default max
+            # file size of 50 MB
+            maxsz = 52428800
+            
+        self._cfg.maxfilesize = maxsz
         
         try:
             # Set url thread pool to grab mode
             pool = GetObject('datamanager').get_url_threadpool()
-            pool.set_download_mode(1)
             # Set number of connections to two plus numparts
             self._cfg.connections = self._cfg.numparts + 2
             self._cfg.requests = self._cfg.numparts + 2

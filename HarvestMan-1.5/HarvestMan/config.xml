@@ -83,7 +83,7 @@
       </filters>
     </control>
     <system>
-      <workers status="1" size="10" timeout="200"/>
+      <workers status="1" size="10" timeout="1200"/>
       <trackers value="10"/>
       <locale>C</locale>
       <fastmode value="1"/>

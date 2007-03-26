@@ -35,7 +35,11 @@
 
    Mar 14 2007        Completed implementation of multipart with
                       range checks and all.
-                      
+
+   Mar 26 2007        Finished implementation of multipart, integrating
+                      with the crawler pieces. Resuming of URLs and
+                      caching changes are pending.
+   
    Copyright (C) 2004 Anand B Pillai.    
                               
 """
@@ -47,17 +51,12 @@ import sys
 import socket
 import time
 import threading as tg
-import termios
 
 import urllib2 
 import urlparse
 import gzip
 import cStringIO
-import struct
 import os
-
-if os.name == 'posix':
-    import fcntl
 
 from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
@@ -703,27 +702,66 @@ class HarvestManUrlConnector(object):
 
                 # create a request object
                 request = urllib2.Request(urltofetch)
-                # If we accept http-compression, add the required header.
-                if self._cfg.httpcompress:
-                    request.add_header('Accept-Encoding', 'gzip')
                     
                 if lastmodified != -1:
                     ts = time.strftime("%a, %d %b %Y %H:%M:%S GMT",
                                        time.localtime(lastmodified))
                     request.add_header('If-Modified-Since', ts)
-                                       
-                
-                self.__freq = urllib2.urlopen(request)
 
+
+                # Check for urlobject which is trying to do
+                # multipart download.
+                byterange = hu.range
+                if byterange:
+                    range1 = byterange[0]
+                    range2 = byterange[-1]
+                    request.add_header('Range','bytes=%d-%d' % (range1, range2))
+
+                # If we accept http-compression, add the required header.
+                if self._cfg.httpcompress:
+                    request.add_header('Accept-Encoding', 'gzip')
+                    
+                self.__freq = urllib2.urlopen(request)
                 # Set http headers
                 self.set_http_headers()
-                
-                # Check constraint on file size
-                if not self.check_content_length():
-                    extrainfo("Url does not match size constraints =>",urltofetch)
-                    return 2
-                    #pass
 
+                clength = int(self.get_content_length())
+
+                trynormal = False
+                # Check constraint on file size, dont do this on
+                # objects which are already downloading pieces of
+                # a multipart download.
+                if not byterange and not self.check_content_length():
+                    maxsz = self._cfg.maxfilesize
+                    extrainfo("Url",urltofetch,"does not match size constraints, trying multi-part download...")
+                    supports_multipart = dmgr.supports_range_requests(hu)
+                    # print 'supports multipart=>',supports_multipart
+                    
+                    # Dont do range checking on FTP servers since they
+                    # typically support it by default.
+                    if hu.protocol != 'ftp' and supports_multipart==0:
+                        # See if the server supports 'Range' header
+                        # by requesting half the length
+                        self._headers.clear()
+                        request.add_header('Range','bytes=%d-%d' % (0,clength/2))
+                        self.__freq = urllib2.urlopen(request)
+                        # Set http headers
+                        self.set_http_headers()
+                        range_result = self._headers.get('accept-ranges')
+
+                        if range_result.lower()=='bytes':
+                            supports_multipart = 1
+                        else:
+                            extrainfo('Server %s does not support multipart downloads' % hu.domain)
+                            extrainfo('Aborting download of  URL %s.' % urltofetch)
+                            return 2
+
+                    if supports_multipart==1:
+                        extrainfo('Server %s supports multipart downloads' % hu.domain)
+                        hu.trymultipart = True
+                        dmgr.download_multipart_url(hu, clength)
+                        return 3
+                    
                 # The actual url information is used to
                 # differentiate between directory like urls
                 # and file like urls.
@@ -778,6 +816,8 @@ class HarvestManUrlConnector(object):
                         encoding = self.get_content_encoding()
                         
                         data = self.__freq.read()
+                        # Save a reference
+                        data0 = data
                         self.__freq.close()                        
                         dmgr.update_bytes(len(data))
                         
@@ -787,7 +827,9 @@ class HarvestManUrlConnector(object):
                                 data = gzfile.read()
                                 gzfile.close()
                             except (IOError, EOFError), e:
-                                extrainfo('Error deflating HTTP compressed data:',str(e))
+                                data = data0
+                                #extrainfo('Error deflating HTTP compressed data:',str(e))
+                                pass
                             
                     except MemoryError, e:
                         # Catch memory error for sockets
@@ -946,7 +988,7 @@ class HarvestManUrlConnector(object):
             return -1
 
     def set_progress_object(self, topic, n=0, subtopics=[], nolengthmode=False):
-        """ Create a progress bar object with the given topic
+        """ Set the progress bar object with the given topic
         and sub-topics """
 
         # n=> number of subtopics
@@ -978,7 +1020,7 @@ class HarvestManUrlConnector(object):
             pass
             
                                
-    def connect2(self, urlobj, showprogress=True, silent=False):
+    def connect2(self, urlobj, showprogress=True):
         """ Connect to the Internet fetch the data of the passed url.
         This is called by the stand-alone URL grabber """
 
@@ -999,7 +1041,7 @@ class HarvestManUrlConnector(object):
         filename = urlobj.get_filename()
 
         dmgr = GetObject('datamanager')
-        
+            
         while numtries <= retries and not self.__error['fatal']:
 
             errnum = 0
@@ -1038,25 +1080,25 @@ class HarvestManUrlConnector(object):
                     clength_str = '%d bytes' % clength
 
                 if not urlobj.range:
-                    if not silent:
-                        if clength:
-                            print 'Length: %d (%s) Type: %s' % (clength, clength_str, ctype)
-                            nolengthmode = False
-                        else:
-                            print 'Length: (%s) Type: %s' % (clength_str, ctype)
-                            nolengthmode = True
+                    if clength:
+                        logconsole('Length: %d (%s) Type: %s' % (clength, clength_str, ctype))
+                        nolengthmode = False
+                    else:
+                        logconsole('Length: (%s) Type: %s' % (clength_str, ctype))
+                        nolengthmode = True
 
-                        print 'Content Encoding:',encoding
-                        print ''
+                    logconsole('Content Encoding: %s\n' % encoding)
 
                 trynormal = False
                 # Check constraint on file size
                 if not byterange and not self.check_content_length():
-                    print "Url does not match size constraints"
+                    maxsz = self._cfg.maxfilesize
+                    logconsole('Maximum file size for single downloads is %.0f bytes.' % maxsz)
+                    logconsole("Url does not match size constraints")
                     # Dont do range checking on FTP servers since they
                     # typically support it by default.
                     if urlobj.protocol != 'ftp':
-                        print 'Checking whether server supports multipart downloads...'
+                        logconsole('Checking whether server supports multipart downloads...')
                         # See if the server supports 'Range' header
                         # by requesting half the length
                         self._headers.clear()
@@ -1066,24 +1108,24 @@ class HarvestManUrlConnector(object):
                         self.set_http_headers()
                         range_result = self._headers.get('accept-ranges')
                         if range_result.lower()=='bytes':
-                            print 'Server supports multipart downloads'
+                            logconsole('Server supports multipart downloads')
                         else:
-                            print 'Server does not support multipart downloads'
+                            logconsole('Server does not support multipart downloads')
                             resp = raw_input('Do you still want to download this URL [y/n] ?')
                             if resp.lower() !='y':
-                                print 'Aborting download.'
+                                logconsole('Aborting download.')
                                 return 3
                             else:
-                                print 'Downloading URL %s...' % urltofetch
+                                logconsole('Downloading URL %s...' % urltofetch)
                                 trynormal = True
 
 
                     if not trynormal:
-                        print 'Trying multipart download...'
+                        logconsole('Trying multipart download...')
                         urlobj.trymultipart = True
                         ret = dmgr.download_multipart_url(urlobj, clength)
-                        if ret==1 and not silent:
-                            print 'Cannot do multipart download, piece size greater than maxfile size!'
+                        if ret==1:
+                            logconsole('Cannot do multipart download, piece size greater than maxfile size!')
                             return 3
                         elif ret==0:
                             # Set progress object
@@ -1092,8 +1134,8 @@ class HarvestManUrlConnector(object):
                             return 2
                     
                 # if this is the not the first attempt, print a success msg
-                if numtries>1 and not silent:
-                    print "Reconnect succeeded => ", urltofetch
+                if numtries>1:
+                    logconsole("Reconnect succeeded => ", urltofetch)
 
                 try:
                     # Don't set progress object if multipart download - it
@@ -1165,9 +1207,9 @@ class HarvestManUrlConnector(object):
                     pass
 
                 if self.__error['msg']:
-                    print self.__error['msg'], '=> ',urltofetch
+                    logconsole(self.__error['msg'], '=> ',urltofetch)
                 else:
-                    print 'HTTPError:',urltofetch
+                    logconsole('HTTPError:',urltofetch)
 
                 try:
                     errnum = int(self.__error['number'])
@@ -1211,9 +1253,9 @@ class HarvestManUrlConnector(object):
                     self.__error['msg'] = errdescn
 
                 if self.__error['msg']:
-                    print self.__error['msg'], '=> ',urltofetch
+                    logconsole(self.__error['msg'], '=> ',urltofetch)
                 else:
-                    print 'URLError:',urltofetch
+                    logconsole('URLError:',urltofetch)
 
                 errnum = self.__error['number']
                 if errnum == 10049 or errnum == 10061: # Proxy server error
@@ -1226,23 +1268,23 @@ class HarvestManUrlConnector(object):
                 # Generated by invalid ftp hosts and
                 # other reasons,
                 # bug(url: http://www.gnu.org/software/emacs/emacs-paper.html)
-                print e,'=>',urltofetch
+                logconsole(e,'=>',urltofetch)
 
             except ValueError, e:
                 self.__error['number'] = 41
                 self.__error['msg'] = str(e)                    
-                print e,'=>',urltofetch
+                logconsole(e,'=>',urltofetch)
 
             except AssertionError, e:
                 self.__error['number'] = 51
                 self.__error['msg'] = str(e)
-                print e,'=>',urltofetch
+                logconsole(e,'=>',urltofetch)
 
             except socket.error, e:
                 self.__error['msg'] = str(e)
                 errmsg = self.__error['msg']
 
-                print 'Socket Error: ',errmsg,'=> ',urltofetch
+                logconsole('Socket Error: ',errmsg,'=> ',urltofetch)
 
             # attempt reconnect after some time
             time.sleep(self.__sleeptime)
@@ -1342,12 +1384,24 @@ class HarvestManUrlConnector(object):
 
         return 1
 
+    def wrapper_connect(self, urlobj):
+        """ Wrapper for connect methods """
+
+        if self._cfg.nocrawl:
+            return self.connect2(urlobj)
+        else:
+            url = urlobj.get_full_url()
+            # See if this URL is in cache, then get its lmt time & data
+            dmgr=GetObject('datamanager')
+
+            lmt,cache_data = dmgr.get_last_modified_time_and_data(urlobj)
+            return self.connect(url, urlobj, True, self._cfg.retryfailed, lmt)            
+                        
     def save_url(self, urlobj):
         """ Download data from the url <url> and write to
         the file <filename> """
 
         # Rearranged this to take care of http 304
-        
         url = urlobj.get_full_url()
 
         # See if this URL is in cache, then get its lmt time & data
@@ -1358,6 +1412,24 @@ class HarvestManUrlConnector(object):
         # If it was a rules violation, skip it
         if res==2: return res
 
+        # If this became a request for multipart download
+        # wait for the download to complete.
+        if res==3:
+            # Trying multipart download...
+            pool = dmgr.get_url_threadpool()
+            while not pool.get_download_status(url):
+                time.sleep(1.0)
+
+            data = pool.get_url_data(url)
+            self.__data = data
+
+            directory = urlobj.get_local_directory()
+            if dmgr.create_local_directory(directory) == 0:
+                return self.__write_url( urlobj.get_full_filename() )
+            else:
+                extrainfo("Error in creating local directory for", url)
+                return 0
+                
         retval=0
         # Apply word filter
         if not urlobj.starturl:
@@ -1436,7 +1508,7 @@ class HarvestManUrlConnector(object):
         if dmgr.create_local_directory(directory) == 0:
             retval=self.__write_url( filename )
         else:
-            extrainfo("Error in getting data for", url)
+            extrainfo("Error in creating local directory for", url)
             
         return retval
 
@@ -1445,7 +1517,15 @@ class HarvestManUrlConnector(object):
 
         url = urlobj.get_full_url()
         t1 = time.time()
-        ret = self.connect2(urlobj, showprogress=False, silent=True)
+        # Set verbosity to silent
+        logobj = GetObject('logger')
+        self._cfg.verbosity = 0
+        logobj.setLogSeverity(0)
+        ret = self.connect2(urlobj, showprogress=False)
+        # Reset verbosity
+        self._cfg.verbosity = self._cfg.verbosity_default
+        logobj.setLogSeverity(self._cfg.verbosity)
+        
         t2 = time.time()
         if self.__data:
             return float(len(self.__data))/(t2-t1)
@@ -1469,7 +1549,14 @@ class HarvestManUrlConnector(object):
             self.__data = data
                 
         if self.__data:
-            filename = urlobj.get_filename()
+            n, filename = 1, urlobj.get_filename()
+            origfilename = filename
+            # Check if file exists, if so save to
+            # filename.#n like wget.
+            while os.path.isfile(filename):
+                filename = ''.join((origfilename,'.',str(n)))
+                n += 1
+                
             res=self.__write_url(filename)
             if res:
                 print '\nSaved to %s.' % filename

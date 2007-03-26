@@ -72,6 +72,12 @@ class HarvestManDataManager(object):
         # New datastructure added on Jan 10 06
         # to keep status of each fetcher
         self._fetcherstatus = {}
+        # Dictionary of servers crawled and
+        # their meta-data. Meta-data is
+        # a dictionary which currently
+        # has only one entry.
+        # i.e accept-ranges.
+        self._serversdict = {}
         # byte count
         self._bytes = 0L
         # Redownload flag
@@ -135,6 +141,27 @@ class HarvestManDataManager(object):
     def get_links_dictionary(self):
         return self._linksdict
 
+    def get_server_dictionary(self):
+        return self._serversdict
+
+    def supports_range_requests(self, urlobj):
+        """ Check whether the given url object
+        supports range requests """
+
+        # Has 3 return values
+        # 1 => accepts
+        # 0 => do not know since it is not in
+        # the server dictionary
+        # -1 => does not accept
+        
+        # Look up its server in the dictionary
+        server = urlobj.get_full_domain()
+        if server in self._serversdict:
+            d = self._serversdict[server]
+            return d.get('accept-ranges', 0)
+
+        return 0
+        
     def parse_style_sheet(self, data):
         """ Parse stylesheet data and extract imported css links, if any """
 
@@ -669,15 +696,20 @@ class HarvestManDataManager(object):
         return 0
 
     def download_multipart_url(self, urlobj, clength):
-        """ Download a URL using HTTP/1.1 multipart download """
-        
+        """ Download a URL using HTTP/1.1 multipart download
+        using range headers """
+
+        # First add entry of this domain in
+        # dictionary, if not there
+        domain = urlobj.get_full_domain()
+        try:
+            self._serversdict[domain]
+        except KeyError:
+            self._serversdict[domain] = {'accept-ranges': True}
+            
         parts = self._cfg.numparts
         # Calculate size of each piece
         piecesz = clength/parts
-        # If each piece size is greater than maxsize
-        # give this the skip
-        #if piecesz>self._cfg.maxfilesize:
-        #    return 1
         
         # Calculate size of each piece
         pcsizes = [piecesz]*parts
@@ -688,10 +720,8 @@ class HarvestManDataManager(object):
         # Create a URL object for each and set range
         urlobjects = []
         for x in range(parts):
-            urlobjects.append(copy.copy(urlobj))
+            urlobjects.append(copy.deepcopy(urlobj))
 
-        print 'Started multi-part download with %d Worker threads' % parts
-            
         prev = 0
         for x in range(parts):
             curr = pcsizes[x]

@@ -144,7 +144,7 @@ class HarvestManUrlThread(threading.Thread):
         else:
             startrange = url_obj.range[0]
             endrange = url_obj.range[-1]            
-            info('Downloading url %s, Range(%d - %d)' % (url,startrange,endrange))
+            info('Downloading url %s, byte range(%d - %d)' % (url,startrange,endrange))
             
         server = url_obj.get_domain()
 
@@ -153,10 +153,13 @@ class HarvestManUrlThread(threading.Thread):
         # moreinfo("Creating connector for url ", urlobj.get_full_url())
         conn = conn_factory.create_connector( server )
 
-        if self.__mode==0:
+        if not url_obj.trymultipart:
             res = conn.save_url(url_obj)
-        elif self.__mode==1:
-            res = conn.connect2(url_obj)
+        else:
+            res = conn.wrapper_connect(url_obj)
+            # This has a different return value.
+            # 0 indicates data was downloaded fine.
+            if res==0: res=1
             self.__data = conn.get_data()
 
         # Remove the connector from the factory
@@ -174,7 +177,12 @@ class HarvestManUrlThread(threading.Thread):
         self.__pool.notify(self)
 
         if res != 0:
-            extrainfo('Finished download of ', url)
+            if not url_obj.trymultipart:            
+                extrainfo('Finished download of ', url)
+            else:
+                startrange = url_obj.range[0]
+                endrange = url_obj.range[-1]                            
+                extrainfo('Finished download of byte range(%d - %d) of %s' % (startrange,endrange, url))
         else:
             extrainfo('Failed to download URL',url)
 
@@ -283,10 +291,6 @@ class HarvestManUrlThread(threading.Thread):
 
         self.__timeout = value
 
-    def set_download_mode(self, mode):
-        """ Set download mode """
-
-        self.__mode = mode
         
 class HarvestManUrlThreadPool(Queue):
     """ Thread group/pool class to manage download threads """
@@ -450,7 +454,7 @@ class HarvestManUrlThreadPool(Queue):
 
         # See if this was a multi-part download
         if urlObj.trymultipart:
-            #print 'Thread %s reported with data!' % thread
+            # print 'Thread %s reported with data!' % thread
             # Get data
             data = thread.get_data()
             
@@ -470,6 +474,7 @@ class HarvestManUrlThreadPool(Queue):
                 # Sort the data list  according to byte-range
                 datalist.sort()
                 # Download of this URL is complete...
+                # print 'Download of %s is complete...' % urlObj.get_full_url()
                 data = ''.join([item[1] for item in datalist])
                 self.__multipartdata[url] = data
                 self.__multipartstatus[url] = True
@@ -587,17 +592,6 @@ class HarvestManUrlThreadPool(Queue):
         """ Return the last thread reported time """
 
         return self._ltrt
-
-    def set_download_mode(self, mode):
-        """ Set the download mode on the threads """
-
-        # This has two flags
-        # 0 -> regular crawler
-        # 1 -> grab url mode
-        self.__mode = mode
-        # Set this on all threads
-        for t in self.__threads:
-            t.set_download_mode(mode)
 
     def get_download_status(self, url):
         """ Get status of multipart downloads """
