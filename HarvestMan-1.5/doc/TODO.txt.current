@@ -4,15 +4,19 @@ FEATURE/FIX                                  |  STATUS
 1.Localization still has problems. Some      | Need to find sites which show errors.
 downloaded files are still not localized     | 
 correctly.                                   | 
-2. Add session-save feature when running with| TBD (Anand)
-URL server.                                  |
-3. Deep crawling problem                     | Should work now that we do not filter source
+2. Modify session-saver algorithm to         | Not many errors, but need to review code.
+work in all cases.                           | (Anand)
+3. Fix project file writing algorithm,       | Need to find where the problem is (Anand)
+currently it does not seem to be able        |
+to pickle all data.                          | 
+4. Add logic to do bandwidth recomputation   | TBD (Important). 
+when IP address/network interface changes    |
+5. Add logic for resuming downloads after    | TBD (Anand).
+a crash.                                     |
+6. Deep crawling problem                     | Should work now that we do not filter source
                                              | URLs. Test on evvs.dk and a few other sites
                                              | remaining.
-4. Support for more HTML tags such           | TBD (Anand/Vaibhav)
-as embed, object etc.                        |
-5. More testing with urlserver mode          | TBD (Anand/Vaibhav)
-6. Add unit test modules                     | TBD (Anand/Vaibhav)
+7. Add unit test modules                     | TBD 
 ---------------------------------------------------------------------------------------
 
 
