@@ -28,6 +28,13 @@
                           sending both data to the server causes it to fail
                           in a number of ways.
 
+                          NOTE: Decided not to use url server anymore since
+                          it is not yet stable. I think I need to go the
+                          Twisted way if this has to be done right.
+
+    Apr 06 2007  Anand    Added check to make sure that threads are not
+                          re-started for the same recurring problem.
+                        
  Copyright (C) 2004 Anand B Pillai.
    
 """
@@ -84,6 +91,8 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
     termination functions. """
 
     __metaclass__ = MethodWrapperMetaClass
+    # Last error which caused the thread to die
+    _lasterror = None
     
     def __init__(self, index, url_obj = None, isThread = True):
         # Index of the crawler
@@ -188,17 +197,28 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         try:
             self.action()
         except Exception, e:
-           if e.__class__ == HarvestManUrlCrawlerException:
-               raise
-           else:
-               # Now I am dead - so I need to tell the queue
-               # object to migrate my data and produce a new
-               # thread.
-               self._crawlerqueue._cond.acquire()
-               self._crawlerqueue.dead_thread_callback(self)
-               self._crawlerqueue._cond.release()                
-        
-               extrainfo('Tracker thread %s has died due to error: %s' % (str(self), str(e)))
+            raise
+            # Don't try to regenerate threads if this is a local
+            # exception.
+            if e.__class__ == HarvestManUrlCrawlerException:
+                raise
+            else:
+                # Now I am dead - so I need to tell the queue
+                # object to migrate my data and produce a new
+                # thread.
+                
+                # See class for last error. If it is same as
+                # this error, don't do anything since this could
+                # be a programming error and will send us into
+                # a loop...
+                if str(self.__class__._lasterror) == str(e):
+                    debug('Looks like a repeating error, not trying to restart thread %s' % (str(self)))
+                else:
+                    self.__class__._lasterror = e
+                    self._crawlerqueue._cond.acquire()
+                    self._crawlerqueue.dead_thread_callback(self)
+                    self._crawlerqueue._cond.release()                
+                    extrainfo('Tracker thread %s has died due to error: %s' % (str(self), str(e)))
 
     def terminate(self):
         """ Kill this crawler thread """
@@ -440,6 +460,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                 # If I had resumed from a saved state, set resuming flag
                 # to false
                 self._resuming = False
+
         else:
             self.process_url()
             self.crawl_url()
@@ -528,9 +549,9 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
             
             if ruleschecker.is_duplicate_link( url_obj.get_full_url()):
                 continue
-            else:
-                debug('Not duplicate link->',url_obj.get_full_url())
-                pass
+            #else:
+            #    debug('Not duplicate link->',url_obj.get_full_url())
+            #    pass
 
             url_obj.generation = self._urlobject.generation + 1
             typ = url_obj.get_type()
@@ -716,14 +737,19 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         mgr = GetObject('datamanager')
         ruleschecker = GetObject('ruleschecker')
-        
-        # Mod - Anand Jan 10 06 - moved duplicate download check here.
-        if mgr.check_duplicate_download(self._urlobject):
-            debug('Detected duplicate URL in process_url... %s' % self._url)
-            return -1
-        
-        moreinfo('Downloading file for url', self._url)
-        data = mgr.download_url(self, self._urlobject)
+
+        # Mod - Anand (Apr 10 07) Commented this out and made duplicate
+        # download check to lise list of URLs maintained by download_url
+        # method of datamgr.
+
+        #if mgr.check_duplicate_download(self._urlobject):
+        #    debug('Detected duplicate URL in process_url... %s' % self._url)
+        #    return -1
+
+        data = ''
+        if not mgr.is_downloaded(self._url):
+            moreinfo('Downloading file for url', self._url)
+            data = mgr.download_url(self, self._urlobject)
         
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')
@@ -742,7 +768,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             url = self._urlobject.get_full_url()
             sh = sha.new()
             sh.update(data)
-            
+
+            # Duplicate content check is different from duplicate URL check...
             if ruleschecker.check_duplicate_content(self._urlobject, sh.hexdigest()):
                 extrainfo('Skipped URL %s => duplicate content' % url)
                 return ''

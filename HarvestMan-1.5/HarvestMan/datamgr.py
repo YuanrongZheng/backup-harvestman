@@ -62,6 +62,7 @@ class HarvestManDataManager(object):
         self._downloaddict = { '_savedfiles': MyDeque(),
                                '_deletedfiles': MyDeque(),
                                '_failedurls' : MyDeque(),
+                               '_doneurls': MyDeque(),
                                '_reposfiles' : 0,
                                '_cachefiles': 0
                              }
@@ -94,7 +95,7 @@ class HarvestManDataManager(object):
         self._importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.LOCALE|re.UNICODE)
         # Regexp to parse URLs inside CSS files
         self._cssurl = re.compile(r'(url\()([^\)]+)(\))', re.LOCALE|re.UNICODE)
-
+        
     def get_state(self):
         """ Return a snapshot of the current state of this
         object and its containing threads for serializing """
@@ -619,6 +620,7 @@ class HarvestManDataManager(object):
                 lookuplist.append( filename )
         elif status == 3:
             self._downloaddict['_reposfiles'] += 1
+            extrainfo('Filename=>',filename,self._downloaddict['_reposfiles'])
         elif status == 4:
             self._downloaddict['_cachefiles'] += 1            
         else:
@@ -727,6 +729,7 @@ class HarvestManDataManager(object):
             curr = pcsizes[x]
             next = curr + prev
             urlobject = urlobjects[x]
+            urlobject.trymultipart = True
             urlobject.clength = clength
             urlobject.range = xrange(prev, next)
             urlobject.mindex = x
@@ -738,17 +741,28 @@ class HarvestManDataManager(object):
 
     def download_url(self, caller, urlobj):
 
+        # Modified: Add all urlobjects to a local list
+        # to avoid duplicate downloads. This is the best
+        # way rather than checking downloads in progress.
+        
+        url = urlobj.get_full_url()
+        
+        try:
+            self._downloaddict['_doneurls'].index(url)
+        except ValueError:
+            self._downloaddict['_doneurls'].append(url)            
+        
         # Modified - Anand Jan 10 06, added the caller thread
         # argument to this function for keeping a dictionary
         # containing URLs currently being downloaded by fetchers.
-
+        
         no_threads = (not self._cfg.usethreads) or \
                      urlobj.is_webpage() or \
                      urlobj.is_stylesheet()
 
         data=""
         if no_threads:
-            # New logic - Update a local dictionary on the URLs
+            # Update a local dictionary on the URLs
             # each fetcher is in charge of
             # Get the calling thread
             self._fetcherstatus[caller] = urlobj.get_full_url()
@@ -805,6 +819,16 @@ class HarvestManDataManager(object):
         except ValueError:
             return False
 
+    def is_downloaded(self, url):
+        """ Check whether the given URL was processed by
+        download_url method """
+
+        try:
+            self._downloaddict['_doneurls'].index(url)
+            return True
+        except ValueError:
+            return False
+    
     def check_duplicates(self, url):
         """ Check for fetchers in charge of URL url.
         Return True if found, False otherwise """
@@ -1082,7 +1106,7 @@ class HarvestManDataManager(object):
                 # Get the location of the link in the file
                 try:
                     if oldurl != newurl:
-                        info('Replacing %s with %s...' % (oldurl, newurl))
+                        # info('Replacing %s with %s...' % (oldurl, newurl))
                         data = re.sub(oldurlre, newurl, data,1)
                 except Exception, e:
                     debug(str(e))

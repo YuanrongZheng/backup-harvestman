@@ -209,7 +209,7 @@ class HarvestManRulesChecker(object):
 
         # first check if both domains are same
         if domain1.lower() == domain2.lower(): return True
-
+        extrainfo('Comparing domains %s and %s...' % (domain1, domain2))
         if not self._configobj.subdomain:
             # Checks whether the domain names belong to
             # the same base server, if the above config
@@ -218,6 +218,8 @@ class HarvestManRulesChecker(object):
             # and server2.foo.com or server1.base and server2.base
             baseserver1 = self.__get_base_server(domain1)
             baseserver2 = self.__get_base_server(domain2)
+            extrainfo('Server1:%s, Server2:%s' % (baseserver1, baseserver2))
+            
             if baseserver1.lower() == baseserver2.lower():
                 return True
             else:

@@ -27,6 +27,7 @@
                               in config file is skipped. Set urlserver option
                               as default.
    Mar 06 2007       Anand    Reset default option to queue.
+   April 11 2007     Anand    Renamed xmlparser module to configparser.
 
    Copyright (C) 2004 Anand B Pillai.                              
 
@@ -54,7 +55,7 @@ off automatically.
 Mail bug reports and suggestions to <abpillai@gmail.com>."""
 
 import os, sys
-import xmlparser
+import configparser
 import options
 import urlparser
 
@@ -157,7 +158,10 @@ class HarvestManStateObject(dict):
         self.testnocrawl = False
         self.nocrawl = False
         self.ignoreinterrupts = False
-        self.subdomain = False
+        # self.subdomain = False
+        # Differentiate between sub-domains
+        # of a domain ?
+        self.subdomain = True
         self.getqueryforms = False
         self.requests = 5
         self.bytes = 20.00 # Not used!
@@ -210,8 +214,16 @@ class HarvestManStateObject(dict):
         self.progressobj = TextProgress()
 
     def copy(self):
+        # Set non-picklable objects to None type
         self.progressobj = None
         return super(HarvestManStateObject, self).copy()
+
+    def get_project_object(self):
+        """ Return an object suitable to write as a project
+        file """
+
+        self.progressobj = None
+        return self
     
     def _init2(self):
         
@@ -785,7 +797,7 @@ class HarvestManStateObject(dict):
         else:
             logconsole('Using configuration file %s...' % cfgfile)
             
-        return xmlparser.parse_xml_config_file(self, cfgfile)
+        return configparser.parse_xml_config_file(self, cfgfile)
         
     def get_program_options(self):
         """ This function gets the program options from

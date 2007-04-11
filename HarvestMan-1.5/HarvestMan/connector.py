@@ -758,7 +758,7 @@ class HarvestManUrlConnector(object):
 
                     if supports_multipart==1:
                         extrainfo('Server %s supports multipart downloads' % hu.domain)
-                        hu.trymultipart = True
+                        # hu.trymultipart = True
                         dmgr.download_multipart_url(hu, clength)
                         return 3
                     
@@ -1122,7 +1122,7 @@ class HarvestManUrlConnector(object):
 
                     if not trynormal:
                         logconsole('Trying multipart download...')
-                        urlobj.trymultipart = True
+                        # urlobj.trymultipart = True
                         ret = dmgr.download_multipart_url(urlobj, clength)
                         if ret==1:
                             logconsole('Cannot do multipart download, piece size greater than maxfile size!')

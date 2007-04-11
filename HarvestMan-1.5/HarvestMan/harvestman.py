@@ -183,6 +183,7 @@ class HarvestMan(object):
         state['common'] = GetState()
         # Get config object
         state['configobj'] = GetObject('config').copy()
+        print state['configobj']
         
         # Dump with time-stamp - on POSIX dump this to the
         # user's .harvestman/sessions directory. 
@@ -191,11 +192,13 @@ class HarvestMan(object):
             fname = os.path.join(self._cfg.usersessiondir, fname)
             
         moreinfo('Saving run-state to file %s...' % fname)
-        try:
-            cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
-            moreinfo('Saved run-state to file %s.' % fname)
-        except pickle.PicklingError, e:
-            logconsole(e)
+
+        print state
+        #try:
+        cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
+        moreinfo('Saved run-state to file %s.' % fname)
+        #except pickle.PicklingError, e:
+        #    logconsole(e)
         
     def welcome_message(self):
         """ Print a welcome message """
@@ -343,6 +346,8 @@ class HarvestMan(object):
         if not self._cfg.resuming:
             self._cfg.get_program_options()
 
+        self.register_common_objects()
+
         # Create user's .harvestman directory on POSIX
         if os.name == 'posix':
             homedir = os.environ.get('HOME')
@@ -390,8 +395,6 @@ class HarvestMan(object):
                 # where timeout => max time for a worker thread
                 if bw: self._cfg.maxfilesize = bw*self._cfg.timeout
                 
-        self.register_common_objects()
-
     def setdefaultlocale(self):
         """ Set the default locale """
 
@@ -501,16 +504,16 @@ class HarvestMan(object):
             if not self._cfg.testnocrawl:
                 self.start_project()
         except (KeyboardInterrupt, EOFError, Exception), e:
-           if not self._cfg.ignoreinterrupts:
-               logconsole('Exception received=>',str(e))
-               # dont allow to write cache, since it
-               # screws up existing cache.
-               GetObject('datamanager').conditional_cache_set()
-               self.save_current_state()
-               
-               sys.excepthook = SysExceptHook
-               sys.tracebacklimit = 0
-               self.clean_up()
+            if not self._cfg.ignoreinterrupts:
+                logconsole('Exception received=>',str(e))
+                # dont allow to write cache, since it
+                # screws up existing cache.
+                GetObject('datamanager').conditional_cache_set()
+                self.save_current_state()
+                
+                sys.excepthook = SysExceptHook
+                sys.tracebacklimit = 0
+                self.clean_up()
 
         self.finish_project()
 
@@ -641,7 +644,7 @@ class HarvestMan(object):
             self._cfg.connections = self._cfg.numparts + 2
             self._cfg.requests = self._cfg.numparts + 2
             conn = connector.HarvestManUrlConnector()
-            urlobj = urlparser.HarvestManUrlParser(self._cfg.url)
+            urlobj = urlparser.HarvestManUrlParser(self._cfg.urls[0])
             ret = conn.url_to_file(urlobj)
         except KeyboardInterrupt:
             reader = conn.get_reader()

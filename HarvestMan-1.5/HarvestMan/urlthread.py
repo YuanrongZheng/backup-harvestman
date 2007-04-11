@@ -14,6 +14,9 @@
                         method.
 
     Mar 05 2007  Anand  Implemented http 304 handling in notify(...).
+
+    Apr 09 2007  Anand  Added check to make sure that threads are not
+                        re-started for the same recurring problem.
     
     Copyright (C) 2004 Anand B Pillai.
 
@@ -44,6 +47,9 @@ class HarvestManUrlThreadInterrupt(Exception):
 class HarvestManUrlThread(threading.Thread):
     """ Class to download a url in a separate thread """
 
+    # The last error which caused a thread instance to die
+    _lasterror = None
+    
     def __init__(self, name, timeout, threadpool):
         """ Constructor, the constructor takes a url, a filename
         , a timeout value, and the thread pool object pooling this
@@ -67,8 +73,6 @@ class HarvestManUrlThread(threading.Thread):
         self.__busyflag = False
         # end flag
         self.__endflag = False
-        # Grab mode is 1, default is 0
-        self.__mode = 0
         # Url data, only used for mode 1
         self.__data = ''
         # initialize threading
@@ -222,14 +226,21 @@ class HarvestManUrlThread(threading.Thread):
                 # reset busyflag
                 self.__busyflag = False
             except Exception, e:
-        
-               print 'Worker thread %s has died due to error: %s' % (str(self), str(e))
-               
-               # Now I am dead - so I need to tell the pool
-               # object to migrate my data and produce a new thread.
-               self.__pool._cond.acquire()
-               self.__pool.dead_thread_callback(self)
-               self.__pool._cond.release()                
+                # Now I am dead - so I need to tell the pool
+                # object to migrate my data and produce a new thread.
+                
+                # See class for last error. If it is same as
+                # this error, don't do anything since this could
+                # be a programming error and will send us into
+                # a loop...
+                if str(self.__class__._lasterror) == str(e):
+                    debug('Looks like a repeating error, not trying to restart worker thread %s' % (str(self)))
+                else:
+                    self.__class__._lasterror = e
+                    self.__pool._cond.acquire()
+                    self.__pool.dead_thread_callback(self)
+                    self.__pool._cond.release()                
+                    extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))
 
 
     def get_url(self):
@@ -312,14 +323,14 @@ class HarvestManUrlThreadPool(Queue):
         self._ltrt = 0.0
         # Local buffer
         self.buffer = []
-        # Mode flag
-        self.__mode = 0
         # Data dictionary for multi-part downloads
         # Keys are URLs and value is the data
         self.__multipartdata = {}
         # Status of URLs being downloaded in
         # multipart. Keys are URLs
         self.__multipartstatus = {}
+        # Number of parts
+        self.__parts = GetObject('config').numparts
         # Condition object
         self._cond = threading.Condition(threading.Lock())        
         Queue.__init__(self, self.__numthreads + 5)
@@ -354,6 +365,7 @@ class HarvestManUrlThreadPool(Queue):
         # Maximum number of threads spawned
         self.__numthreads = cfg.threadpoolsize
         self.__timeout = cfg.timeout
+        self.__parts = cfg.numparts
         
         self.buffer = state.get('buffer',[])
         self.queue = state.get('queue', deque([]))
@@ -446,52 +458,55 @@ class HarvestManUrlThreadPool(Queue):
     def notify(self, thread):
         """ Method called by threads to notify that they
         have finished """
-        
-        # Mark the time stamp (last thread report time)
-        self._ltrt = time.time()
 
-        urlObj = thread.get_urlobject()
+        try:
+            self._cond.acquire()
+            # Mark the time stamp (last thread report time)
+            self._ltrt = time.time()
 
-        # See if this was a multi-part download
-        if urlObj.trymultipart:
-            # print 'Thread %s reported with data!' % thread
-            # Get data
-            data = thread.get_data()
-            
-            url = urlObj.get_full_url()
-            datalist = []
-            
-            if url in self.__multipartdata:
-                datalist = self.__multipartdata[url]
-                datalist.append((urlObj.range[0],data))
+            urlObj = thread.get_urlobject()
+
+            # See if this was a multi-part download
+            if urlObj.trymultipart:
+                print 'Thread %s reported with data range (%d-%d)!' % (thread, urlObj.range[0], urlObj.range[-1])
+                # Get data
+                data = thread.get_data()
+
+                url = urlObj.get_full_url()
+
+                if url in self.__multipartdata:
+                    datalist = self.__multipartdata[url]
+                    datalist.append((urlObj.range[0],data))
+                else:
+                    datalist = []
+                    datalist.append((urlObj.range[0],data))
+                    self.__multipartdata[url] = datalist
+
+                #print 'Length of data list is',len(datalist)
+                if len(datalist)==self.__parts:
+                    # Sort the data list  according to byte-range
+                    datalist.sort()
+                    # Download of this URL is complete...
+                    # print 'Download of %s is complete...' % urlObj.get_full_url()
+                    data = ''.join([item[1] for item in datalist])
+                    self.__multipartdata['data:' + url] = data
+                    self.__multipartstatus[url] = True
+
+            # if the thread failed, update failure stats on the data manager
+            dmgr = GetObject('datamanager')
+
+            err = thread.get_error()
+
+            tstatus = thread.get_status()
+
+            # Either file was fetched or file was uptodate
+            if err.get('number',0) in (0, 304):
+                # thread succeeded, increment file count stats on the data manager
+                dmgr.update_file_stats( urlObj, tstatus)
             else:
-                datalist.append((urlObj.range[0],data))
-                self.__multipartdata[url] = datalist
-
-            parts = GetObject('config').numparts
-            #print 'Length of data list is',len(datalist)
-            if len(datalist)==parts:
-                # Sort the data list  according to byte-range
-                datalist.sort()
-                # Download of this URL is complete...
-                # print 'Download of %s is complete...' % urlObj.get_full_url()
-                data = ''.join([item[1] for item in datalist])
-                self.__multipartdata[url] = data
-                self.__multipartstatus[url] = True
-                
-        # if the thread failed, update failure stats on the data manager
-        dmgr = GetObject('datamanager')
-
-        err = thread.get_error()
-
-        tstatus = thread.get_status()
-        
-        # Either file was fetched or file was uptodate
-        if err.get('number',0) in (0, 304):
-            # thread succeeded, increment file count stats on the data manager
-            dmgr.update_file_stats( urlObj, tstatus)
-        else:
-            dmgr.update_failed_files( urlObj )
+                dmgr.update_failed_files( urlObj )
+        finally:
+            self._cond.release()
             
 
     def has_busy_threads(self):
@@ -601,7 +616,7 @@ class HarvestManUrlThreadPool(Queue):
     def get_url_data(self, url):
         """ Return data for multipart downloads """
 
-        return self.__multipartdata.get(url,'')
+        return self.__multipartdata.get('data:'+url, '')
 
     def dead_thread_callback(self, t):
         """ Call back function called by a thread if it
@@ -613,7 +628,6 @@ class HarvestManUrlThreadPool(Queue):
         # Migrate data and start thread
         if new_t:
             new_t.set_urlobject(t.get_urlobject())
-            new_t.set_download_mode(self.__mode)
             # Replace dead thread in the list
             idx = self.__threads.index(t)
             self.__threads[idx] = new_t

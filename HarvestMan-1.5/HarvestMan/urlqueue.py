@@ -599,7 +599,6 @@ class HarvestManCrawlerQueue(object):
             elif role == 'crawler':
                 self._numcrawlers -= 1
                 
-                
     def push(self, obj, role):
         """ Push trackers to the queue """
 

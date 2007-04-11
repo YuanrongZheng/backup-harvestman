@@ -391,15 +391,11 @@ class HarvestManProjectManager(object):
     def __init__(self):
         pass
 
-    def write_project(self, mode='pickled'):
+    def write_project(self):
         """ Write project files """
 
         moreinfo('Writing Project Files...')
-
-        if mode == 'pickled':
-            self.__write_pickled_project_file()
-        elif mode == 'xml':
-            self.__write_xml_project_file()
+        self.__write_pickled_project_file()
 
     def read_project(self):
         """ Load an existing HarvestMan project file and
@@ -415,8 +411,7 @@ class HarvestManProjectManager(object):
         try:
             pickler = HarvestManSerializer()
             d = pickler.load(projectfile)
-            # Bugfix: Set the values on
-            # config dictionary
+
             for key in config.keys():
                 try:
                     config[key] = d[key]
@@ -432,9 +427,11 @@ class HarvestManProjectManager(object):
 
     def __write_pickled_project_file(self):
 
-        cfg = GetObject('config')
+        # FIXME: Try fixing copy() on config class
+        # and use it here. 
+        cfg = GetObject('config').get_project_object()
 
-        pckfile = os.path.join(cfg.basedir, cfg.project + '.hbp')
+        pckfile = os.path.join(cfg.basedir, cfg.project + '.hpf')
         
         if os.path.exists(pckfile):
             try:

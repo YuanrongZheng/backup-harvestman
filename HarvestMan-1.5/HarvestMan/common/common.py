@@ -211,7 +211,7 @@ def GetObject(objkey):
         else:
             return obj
     except (KeyError, AttributeError), e:
-        print e
+        pass
 
     return None   
 
