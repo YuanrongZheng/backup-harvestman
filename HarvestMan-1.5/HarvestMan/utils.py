@@ -14,8 +14,9 @@
                            to separate *.data files - this helps to reduce
                            the size of the cache files.
 
-   Copyright (C) 2005 Anand B Pillai
+   Apr 11 2007     Anand   Modified extension of harvestman project files to .hpf.
    
+   Copyright (C) 2005 Anand B Pillai
                           
 """
 

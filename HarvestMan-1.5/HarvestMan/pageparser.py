@@ -249,7 +249,7 @@ class HarvestManSimpleParser(SGMLParser):
                 # moredebug('Adding image ', link, typ)
                 self.images.append((typ, link))
         elif not (typ, link) in self.links:
-                # moredebug('Adding link ', link, typ)
+                moredebug('Adding link ', link, typ)
                 pos = self.getpos()
                 self.links.append((typ, link))
                 self.linkpos[(typ,link)] = (pos[0],pos[1])
@@ -332,25 +332,29 @@ if __name__=="__main__":
     import os
     
     InitConfig()
-
+    InitLogger()
+    
     cfg = GetObject('config')
     cfg.verbosity = 5
+    SetLogSeverity()
+    
     cfg.forms = True
     
     p = HarvestManSimpleParser()
     urls = ['http://projecteuler.net/index.php?section=problems']
     urls = ['http://www.evvs.dk/index.php?cPath=30&osCsid=3b110c689f01d722dbbe53c5cee0bf2d']
+    urls = ['http://nltk.sourceforge.net/lite/doc/api/nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html']
 
     fname = 'arstechnica.com/arstechnica.com/reviews/apps/lightroom.ars/6'
-    p.feed(open(fname).read())
-    for item in p.links:
-        print item
+    #p.feed(open(fname).read())
+    #for item in p.links:
+    #    print item
     
-    ## for url in urls:
-##        if os.system('wget %s -O index.html' % url ) == 0:
-##            p.feed(open('index.html').read())
-##            print p.links
-##            #p.reset()
+    for url in urls:
+        if os.system('wget %s -O index.html' % url ) == 0:
+            p.feed(open('index.html').read())
+            print p.links
+            p.reset()
 ##            pass
                                    
 

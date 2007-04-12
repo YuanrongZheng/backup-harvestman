@@ -21,7 +21,15 @@
    Mar 12 2007      Anand    Added more fields for multipart. Fixed a bug in
                              is_webpage - anchor links should be returned
                              as web-page links.
-                             
+
+   Apr 12 2007      Anand    Fixed a bug in anchor link parsing. The current
+                             logic was not taking care of multiple anchor
+                             links (#anchor1#anchor2). Fixed it by using
+                             a regular expression.
+
+                             Test page is
+                             http://nltk.sourceforge.net/lite/doc/api/term-index.html
+   
    Copyright (C) 2004 Anand B Pillai.
    
 """
@@ -92,6 +100,9 @@ class HarvestManUrlParser(object):
     # urls which contain white spaces
     wspacere = re.compile(r'\w+\s+\w+')
 
+    # Regular expression for anchor tags
+    anchore = re.compile(r'\#+')
+    
     # jkleven: Regex if we still don't recognize a URL address as HTML.  Only
     # to be used if we've looked at everything else and URL still isn't
     # a known type.  This regex is similar to one in pageparser.py but 
@@ -218,15 +229,27 @@ class HarvestManUrlParser(object):
         if self.typ == 'anchor':
             if not self.baseurl:
                 raise HarvestManUrlParserError, 'Base url should not be empty for anchor type url'
-            
-            index = self.url.rfind('#')
-            if index != -1:
-                newhref = self.url[:index]
-                self.anchor = self.url[index:]
-                if newhref:
-                    self.url = newhref
-                else:
-                    self.url = self.baseurl.get_full_url()
+
+            if '#' in self.url:
+                # Split with re
+                items = self.anchore.split(self.url)
+                # First item is the original url
+                if len(items):
+                    if items[0]:
+                        self.url = items[0]
+                    else:
+                        self.url = self.baseurl.get_full_url()
+                    # Rest forms the anchor tag
+                    self.anchor = '#' + '#'.join(items[1:])
+                    
+            #index = self.url.rfind('#')
+            #if index != -1:
+            #    newhref = self.url[:index]
+            #    self.anchor = self.url[index:]
+            #    if newhref:
+            #        self.url = newhref
+            #    else:
+            #        self.url = self.baseurl.get_full_url()
 
         else:
             pass
@@ -1184,6 +1207,7 @@ if __name__=="__main__":
                HarvestManUrlParser('#anchor', 'anchor', 0, 
                                    'http://www.foo.com/bar/index.html',
                                    'd:/websites'),
+               HarvestManUrlParser('nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html#__init__#index-after', 'anchor', 0, 'http://nltk.sourceforge.net/lite/doc/api/term-index.html', 'd:/websites'),               
                HarvestManUrlParser('../icons/up.png', 'image', 0,
                                    'http://www.python.org/doc/current/tut/node2.html',
                                    ''),

@@ -748,7 +748,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         data = ''
         if not mgr.is_downloaded(self._url):
-            moreinfo('Downloading file for url', self._url)
+            moreinfo('Downloading file for url', self._url,self._urlobject.typ)
             data = mgr.download_url(self, self._urlobject)
         
         # Rules checker object
@@ -830,7 +830,10 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
             for typ, url in links:
                 is_cgi, is_php = False, False
-                
+
+                #if url.find('#') != -1:
+                #    extrainfo('URL: %s, type: %s' % (url, typ))
+                    
                 if url.find('php?') != -1: is_php = True
                 if typ == 'form' or is_php: is_cgi = True
 

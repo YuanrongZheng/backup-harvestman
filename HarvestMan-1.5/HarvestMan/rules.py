@@ -17,6 +17,10 @@
    Jan 10 2006          Anand    Converted from dos to unix format
                                 (removed Ctrl-Ms).
 
+   April 11 2007        Anand   Not doing I.P comparison for
+                                non-robots.txt URLs in __compare_domains
+                                method as it is erroneous.
+
    Copyright (C) 2004 Anand B Pillai.
                                 
 """
@@ -174,14 +178,9 @@ class HarvestManRulesChecker(object):
             else:
                 return self.__compare_by_name(domain1, domain2)
 
-        # otherwise, we do a name check first and
-        # ip check later
+        # otherwise, we do only a name check
         else:
-            firstval=self.__compare_by_name(domain1, domain2)
-            if firstval:
-                return firstval
-            else:
-                return self.__compare_by_ip(domain1, domain2)
+            return self.__compare_by_name(domain1, domain2)
 
     def __get_base_server(self, server):
         """ Return the base server name of  the passed

@@ -183,7 +183,7 @@ class HarvestMan(object):
         state['common'] = GetState()
         # Get config object
         state['configobj'] = GetObject('config').copy()
-        print state['configobj']
+        # print state['configobj']
         
         # Dump with time-stamp - on POSIX dump this to the
         # user's .harvestman/sessions directory. 
@@ -193,7 +193,7 @@ class HarvestMan(object):
             
         moreinfo('Saving run-state to file %s...' % fname)
 
-        print state
+        # print state
         #try:
         cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
         moreinfo('Saved run-state to file %s.' % fname)
