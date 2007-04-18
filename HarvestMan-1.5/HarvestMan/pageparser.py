@@ -15,6 +15,8 @@
    Jan 2007       Anand              Complete support for META robot tags implemented.
                                      Requested by jim sloan of MCHS.
    Mar 06 2007    Anand              Added support for HTML EMBED & OBJECT tags.
+   Apr 18 2007    Anand              Made to use the urltypes module.
+   
 
   Copyright (C) 2004 Anand B Pillai.                                     
                                      
@@ -25,35 +27,34 @@ __author__ = 'Anand B Pillai'
 
 from sgmllib import SGMLParser
 from HTMLParser import HTMLParser
-
+from urltypes import *
 from common.common import *
+
 import re
 
 class HarvestManSimpleParser(SGMLParser):
     """ An HTML/XHTML parser derived from SGMLParser """
 
-    # Optimizations - put some of the data as
-    # class level members.
     query_re = re.compile(r'[-.:_a-zA-Z0-9]*\?[-.:_a-zA-Z0-9]*=[-.a:_-zA-Z0-9]*')
     skip_re = re.compile(r'(javascript:)|(mailto:)|(news:)|(\?m=a)|(\?n=d)|(\?s=a)|(\?d=a)')
 
-    handled = { 'a' : (('href', 'normal'), ('href', 'anchor')),
-                'base': (('href', 'base'),),
-                'frame': (('src', 'normal'),),
-                'img' : (('src', 'image'),),
-                'form' : (('action', 'form'),),
-                'link' : (('href', 'normal'),),
-                'body' : (('background', 'image'),),
-                'script' : (('src', 'javascript'),),
-                'applet' : (('codebase', 'appletcodebase'), ('code', 'javaapplet')),
-                'area' : (('href', 'normal'),),
-                'meta' : (('CONTENT','normal'),('content','normal')),
-                'embed': (('src','normal'),),
-                'object': (('data','normal'),)
+    handled = { 'a' : (('href', TYPE_ANY), ('href', TYPE_ANCHOR)),
+                'base': (('href', TYPE_BASE),),
+                'frame': (('src', TYPE_FRAME),),
+                'img' : (('src', TYPE_IMAGE),),
+                'form' : (('action', TYPE_FORM),),
+                'link' : (('href', TYPE_ANY),),
+                'body' : (('background', TYPE_IMAGE),),
+                'script' : (('src', TYPE_JAVASCRIPT),),
+                'applet' : (('codebase', TYPE_JAPPLET_CODEBASE), ('code', TYPE_JAPPLET)),
+                'area' : (('href', TYPE_ANY),),
+                'meta' : (('CONTENT',TYPE_ANY),('content', TYPE_ANY)),
+                'embed': (('src', TYPE_ANY),),
+                'object': (('data', TYPE_ANY),)
                 }
 
     # Valid 'rel' values - Added Jan 10 06 -Anand
-    handled_rel_types = ( 'stylesheet', )
+    handled_rel_types = ( TYPE_STYLESHEET, )
     
     def __init__(self):
         self.links = []
@@ -109,7 +110,7 @@ class HarvestManSimpleParser(SGMLParser):
         if not link: return
 
         # Need to do this here also
-        self.check_add_link('anchor', link)
+        self.check_add_link(TYPE_ANCHOR, link)
 
         # No point in getting #anchor sort of links
         # since they point to anchors in the same page
@@ -122,13 +123,13 @@ class HarvestManSimpleParser(SGMLParser):
         index = link.rfind('.html#')
         if index != -1:
             newhref = link[:(index + 5)]
-            self.check_add_link('webpage', newhref)
+            self.check_add_link(TYPE_WEBPAGE, newhref)
             return 0
         else:
             index = link.rfind('.htm#')
             if index != -1:
                 newhref = link[:(index + 4)]
-                self.check_add_link('webpage', newhref)
+                self.check_add_link(TYPE_WEBPAGE, newhref)
             return 0
 
         return 1
@@ -140,7 +141,6 @@ class HarvestManSimpleParser(SGMLParser):
 
         if not attrs: return
         isBaseTag = not self.base and tag == 'base'
-
         
         if tag in self.handled:
 
@@ -175,7 +175,7 @@ class HarvestManSimpleParser(SGMLParser):
                         # of the valid handled rel types.
                         foundtyp = d['rel'].lower()
                         if foundtyp in self.handled_rel_types:
-                            typ = foundtyp
+                            typ = getTypeClass(foundtyp)
                     except KeyError:
                         pass
 
@@ -249,7 +249,7 @@ class HarvestManSimpleParser(SGMLParser):
                 # moredebug('Adding image ', link, typ)
                 self.images.append((typ, link))
         elif not (typ, link) in self.links:
-                moredebug('Adding link ', link, typ)
+                # moredebug('Adding link ', link, typ)
                 pos = self.getpos()
                 self.links.append((typ, link))
                 self.linkpos[(typ,link)] = (pos[0],pos[1])
@@ -345,11 +345,6 @@ if __name__=="__main__":
     urls = ['http://www.evvs.dk/index.php?cPath=30&osCsid=3b110c689f01d722dbbe53c5cee0bf2d']
     urls = ['http://nltk.sourceforge.net/lite/doc/api/nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html']
 
-    fname = 'arstechnica.com/arstechnica.com/reviews/apps/lightroom.ars/6'
-    #p.feed(open(fname).read())
-    #for item in p.links:
-    #    print item
-    
     for url in urls:
         if os.system('wget %s -O index.html' % url ) == 0:
             p.feed(open('index.html').read())

@@ -1097,7 +1097,8 @@ class HarvestManUrlConnector(object):
                     logconsole("Url does not match size constraints")
                     # Dont do range checking on FTP servers since they
                     # typically support it by default.
-                    if urlobj.protocol != 'ftp':
+                    print urlobj.protocol
+                    if urlobj.protocol != 'ftp://':
                         logconsole('Checking whether server supports multipart downloads...')
                         # See if the server supports 'Range' header
                         # by requesting half the length

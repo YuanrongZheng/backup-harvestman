@@ -36,6 +36,8 @@
                                      max filesize before crawl. Need to add
                                      code to redetermine bandwidth when network
                                      interface changes.
+     Apr 18 2007         Anand       Added the urltypes module for URL type
+                                     definitions and replaced entries with it.
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -638,7 +640,10 @@ class HarvestMan(object):
         self._cfg.maxfilesize = maxsz
         
         try:
-            # Set url thread pool to grab mode
+            # Set url thread pool to write mode
+            # In this mode, each thread flushes data to
+            # disk as files, instead of keeping data
+            # in-memory.
             pool = GetObject('datamanager').get_url_threadpool()
             # Set number of connections to two plus numparts
             self._cfg.connections = self._cfg.numparts + 2

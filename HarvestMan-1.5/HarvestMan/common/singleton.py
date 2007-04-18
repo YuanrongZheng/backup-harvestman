@@ -1,13 +1,18 @@
 # -- coding: latin-1
 """ singleton.py - Singleton design-pattern implemented using
-    meta-classes. This module is part of HarvestMan program.
+    meta-classes. 
+
+    This module is part of the HarvestMan program.
+    For licensing information see the file LICENSE.txt that
+    is included in this distribution.
 
     Author: Anand B Pillai <abpillai at gmail dot com>
 
     Created Anand B Pillai Feb 2 2007
     
 
-Copyright(C) 2007 Anand B Pillai.
+    Copyright(C) 2007, Anand B Pillai.
+    
 """
 
 __version__ = '1.5 b1'

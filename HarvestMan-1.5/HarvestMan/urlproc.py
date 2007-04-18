@@ -1,8 +1,11 @@
+# -- coding: latin-1
 """ urlproc.py - Module to process URLs and replace
     entity characters (characters starting with an ampersand
-    and ending with a semicolon). This module is part of
-    the HarvestMan program.
+    and ending with a semicolon). 
 
+    This module is part of the HarvestMan program.
+    For licensing information see the file LICENSE.txt that
+    is included in this distribution.
 
    Author: Anand B Pillai <abpillai at gmail dot com>
    

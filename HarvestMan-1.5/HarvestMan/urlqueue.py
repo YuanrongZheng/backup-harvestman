@@ -28,6 +28,7 @@ import crawler
 import threading
 import sys, os
 import copy
+import urltypes
 
 from common.common import *
 
@@ -211,9 +212,8 @@ class HarvestManCrawlerQueue(object):
         try:
             import urlparser
             
-            # urlparser.HarvestManUrlParser.reset_IDX()
-            
-            self._baseUrlObj = urlparser.HarvestManUrlParser(self._configobj.url, 'normal',
+            self._baseUrlObj = urlparser.HarvestManUrlParser(self._configobj.url,
+                                                             urltypes.TYPE_ANY,
                                                              0, self._configobj.url,
                                                              self._configobj.projdir)
             SetUrlObject(self._baseUrlObj)
@@ -565,39 +565,43 @@ class HarvestManCrawlerQueue(object):
         a fresh thread, migrates the data of the dead
         thread to it """
 
-        # First find out the type
-        role = t.get_role()
-        new_t = None
-        
-        if role == 'fetcher':
-            new_t = crawler.HarvestManUrlFetcher(t.get_index(), None)
-        elif role == 'crawler':
-            new_t = crawler.HarvestManUrlCrawler(t.get_index(), None)
+        try:
+            self._cond.acquire()
+            # First find out the type
+            role = t.get_role()
+            new_t = None
 
-        # Migrate data and start thread
-        if new_t:
-            new_t._status = t._status
-            new_t._url = t._url
-            new_t._urlobject = t._urlobject
-            new_t._loops = t._loops
-            new_t.buffer = copy.deepcopy(t.buffer)
-            # If this is a crawler get links also
-            if role == 'crawler':
-                new_t.links = t.links[:]
-
-            # Replace dead thread in the list
-            idx = self._trackers.index(t)
-            self._trackers[idx] = new_t
-            new_t._resuming = True
-            new_t.start()
-            sleep(2.0)
-        else:
-            # Could not make new thread, so decrement
-            # count of threads.
             if role == 'fetcher':
-                self._numfetchers -= 1
+                new_t = crawler.HarvestManUrlFetcher(t.get_index(), None)
             elif role == 'crawler':
-                self._numcrawlers -= 1
+                new_t = crawler.HarvestManUrlCrawler(t.get_index(), None)
+
+            # Migrate data and start thread
+            if new_t:
+                new_t._status = t._status
+                new_t._url = t._url
+                new_t._urlobject = t._urlobject
+                new_t._loops = t._loops
+                new_t.buffer = copy.deepcopy(t.buffer)
+                # If this is a crawler get links also
+                if role == 'crawler':
+                    new_t.links = t.links[:]
+
+                # Replace dead thread in the list
+                idx = self._trackers.index(t)
+                self._trackers[idx] = new_t
+                new_t._resuming = True
+                new_t.start()
+                sleep(2.0)
+            else:
+                # Could not make new thread, so decrement
+                # count of threads.
+                if role == 'fetcher':
+                    self._numfetchers -= 1
+                elif role == 'crawler':
+                    self._numcrawlers -= 1
+        finally:
+            self._cond.release()
                 
     def push(self, obj, role):
         """ Push trackers to the queue """

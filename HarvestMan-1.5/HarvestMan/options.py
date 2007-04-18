@@ -1,6 +1,10 @@
+# -- coding: latin-1
 """ options.py - Module keeping a list of command-line
-options for HarvestMan. This module is part of the HarvestMan
-software.
+options for HarvestMan. 
+
+This module is part of the HarvestMan program.
+For licensing information see the file LICENSE.txt that
+is included in this distribution.
 
 Author: Anand B Pillai <abpillai at gmail dot com>
 

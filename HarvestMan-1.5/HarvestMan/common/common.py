@@ -32,7 +32,6 @@ import threading
 from types import *
 
 class CaselessDict(dict):
-
     
     def __setitem__(self, name, value):
 

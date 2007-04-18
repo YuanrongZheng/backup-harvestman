@@ -217,7 +217,7 @@ class HarvestManRulesChecker(object):
             # and server2.foo.com or server1.base and server2.base
             baseserver1 = self.__get_base_server(domain1)
             baseserver2 = self.__get_base_server(domain2)
-            extrainfo('Server1:%s, Server2:%s' % (baseserver1, baseserver2))
+            # extrainfo('Server1:%s, Server2:%s' % (baseserver1, baseserver2))
             
             if baseserver1.lower() == baseserver2.lower():
                 return True

@@ -2,7 +2,10 @@
 """ hooks.py - Module allowing developer extensions(plugins/callbacks)
     to HarvestMan. This module makes it possible to hook into/modify the
     execution flow of HarvestMan, making it easy to extend and customize
-    it. This module is part of the HarvestMan program.
+    it. 
+
+    This module is part of the HarvestMan program. For licensing information
+    see the file LICENSE.txt that is included in this distribution.
 
     Created by Anand B Pillai <abpillai at gmail dot com> Feb 1 07.
 

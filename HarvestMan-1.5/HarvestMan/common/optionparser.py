@@ -25,7 +25,9 @@ optparse represents each variables for an option setting.
 To parse the arguments, call the method 'parse_arguments'.
 The return value is a dictionary of the option-value pairs.
 
-This module is part of the HarvestMan software.
+This module is part of the HarvestMan program. For licensing
+information see the file LICENSE.txt that is included in this
+distribution.
 
 This module was originally created as an ASPN cookbook
 recipe http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/425345 .
@@ -36,7 +38,7 @@ Author: Anand B Pillai <abpillai at gmail dot com>
 Created: Feb 11 2007 by Anand B Pillai 
 
 
-Copyright (C) 2007 - Anand B Pillai.
+Copyright (C) 2007, Anand B Pillai.
 
 """
 

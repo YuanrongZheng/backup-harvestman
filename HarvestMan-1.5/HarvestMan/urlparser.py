@@ -44,6 +44,7 @@ import copy
 import urlproc
 
 from common.common import *
+from urltypes import *
 
 class HarvestManUrlParserError(Exception):
 
@@ -92,6 +93,12 @@ class HarvestManUrlParser(object):
     # Document extensions
     document_extns = ('.doc','.rtf','.odt','.odp','.ott','.sxw','.stw',
                       '.sdw','.vor','.xml','.pdf','.ps')
+
+    # Web-page extensions which automatically default to directories
+    # These are special web-page types which are web-pages as well
+    # as directories. Most common example is the .ars file extension
+    # of arstechnica.com.
+    default_directory_extns = ('.ars',)
     
     # Most common stylesheet url file extensions
     stylesheet_extns = ( '.css', )
@@ -129,7 +136,7 @@ class HarvestManUrlParser(object):
 
     reset_IDX = classmethod(reset_IDX)
     
-    def __init__(self, url, urltype = 'normal', cgi = False, baseurl  = None, rootdir = ''):
+    def __init__(self, url, urltype = 'generic', cgi = False, baseurl  = None, rootdir = ''):
         
         if url[-1] == self.URLSEP:
             self.url = url[:-1]
@@ -142,7 +149,7 @@ class HarvestManUrlParser(object):
         # since self.url can get
         # modified
         self.origurl = self.url
-        self.typ = urltype.lower()
+        self.typ = urltype
         self.cgi = cgi
         self.anchor = ''
         self.index = 0
@@ -205,7 +212,7 @@ class HarvestManUrlParser(object):
             if isinstance(baseurl, HarvestManUrlParser):
                 self.baseurl = baseurl
             elif type(baseurl) is str:
-                self.baseurl = HarvestManUrlParser(baseurl, 'normal', cgi, None, rootdir)
+                self.baseurl = HarvestManUrlParser(baseurl, 'generic', cgi, None, rootdir)
                       
         # Root directory
         if rootdir == '':
@@ -393,12 +400,10 @@ class HarvestManUrlParser(object):
         self.compute_dirpaths(paths)
         self.compute_domain_and_port()
 
-        # For some file extensions, automatically set as
-        # directory URL.
+        # For some file extensions, automatically set as directory URL.
         if self.validfilename:
             extn = ((os.path.splitext(self.validfilename))[1]).lower()
-            # This tuple can be made as a class-var
-            if extn in ('.ars',):
+            if extn in self.default_directory_extns:
                 self.set_directory_url()
             
     def reduce_url(self, paths):
@@ -589,7 +594,7 @@ class HarvestManUrlParser(object):
 
         if self.typ == 'image':
             return True
-        elif self.typ == 'normal':
+        elif self.typ == 'generic':
             if self.validfilename:
                 extn = ((os.path.splitext(self.validfilename))[1]).lower()
                 if extn in self.image_extns:
@@ -606,17 +611,17 @@ class HarvestManUrlParser(object):
         # php, psp, asp, pl, jsp, and cgi as possible html candidates, though
         # actually they might be generating non-html content (like dynamic
         # images.)
-        if self.typ in ('webpage', 'base', 'anchor'):
+        
+        if self.typ.isA(TYPE_WEBPAGE):
             return True
-        elif self.typ in ('normal'):
+        elif self.typ==TYPE_ANY:
             if self.validfilename:
                 extn = ((os.path.splitext(self.validfilename))[1]).lower()
                 
                 if extn in self.webpage_extns:
                     return True
                 
-                elif extn not in self.document_extns and \
-                     extn not in self.image_extns:
+                elif extn not in self.document_extns and extn not in self.image_extns:
                     return True
                 else:
                     # jkleven: 10/1/06.  Forms were never being parsed for links.
@@ -636,7 +641,7 @@ class HarvestManUrlParser(object):
 
         if self.typ == 'stylesheet':
             return True
-        elif self.typ == 'normal':
+        elif self.typ == 'generic':
             if self.validfilename:
                 extn = ((os.path.splitext(self.validfilename))[1]).lower()
                 if extn in self.stylesheet_extns:
@@ -1145,31 +1150,31 @@ class HarvestManUrlParser(object):
         
         if extn:
             if extn in self.webpage_extns:
-                self.typ = 'webpage'
+                self.typ = TYPE_WEBPAGE
             elif extn in self.image_extns:
-                self.typ = 'image'
+                self.typ = TYPE_IMAGE
             elif extn in self.stylesheet_extns:
-                self.typ = 'stylesheet'
+                self.typ = TYPE_STYLESHEET
             else:
-                self.typ = 'file'
+                self.typ = TYPE_FILE
         else:
             if content_type:
                 # Do some generic tests
                 klass, typ = content_type.split('/')
                 if klass == 'image':
-                    self.typ = 'image'
+                    self.typ = TYPE_IMAGE
                 elif typ == 'html':
-                    self.typ = 'webpage'
+                    self.typ = TYPE_WEBPAGE
             else:
                 # Do static checks
                 if self.is_webpage():
-                    self.typ = 'webpage'
+                    self.typ = TYPE_WEBPAGE
                 elif self.is_image():
-                    self.typ = 'image'
+                    self.typ = TYPE_IMAGE
                 elif self.is_stylesheet():
-                    self.typ = 'stylesheet'
+                    self.typ = TYPE_STYLESHEET
                 else:
-                    self.typ = 'file'
+                    self.typ = TYPE_FILE
 
     # ============ End - Set Methods =========== #
 
@@ -1185,24 +1190,24 @@ if __name__=="__main__":
                HarvestManUrlParser('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
                HarvestManUrlParser('http://cwc2003.rediffblogs.com'),
                HarvestManUrlParser('/sports/2003/jun/25beck1.htm',
-                                   'normal', 0, 'http://www.rediff.com', ''),
+                                   'generic', 0, 'http://www.rediff.com', ''),
                HarvestManUrlParser('ftp://ftp.gnu.org/pub/lpf.README'),
                HarvestManUrlParser('http://www.python.org/doc/2.3b2/'),
                HarvestManUrlParser('//images.sourceforge.net/div.png',
                                    'image', 0, 'http://sourceforge.net', ''),
                HarvestManUrlParser('http://pyro.sourceforge.net/manual/LICENSE'),
-               HarvestManUrlParser('python/test.htm', 'normal', 0,
+               HarvestManUrlParser('python/test.htm', 'generic', 0,
                                    'http://www.foo.com/bar/index.html', ''),
-               HarvestManUrlParser('/python/test.css', 'normal',
+               HarvestManUrlParser('/python/test.css', 'generic',
                                    0, 'http://www.foo.com/bar/vodka/test.htm', ''),
-               HarvestManUrlParser('/visuals/standard.css', 'normal', 0,
+               HarvestManUrlParser('/visuals/standard.css', 'generic', 0,
                                    'http://www.garshol.priv.no/download/text/perl.html',
                                    'd:/websites'),
-               HarvestManUrlParser('www.fnorb.org/index.html', 'normal',
+               HarvestManUrlParser('www.fnorb.org/index.html', 'generic',
                                    0, 'http://pyro.sourceforge.net',
                                    'd:/websites'),
                HarvestManUrlParser('http://profigure.sourceforge.net/index.html',
-                                   'normal', 0, 'http://pyro.sourceforge.net',
+                                   'generic', 0, 'http://pyro.sourceforge.net',
                                    'd:/websites'),
                HarvestManUrlParser('#anchor', 'anchor', 0, 
                                    'http://www.foo.com/bar/index.html',
@@ -1212,9 +1217,9 @@ if __name__=="__main__":
                                    'http://www.python.org/doc/current/tut/node2.html',
                                    ''),
                HarvestManUrlParser('../eway/library/getmessage.asp?objectid=27015&moduleid=160',
-                                   'normal',0,'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'),
+                                   'generic',0,'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'),
                HarvestManUrlParser('fileadmin/dz.gov.si/templates/../../../index.php',
-                                   'normal',0,'http://www.dz-rs.si','~/websites'),
+                                   'generic',0,'http://www.dz-rs.si','~/websites'),
                HarvestManUrlParser('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70','form',True,'http://www.evvs.dk'),
                HarvestManUrlParser('http://arstechnica.com/reviews/os/macosx-10.4.ars')]
                                   

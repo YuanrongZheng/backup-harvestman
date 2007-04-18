@@ -54,6 +54,7 @@ import sha
 from sgmllib import SGMLParseError
 
 from common.common import *
+from urltypes import *
 from common.methodwrapper import MethodWrapperMetaClass
 
 import urlparser
@@ -215,9 +216,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
                     debug('Looks like a repeating error, not trying to restart thread %s' % (str(self)))
                 else:
                     self.__class__._lasterror = e
-                    self._crawlerqueue._cond.acquire()
                     self._crawlerqueue.dead_thread_callback(self)
-                    self._crawlerqueue._cond.release()                
                     extrainfo('Tracker thread %s has died due to error: %s' % (str(self), str(e)))
 
     def terminate(self):
@@ -758,9 +757,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         # download the url
         url_obj = self._urlobject
 
-        # print 'Webpage=>',self._urlobject.is_webpage(),self._url
-        
-        if self._urlobject.typ in ('webpage','base', 'anchor') and data:
+        if self._urlobject.is_webpage() and data:
 
             urlobjlist = []
             
@@ -794,7 +791,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                         extrainfo("Base url defined, replacing",self._url)
                         # Construct a url object
                         url_obj = urlparser.HarvestManUrlParser(url,
-                                                                'base',
+                                                                TYPE_BASE,
                                                                 0,
                                                                 self._urlobject,
                                                                 self._configobj.projdir)
@@ -890,9 +887,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
                 try:
                     child_urlobj =  urlparser.HarvestManUrlParser(url,
-                                                                 'stylesheet',
-                                                                 False,
-                                                                 self._urlobject)
+                                                                  TYPE_STYLESHEET,
+                                                                  False,
+                                                                  self._urlobject)
 
                     child_urlobj.set_index()
                     SetUrlObject(child_urlobj)

@@ -4,10 +4,14 @@
 #
 # Created: Anand B Pillai Mar 9 2007 by copying and merging
 # Progress/TextProgress classes from S.M.A.R.T version 0.5.
-# with slight modifications.
+# with some modifications for HarvestMan.
 #
-# Original copyright follows.
-#---------------------------------------------------------------------
+# This module is part of the HarvestMan program.
+# For licensing information see the file LICENSE.txt that
+# is included in this distribution.
+#
+#----------Original copyright/license information-------------------------
+#
 # Copyright (c) 2005 Canonical
 # Copyright (c) 2004 Conectiva, Inc.
 #
@@ -28,9 +32,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Smart Package Manager; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#--------------------------------------------------------------------------
+#-------------- End of original copyright ---------------------------------
 #
-# Copyright (C) 2007 Anand B Pillai
+# Copyright (C) 2007, Anand B Pillai
+#
 
 import posixpath
 import time

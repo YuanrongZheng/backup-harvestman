@@ -237,9 +237,7 @@ class HarvestManUrlThread(threading.Thread):
                     debug('Looks like a repeating error, not trying to restart worker thread %s' % (str(self)))
                 else:
                     self.__class__._lasterror = e
-                    self.__pool._cond.acquire()
                     self.__pool.dead_thread_callback(self)
-                    self.__pool._cond.release()                
                     extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))
 
 
@@ -468,7 +466,7 @@ class HarvestManUrlThreadPool(Queue):
 
             # See if this was a multi-part download
             if urlObj.trymultipart:
-                print 'Thread %s reported with data range (%d-%d)!' % (thread, urlObj.range[0], urlObj.range[-1])
+                # print 'Thread %s reported with data range (%d-%d)!' % (thread, urlObj.range[0], urlObj.range[-1])
                 # Get data
                 data = thread.get_data()
 
@@ -624,15 +622,20 @@ class HarvestManUrlThreadPool(Queue):
         a fresh thread, migrates the data of the dead
         thread to it """
 
-        new_t = HarvestManUrlThread(t.getName(), self.__timeout, self)
-        # Migrate data and start thread
-        if new_t:
-            new_t.set_urlobject(t.get_urlobject())
-            # Replace dead thread in the list
-            idx = self.__threads.index(t)
-            self.__threads[idx] = new_t
-            new_t.start()
-        else:
-            # Could not make new thread, remove
-            # current thread anyway
-            self.__threads.remove(t)
+        try:
+            self._cond.acquire()
+            new_t = HarvestManUrlThread(t.getName(), self.__timeout, self)
+            # Migrate data and start thread
+            if new_t:
+                new_t.set_urlobject(t.get_urlobject())
+                # Replace dead thread in the list
+                idx = self.__threads.index(t)
+                self.__threads[idx] = new_t
+                new_t.start()
+            else:
+                # Could not make new thread, remove
+                # current thread anyway
+                self.__threads.remove(t)
+        finally:
+            self._cond.release()                
+                    
