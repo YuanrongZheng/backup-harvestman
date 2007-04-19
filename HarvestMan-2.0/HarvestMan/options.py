@@ -13,13 +13,9 @@ Created Anand B Pillai - Feb 11 2007.
 Copyright (C) 2007 Anand B Pillai
 """
 
-def getOptList():
-    """ Return the list of options """
-    
-    return \
+hman_options=\
 [ ('version', 'short=v','long=version','help=Print version information and exit', 'type=bool'),
   ('simulate', 'short=m','long=simulate','help=Simulates crawling with the given configuration, without performing any actual downloads','type=bool'),
-  ('nocrawl', 'short=N','long=nocrawl','help=Only download the passed url (wget-like behaviour)','type=bool'),
   ('configfile', 'short=C','long=configfile','help=Read all options from the configuration file CFGFILE','meta=CFGFILE'),
   ('projectfile', 'short=P','long=projectfile','help=Load the project file PROJFILE','meta=PROJFILE'),
   ('urllist', 'short=F','long=urlfile',"help=Read a list of start URLs from file URLFILE and crawl them","meta=URLFILE"),  
@@ -44,7 +40,18 @@ def getOptList():
   ('urlfilter', 'short=u','long=urlfilter','help=Use regular expression FILTER for filtering urls','meta=FILTER'),
   ('plugin', 'short=g','long=plugin',"help=Load and run the plugin PLUGIN. Supported plugins are 'swish-e' and 'simulator'",'meta=PLUGIN')]
 
+hget_options=\
+               []
 
+def getOptList(appname):
+    """ Return the list of options """
+
+    if appname == 'HarvestMan':
+        return hman_options
+    elif appname == 'Hget':
+        return hget_options
+    else:
+        return []
 
 if __name__=="__main__":
     print getOptList()

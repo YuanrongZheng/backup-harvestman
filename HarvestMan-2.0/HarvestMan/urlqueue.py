@@ -216,7 +216,9 @@ class HarvestManCrawlerQueue(object):
                                                              urltypes.TYPE_ANY,
                                                              0, self._configobj.url,
                                                              self._configobj.projdir)
-            SetUrlObject(self._baseUrlObj)
+            dmgr = GetObject('datamanager')
+            dmgr.add_url(self._baseUrlObj)
+            
         except urlparser.HarvestManUrlParserError:
             return False
 
@@ -299,18 +301,7 @@ class HarvestManCrawlerQueue(object):
         # Set start time on config object
         self._configobj.starttime = t1
 
-        if not self._configobj.urlserver:
-            self.push(self._baseUrlObj, 'crawler')
-        else:
-            try:
-                # Flush url server of any previous urls by
-                # sending a flush command.
-                send_url("flush", self._configobj.urlhost, self._configobj.urlport)
-                send_url('CRAWLER:' + str(self._baseUrlObj.priority) + '#' + str(self._baseUrlObj.index),
-                         self._configobj.urlhost,
-                         self._configobj.urlport)
-            except:
-                pass
+        self.push(self._baseUrlObj, 'crawler')
 
         if self._configobj.fastmode:
 
@@ -608,32 +599,25 @@ class HarvestManCrawlerQueue(object):
 
         if self._flag: return
 
-        # 1.4 alpha 3 - Big fix for hanging threads.
-        # Instead of perpetually waiting at queues
-        # (blocking put), the threads now do a mix
-        # of unblocking put plus local buffers.
 
-        # Each thread tries to put data to buffer
-        # for maximum five attempts, each separated
-        # by a 0.5 second gap.
         ntries, status = 0, 0
 
         if role == 'crawler' or role=='tracker' or role =='downloader':
             while ntries < 5:
                 try:
                     ntries += 1
-                    self.url_q.put_nowait((obj.priority, obj.index))
+                    self.url_q.put_nowait((obj.priority, obj))
                     status = 1
                     break
                 except Full:
                     sleep(0.5)
                     
         elif role == 'fetcher':
-            stuff = (obj[0].priority, (obj[0].index, obj[1]))
+            # stuff = (obj[0].priority, (obj[0].index, obj[1]))
             while ntries < 5:
                 try:
                     ntries += 1
-                    self.data_q.put_nowait(stuff)
+                    self.data_q.put_nowait(obj)
                     status = 1
                     break
                 except Full:

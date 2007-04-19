@@ -16,7 +16,9 @@
                                      Requested by jim sloan of MCHS.
    Mar 06 2007    Anand              Added support for HTML EMBED & OBJECT tags.
    Apr 18 2007    Anand              Made to use the urltypes module.
-   
+   Apr 19 2007    Anand              Created class HarvestManCSSParser to take
+                                     care of parsing stylesheet content to extract
+                                     URLs.
 
   Copyright (C) 2004 Anand B Pillai.                                     
                                      
@@ -322,11 +324,53 @@ class HarvestManSimpleParser(SGMLParser):
     def get_base_url(self):
         return self.base
 
-class HarvestManComplexParser(HTMLParser, HarvestManSimpleParser):
+class HarvestManCSSParser(object):
+    """ Class to parse stylesheets and extract URLs """
 
-    def handle_starttag(self, tag, attrs):
-        HarvestManSimpleParser.unknown_starttag(tag, attrs)
+    # Regexp to parse stylesheet imports
+    importcss1 = re.compile(r'(\@import\s+\"?)(?!url)([\w.-:/]+)(\"?)', re.MULTILINE|re.LOCALE|re.UNICODE)
+    importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.LOCALE|re.UNICODE)
+    # Regexp to parse URLs inside CSS files
+    cssurl = re.compile(r'(url\()([^\)]+)(\))', re.LOCALE|re.UNICODE)
 
+    def __init__(self):
+        # Any imported stylesheet URLs
+        self.csslinks = []
+        # All URLs including above
+        self.links = []
+
+    def feed(self, data):
+        self._parse(data)
+        
+    def _parse(self, data):
+        """ Parse stylesheet data and extract imported css links, if any """
+
+        # Return is a list of imported css links.
+        # This subroutine uses the specification mentioned at
+        # http://www.w3.org/TR/REC-CSS2/cascade.html#at-import
+        # for doing stylesheet imports.
+
+        # This takes care of @import "style.css" and
+        # @import url("style.css") and url(...) syntax.
+        # Media types specified if any, are ignored.
+        
+        # Matches for @import "style.css"
+        l1 = self.importcss1.findall(data)
+        # Matches for @import url("style.css")
+        l2 = self.importcss2.findall(data)
+        # Matches for url(...)
+        l3 = self.cssurl.findall(data)
+        
+        for item in (l1+l2):
+            if not item: continue
+            url = item[1].replace("'",'').replace('"','')
+            self.csslinks.append(url)
+            self.links.append(url)
+            
+        for item in l3:
+            if not item: continue
+            url = item[1].replace("'",'').replace('"','')
+            self.links.append(url)
 
 if __name__=="__main__":
     import os

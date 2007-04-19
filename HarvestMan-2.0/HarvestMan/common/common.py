@@ -60,7 +60,6 @@ class Registry(object):
                      'modfilename',
                      'oldnewmappings',
                      'mappings',
-                     'urlmappings',
                      'config',
                      'connector',
                      'datamanager',
@@ -79,7 +78,6 @@ class Registry(object):
             self.USER_AGENT = 'HarvestMan 1.5'
             self.userdebug = []
             self.modfilename = ''
-            self.urlmappings = weakref.WeakValueDictionary()
             self.oldnewmappings = {}
             self.mappings = { 'HarvestManStateObject' : 'config',
                               'HarvestManNetworkConnector' : 'connector',
@@ -186,18 +184,6 @@ def SysExceptHook(typ, val, tracebak):
 
     pass
 
-def GetState():
-    """ Return a snapshot of the current state of this
-    object and its containing threads for serializing """
-        
-    d = {}
-    urlmap = {}
-    for key,val in RegisterObj.urlmappings.copy().items():
-        urlmap[key] = val
-        
-    d['urlmappings'] = urlmap
-    return d
-
 def GetObject(objkey):
     """ Get the registered instance of the HarvestMan program
     object using its key <objkey> by looking up the global
@@ -214,37 +200,11 @@ def GetObject(objkey):
 
     return None   
 
-def GetUrlObject(key):
-    """ Get url object based on its index (key) """
-
-    return RegisterObj.urlmappings.get(key, None)
-
-def SetUrlObject(obj):
-    """ Set url objects based on their index """
-
-    key = obj.index
-    urldict = RegisterObj.urlmappings
-    urldict[key] = obj
-
-def PopUrlObject(key):
-    RegisterObj.urlmappings.pop(key, None)
-                               
-def SetState(obj):
-
-    if obj.has_key('urlmappings'):
-        global RegisterObj
-        RegisterObj.urlmappings = obj.get('urlmappings').copy()
-        # print RegisterObj.urlmappings
-        return 0
-    else:
-        return -1
-
 def ResetState():
 
     from config import HarvestManStateObject
     
     global RegisterObj
-    RegisterObj.urlmappings = {}
     # Reset config object
     cfg = HarvestManStateObject()
     RegisterObj.config = cfg

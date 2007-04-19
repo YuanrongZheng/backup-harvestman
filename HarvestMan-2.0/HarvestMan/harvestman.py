@@ -40,7 +40,10 @@
                                      definitions and replaced entries with it.
                                      Upped version number to 2.0 since this is
                                      almost a new program now!
-
+     Apr 19 2007         Anand       Disabled urlserver option completely. Removed
+                                     all referring code from this module, crawler
+                                     and urlqueue modules. Moved code for grabbing
+                                     URL to new hget module.
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -64,7 +67,6 @@ import shutil
 import glob
 import re
 
-import urlserver
 import urlparser
 
 from common.common import *
@@ -115,34 +117,14 @@ class HarvestMan(object):
         # Clean up lists inside rules module
         GetObject('ruleschecker').clean_up()
 
-        global RegisterObj
-        # Reset url object indices
-        RegisterObj.urlmappings.clear()
-
     def finish(self):
         """ This function can be called at program exit or
         when handling signals to clean up """
 
         global RegisterObj
         
-        # Stop url server if it is running
-        if self._cfg.urlserver:
-            info('Stopping url server at port %d...' % self._cfg.urlport)
-            if self._cfg.useasyncore:
-                server = GetObject('asyncorethread')
-            else:
-                server = GetObject('simpleurlserver')
-            if server:
-                try:
-                    server.stop()
-                    moreinfo("Done.")
-                except socket.error, e:
-                    logconsole(e)
-                except Exception, e:
-                    logconsole(e)
 
         RegisterObj.ini = 0
-
         RegisterObj.logger.shutdown()
 
         # If this was started from a runfile,
@@ -184,8 +166,6 @@ class HarvestMan(object):
         if p: state['threadpool'] = p.get_state()
         state['ruleschecker'] = GetObject('ruleschecker').get_state()
 
-        # Get common state
-        state['common'] = GetState()
         # Get config object
         state['configobj'] = GetObject('config').copy()
         # print state['configobj']
@@ -243,55 +223,6 @@ class HarvestMan(object):
         tracker_queue = urlqueue.HarvestManCrawlerQueue()
         SetObject(tracker_queue)
 
-        # Start url server if requested
-        if self._cfg.urlserver:
-            # Currently url server feature is disabled
-            logconsole('Url server feature is disabled, reverting to using queues')
-            self._cfg.urlserver = False
-
-    def start_url_server(self):
-        """ Start url server """
-        
-        import socket
-
-        host, port = self._cfg.urlhost, self._cfg.urlport
-        # Initialize server
-        try:
-            if self._cfg.useasyncore:
-                server = urlserver.HarvestManUrlServer(host, port)
-            else:
-                server = urlserver.HarvestManSimpleUrlServer(host, port)
-                server.setDaemon(True)
-                extrainfo("Starting url server at port %d..." % self._cfg.urlport)
-                server.start()
-
-            SetObject(server)
-            port = server.get_port()
-            self._cfg.urlport = port
-
-            if self._cfg.useasyncore:
-                print 'Using asyncore server...'
-                extrainfo("Starting url server at port %d..." % self._cfg.urlport)
-                # Start asyncore thread
-                async_t = urlserver.AsyncoreThread(timeout=30.0, use_poll=True)
-                async_t.setDaemon(True)
-                SetObject(async_t)
-                async_t.start()
-
-            info("Url server bound to port %d" % port)
-        except socket.error, (errno, errmsg):
-            sys.exit('Error starting url server => '+errmsg)
-
-        # Test running server by pinging it 
-        time.sleep(1.0)
-        response = ping_urlserver(host, port)
-        if not response:
-            msg = """Unable to connect to url server at port %d\nCheck your settings""" % (self._cfg.urlport)
-
-            sys.exit(msg)
-        else:
-            extrainfo("Successfully started url server.")
-        
     def start_project(self):
         """ Start the current project """
 
@@ -335,23 +266,41 @@ class HarvestMan(object):
             tq = GetObject('trackerqueue')
             tq.terminate_threads()
 
-    def __prepare(self):
-        """ Do the basic things and get ready """
-
-        # Init Config Object
-        InitConfig()
-        # Initialize logger object
-        InitLogger()
+    def calculate_bandwidth(self):
+        """ Calculate bandwidth. This also sets limit on
+        maximum file size """
         
-        SetUserAgent(self.USER_AGENT)
+        # Calculate bandwidth
+        bw = 0
+        # Look for harvestman.conf in user conf dir
+        conf = os.path.join(self._cfg.userconfdir, 'harvestman.conf')
+        if not os.path.isfile(conf):
+            logconsole('Checking bandwidth...',)
+            conn = connector.HarvestManUrlConnector()
+            urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.com/schemas/HarvestMan.xsd')
+            bw = conn.calc_bandwidth(urlobj)
+            logconsole('done.')
+            bwstr='bandwidth=%f\n' % bw
+            if bw:
+                try:
+                    open(conf,'w').write(bwstr)
+                    logconsole('Wrote bandwidth information to %s.' % conf)
+                except IOError, e:
+                    pass
+        else:
+            r = re.compile(r'(bandwidth=)(.*)')
+            try:
+                data = open(conf).read()
+                m = r.findall(data)
+                if m:
+                    bw = float(m[0][-1])
+            except IOError, e:
+                pass
 
-        self._cfg = GetObject('config')
-
-        # Get program options
-        if not self._cfg.resuming:
-            self._cfg.get_program_options()
-
-        self.register_common_objects()
+        return bw
+        
+    def create_initial_directories(self):
+        """ Create initial directories """
 
         # Create user's .harvestman directory on POSIX
         if os.name == 'posix':
@@ -393,12 +342,32 @@ class HarvestMan(object):
                         info('Done.')
                     except (OSError, IOError), e:
                         logconsole(e)
+        
+    def _prepare(self):
+        """ Do the basic things and get ready """
 
-                # Calculate bandwidth and set max file size
-                bw = self.calculate_bandwidth()
-                # Max file size is calculated as bw*timeout
-                # where timeout => max time for a worker thread
-                if bw: self._cfg.maxfilesize = bw*self._cfg.timeout
+        # Init Config Object
+        InitConfig()
+        # Initialize logger object
+        InitLogger()
+        
+        SetUserAgent(self.USER_AGENT)
+
+        self._cfg = GetObject('config')
+
+        # Get program options
+        if not self._cfg.resuming:
+            self._cfg.get_program_options()
+
+        self.register_common_objects()
+        self.create_initial_directories()
+
+        if os.name == 'posix':
+            # Calculate bandwidth and set max file size
+            bw = self.calculate_bandwidth()
+            # Max file size is calculated as bw*timeout
+            # where timeout => max time for a worker thread
+            if bw: self._cfg.maxfilesize = bw*self._cfg.timeout
                 
     def setdefaultlocale(self):
         """ Set the default locale """
@@ -550,14 +519,6 @@ class HarvestMan(object):
             # Open stream to log file
             SetLogFile()
 
-            # Update common
-            ret = SetState(state.get('common'))
-            if ret == -1:
-                moreinfo("Error restoring state in 'common' module - cannot proceed further!")
-                return -1
-            else:
-                moreinfo("Restored state in 'common' module.")
-            
             # Now update trackerqueue
             tq = GetObject('trackerqueue')
             ret = tq.set_state(state.get('trackerqueue'))
@@ -592,73 +553,6 @@ class HarvestMan(object):
         except (pickle.UnpicklingError, AttributeError, IndexError, EOFError), e:
             return -1
 
-    def calculate_bandwidth(self):
-        """ Calculate bandwidth. This also sets limit on
-        maximum file size """
-        
-        # Calculate bandwidth
-        bw = 0
-        # Look for harvestman.conf in user conf dir
-        conf = os.path.join(self._cfg.userconfdir, 'harvestman.conf')
-        if not os.path.isfile(conf):
-            logconsole('Checking bandwidth...',)
-            conn = connector.HarvestManUrlConnector()
-            urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.com/schemas/HarvestMan.xsd')
-            bw = conn.calc_bandwidth(urlobj)
-            logconsole('done.')
-            bwstr='bandwidth=%f\n' % bw
-            if bw:
-                try:
-                    open(conf,'w').write(bwstr)
-                    logconsole('Wrote bandwidth information to %s.' % conf)
-                except IOError, e:
-                    pass
-        else:
-            r = re.compile(r'(bandwidth=)(.*)')
-            try:
-                data = open(conf).read()
-                m = r.findall(data)
-                if m:
-                    bw = float(m[0][-1])
-            except IOError, e:
-                pass
-
-        return bw
-        
-    def grab_url(self):
-        """ Download URL for the nocrawl option """
-                
-        bw = self.calculate_bandwidth()
-        
-        # Calculate max file size
-        # Max-file size is estimated based on maximum of
-        # 1 hour of download.
-        if bw:
-            maxsz = bw*3600
-        else:
-            # If cannot get bandwidth, put a default max
-            # file size of 50 MB
-            maxsz = 52428800
-            
-        self._cfg.maxfilesize = maxsz
-        
-        try:
-            # Set url thread pool to write mode
-            # In this mode, each thread flushes data to
-            # disk as files, instead of keeping data
-            # in-memory.
-            pool = GetObject('datamanager').get_url_threadpool()
-            # Set number of connections to two plus numparts
-            self._cfg.connections = self._cfg.numparts + 2
-            self._cfg.requests = self._cfg.numparts + 2
-            conn = connector.HarvestManUrlConnector()
-            urlobj = urlparser.HarvestManUrlParser(self._cfg.urls[0])
-            ret = conn.url_to_file(urlobj)
-        except KeyboardInterrupt:
-            reader = conn.get_reader()
-            if reader: reader.stop()
-            print ''
-        
     def run_saved_state(self):
 
         # If savesession is disabled, return
@@ -759,12 +653,7 @@ class HarvestMan(object):
         """ Main routine """
 
         # Prepare myself
-        self.__prepare()
-
-        # If this is nocrawl mode, just download the URL
-        if self._cfg.nocrawl:
-            self.grab_url()
-            return 0
+        self._prepare()
 
         # Load plugins
         self.process_plugins()

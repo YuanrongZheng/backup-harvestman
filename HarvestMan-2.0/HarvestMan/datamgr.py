@@ -15,6 +15,9 @@
     Mar 05 2007     Anand          Added method get_last_modified_time_and_data to support
                                    server-side cache checking using HTTP 304. Fixed a small
                                    bug in css url handling.
+    Apr 19 2007     Anand          Made to work with URL collections. Moved url mapping
+                                   dictionary here. Moved CSS parsing logic to pageparser
+                                   module.
                                    
    Copyright (C) 2004 Anand B Pillai.
     
@@ -63,22 +66,21 @@ class HarvestManDataManager(object):
                                '_deletedfiles': MyDeque(),
                                '_failedurls' : MyDeque(),
                                '_doneurls': MyDeque(),
+                               '_linkscoll': MyDeque(),
                                '_reposfiles' : 0,
                                '_cachefiles': 0
                              }
         # Config object
         self._cfg = GetObject('config')
-        # Used for localizing links
-        self._linksdict = {}
-        # New datastructure added on Jan 10 06
-        # to keep status of each fetcher
-        self._fetcherstatus = {}
         # Dictionary of servers crawled and
         # their meta-data. Meta-data is
         # a dictionary which currently
         # has only one entry.
         # i.e accept-ranges.
         self._serversdict = {}
+        # Url dictionary, storing all url objects
+        # w.r.t their index
+        self._urldict = {}
         # byte count
         self._bytes = 0L
         # Redownload flag
@@ -90,12 +92,6 @@ class HarvestManDataManager(object):
         else:
             self._urlThreadPool = None
 
-        # Regexp to parse stylesheet imports
-        self._importcss1 = re.compile(r'(\@import\s+\"?)(?!url)([\w.-:/]+)(\"?)', re.MULTILINE|re.LOCALE|re.UNICODE)
-        self._importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.LOCALE|re.UNICODE)
-        # Regexp to parse URLs inside CSS files
-        self._cssurl = re.compile(r'(url\()([^\)]+)(\))', re.LOCALE|re.UNICODE)
-        
     def get_state(self):
         """ Return a snapshot of the current state of this
         object and its containing threads for serializing """
@@ -103,9 +99,10 @@ class HarvestManDataManager(object):
         d = {}
         d['_numfailed'] = self._numfailed
         d['_downloaddict'] = self._downloaddict.copy()
-        d['_linksdict'] = self._linksdict.copy()
+        d['_urldict'] = self._urldict.copy()
+        d['_serversdict'] = self._serversdict.copy()        
         d['_bytes'] = self._bytes
-
+        
         return copy.deepcopy(d)
 
     def set_state(self, state):
@@ -113,9 +110,19 @@ class HarvestManDataManager(object):
         
         self._numfailed = state.get('_numfailed', 0)
         self._downloaddict = state.get('_downloaddict', self._downloaddict)
-        self._linksdict = state.get('_linksdict', {})
+        self._urldict = state.get('_urldict', self._urldict)
+        self._serversdict = state.get('_serversdict', self._serversdict)        
         self._bytes = state.get('_bytes', 0L)
         
+    def add_url(self, urlobj):
+        """ Add urlobject urlobj to the local dictionary """
+        
+        self._urldict[urlobj.index] = urlobj
+
+    def get_url(self, index):
+
+        return self._urldict[index]
+    
     def get_proj_cache_filename(self):
         """ Return the cache filename for the current project """
 
@@ -139,8 +146,6 @@ class HarvestManDataManager(object):
         else:
             return ''        
 
-    def get_links_dictionary(self):
-        return self._linksdict
 
     def get_server_dictionary(self):
         return self._serversdict
@@ -163,34 +168,6 @@ class HarvestManDataManager(object):
 
         return 0
         
-    def parse_style_sheet(self, data):
-        """ Parse stylesheet data and extract imported css links, if any """
-
-        # Return is a list of imported css links.
-        # This subroutine uses the specification mentioned at
-        # http://www.w3.org/TR/REC-CSS2/cascade.html#at-import
-        # for doing stylesheet imports.
-
-        # This takes care of @import "style.css" and
-        # @import url("style.css") and url(...) syntax.
-        # Media types specified if any, are ignored.
-        
-        # Matches for @import "style.css"
-        l1 = self._importcss1.findall(data)
-        # Matches for @import url("style.css")
-        l2 = self._importcss2.findall(data)
-        # Matches for url(...)
-        l3 = self._cssurl.findall(data)
-        
-        # The URL is the second item of the returned match tuple
-        csslinks = []
-        for item in (l1+l2+l3):
-            if not item: continue
-            url = item[1].replace("'",'').replace('"','')
-            csslinks.append(url)
-
-        return csslinks
-    
     def read_project_cache(self):
         """ Try to read the project cache file """
 
@@ -620,7 +597,7 @@ class HarvestManDataManager(object):
                 lookuplist.append( filename )
         elif status == 3:
             self._downloaddict['_reposfiles'] += 1
-            extrainfo('Filename=>',filename,self._downloaddict['_reposfiles'])
+            # extrainfo('Filename=>',filename,self._downloaddict['_reposfiles'])
         elif status == 4:
             self._downloaddict['_cachefiles'] += 1            
         else:
@@ -635,14 +612,13 @@ class HarvestManDataManager(object):
             
         return 0
     
-    def update_links(self, filename, urlobjlist):
-        """ Update the links dictionary for this html file """
+    def update_links(self, collection):
+        """ Update the links dictionary for this collection """
 
-        if self._linksdict.has_key(filename):
-            links = self._linksdict[filename]
-            links.extend(urlobjlist)
-        else:
-            self._linksdict[filename] = urlobjlist
+        linkscoll = self._downloaddict.get('_linkscoll')
+        sourceurl = collection.getSourceURL()
+        # Append the collection
+        linkscoll.append((sourceurl, collection.getURLs()))
 
     def thread_download(self, urlObj):
         """ Download this url object in a separate thread """
@@ -762,10 +738,6 @@ class HarvestManDataManager(object):
 
         data=""
         if no_threads:
-            # Update a local dictionary on the URLs
-            # each fetcher is in charge of
-            # Get the calling thread
-            self._fetcherstatus[caller] = urlobj.get_full_url()
             server = urlobj.get_domain()
             conn_factory = GetObject('connectorfactory')
 
@@ -829,34 +801,6 @@ class HarvestManDataManager(object):
         except ValueError:
             return False
     
-    def check_duplicates(self, url):
-        """ Check for fetchers in charge of URL url.
-        Return True if found, False otherwise """
-
-        return url in self._fetcherstatus.values()
-        
-    def check_duplicate_download(self, urlobj):
-        """ Check if this is a duplicate download """
-
-        # Modified - Anand Jan 10 06
-        # Modified to check fetcher status dictionary to avoid
-        # duplicate downloads, also urlthredpool should be queried
-        # only for non-webpage URLs.
-        if urlobj.is_webpage() or urlobj.is_stylesheet():
-            ret = self.is_file_downloaded(urlobj.get_full_filename())
-            if ret:return ret
-            # Check if some fetcher is already in charge
-            # of this URL
-            else:
-                ret = self.check_duplicates(urlobj.get_full_url())
-                if ret:
-                    debug("Fetchers in charge of url",urlobj.get_full_url(),"...")
-                return ret
-        elif self._urlThreadPool:
-            # Query worker thread pool, if enabled
-            debug('Checking duplicates for url...',urlobj.get_full_url(),urlobj.get_type())
-            return self._urlThreadPool.check_duplicates(urlobj)
-        
     def clean_up(self):
         """ Purge data for a project by cleaning up
         lists, dictionaries and resetting other member items"""
@@ -865,8 +809,6 @@ class HarvestManDataManager(object):
         self._projectcache.clear()
         self._projectcache = {}
         self._downloaddict = {}
-        # Clean up links dictionary
-        self._linksdict.clear()
         # Reset byte count
         self._bytes = 0L
 
@@ -929,9 +871,27 @@ class HarvestManDataManager(object):
         """ Add original URL headers of urls downloaded
         as an entry to the cache file """
 
-        links_dict = self.get_links_dictionary()
-        for links in links_dict.values():
-            for urlobj in links:
+ ##        links_dict = self.get_links_dictionary()
+##         for links in links_dict.values():
+##             for urlobj in links:
+##                 if urlobj:
+##                     url = urlobj.get_full_url()
+##                     # Get headers
+##                     headers = urlobj.get_url_content_info()
+##                     if headers:
+##                         dom = urlobj.get_full_domain()
+##                         if self._projectcache.has_key(dom):
+##                             urldict = self._projectcache[dom]
+##                             d = urldict[url]
+##                             d['headers'] = headers
+
+        linkscoll = self._downloaddict['_linkscoll']
+        listoflinks = [item[1] for item in linkscoll]
+
+        for links in listoflinks:
+            for urlobjidx in links:
+                urlobj = self.get_url(urlobjidx)
+                
                 if urlobj:
                     url = urlobj.get_full_url()
                     # Get headers
@@ -942,6 +902,7 @@ class HarvestManDataManager(object):
                             urldict = self._projectcache[dom]
                             d = urldict[url]
                             d['headers'] = headers
+            
         
     def dump_headers(self):
         """ Dump the headers of the web pages
@@ -956,8 +917,12 @@ class HarvestManDataManager(object):
             extrainfo("Writing url headers database",dbmfile,"...")        
             shelf = shelve.open(dbmfile)
             
-            links_dict = self.get_links_dictionary()
-            for links in links_dict.values():
+            linkscoll = self._downloaddict['_linkscoll']
+            listoflinks = [item[1] for item in linkscoll]
+        
+            for linksidx in listoflinks:
+                urlobj = self.get_url(linksidx)
+                
                 for urlobj in links:
                     if urlobj:
                         url = urlobj.get_full_url()
@@ -985,14 +950,17 @@ class HarvestManDataManager(object):
         
         info('Localising links of downloaded web pages...',)
 
-        links_dict = self.get_links_dictionary()
-
+        linkscoll = self._downloaddict['_linkscoll']
+        
         count = 0
-        for filename in links_dict.keys():
+        for item in linkscoll:
+            sourceurl = self.get_url(item[0])
+            childurls = [self.get_url(index) for index in item[1]]
+            filename = sourceurl.get_full_filename()
+
             if os.path.exists(filename):
-                links = links_dict[filename]
                 info('Localizing links for',filename)
-                if self.localise_file_links(filename, links)==0:
+                if self.localise_file_links(filename, childurls)==0:
                     count += 1
 
         extrainfo('Localised links of',count,'web pages.')
@@ -1279,11 +1247,11 @@ class HarvestManDataManager(object):
     def dump_urltree_textmode(self, stream):
         """ Dump urls in text mode """
 
-        linksdict = self.get_links_dictionary()
+        linkscoll = self._downloaddict['_linkscoll']
         
-        for f in linksdict.keys ():
+        for item in linkscoll:
             idx = 0
-            links = linksdict[f]
+            links = [self.get_url(index) for index in item[1]]
 
             children = []
             for link in links:
@@ -1308,7 +1276,7 @@ class HarvestManDataManager(object):
     def dump_urltree_htmlmode(self, stream):
         """ Dump urls in html mode """
 
-        linksdict = self.get_links_dictionary()
+        linkscoll = self._downloaddict['_linkscoll']
 
         # Write html header
         stream.write('<html>\n')
@@ -1322,9 +1290,9 @@ class HarvestManDataManager(object):
         stream.write('<p>\n')
         stream.write('<ol>\n')
         
-        for f in linksdict.keys ():
+        for item in linkscoll:
             idx = 0
-            links = linksdict[f]
+            links = [self.get_url(index) for index in item[1]]            
 
             children = []
             for link in links:

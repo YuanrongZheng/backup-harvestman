@@ -36,6 +36,7 @@ __version__ = '2.0 b1'
 __author__ = 'Anand B Pillai'
 
 import urltypes
+from urlparser import HarvestManUrlParser
 
 class HarvestManUrlCollectionException(Exception):
     """ Exception class for collections """
@@ -107,7 +108,7 @@ class HarvestManCSSContext(HarvestManPageContext):
     # Bag URL types for the context
     bagurltype = urltypes.TYPE_ANY
 
-class HarvestManCSS2Context(HarvestManPageContext):
+class HarvestManCSS2Context(HarvestManCSSContext):
     """ CSS2 context. This context ties a stylesheet URL to any
     other stylesheets imported in it """
 
@@ -123,20 +124,22 @@ class HarvestManCSS2Context(HarvestManPageContext):
 class HarvestManUrlCollection(object):
     """ URL collection classes for HarvestMan """
 
-    # This class is designed as a bag for HarvestManUrlParser
+    # This class is designed as a bag fo1r HarvestManUrlParser
     # objects, tied to a context. The key attributes of this
     # class are a list of such url objects, a main URL
     # object from which the context originates (the 'source'
     # URL object) and a corresponding context.
 
     def __init__(self, source = None, context = HarvestManUrlContext):
-        self._source = source
+        # For efficiency purposes, we do not
+        # keep reference to urlobjects, only their indices.
+        if source:
+            self._source = source.index
+        else:
+            self._source = None
+            
         self._context = context
         self._urls = []
-        if self._source:
-            if self._source.typ != self._context.sourcetype:
-                raise HarvestManUrlCollectionException, 'Error: mismatch in context and source URL types!'
-
 
     def addURL(self, urlobj):
         """ Add a url object to the collection """
@@ -146,9 +149,17 @@ class HarvestManUrlCollection(object):
         # do a isA check since the url object's type can
         # be a specialized form (derived class) of the
         # bagurltype.
+
+        if not isinstance(urlobj, HarvestManUrlParser):
+            raise HarvestManUrlCollectionException, 'Error: Wrong argument type, expecting HarvestManUrlParser instance!'
+
+        # For efficiency on memory, we do not append
+        # url objects to the list, only their indices.
+        # Url objects can be mapped out later using their
+        # index from the datamgr object.
         
         if urlobj.typ.isA(self._context.bagurltype):
-            self._urls.append(urlobj)
+            self._urls.append(urlobj.index)
         else:
             raise HarvestManUrlCollectionException, 'Error: mismatch in context and bag URL types!'
 
@@ -156,11 +167,16 @@ class HarvestManUrlCollection(object):
         """ Remove a url object from the collection """
         
         try:
-            self._urls.remove(urlobj)
+            self._urls.remove(urlobj.index)
         except ValueError, e:
             pass
 
 
+    def getSourceURL(self):
+        """ Return the source URL object """
+
+        return self._source
+        
     def getURLs(self):
         """ Get list of URL objects """
 

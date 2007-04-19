@@ -36,21 +36,17 @@
 __version__ = '2.0 b1'
 __author__ = 'Anand B Pillai'
 
-USAGE = """\
+USAGE1 = """\
  %(program)s [options] [optional URL]
  
 %(appname)s %(version)s %(maturity)s: An extensible, multithreaded web crawler.
 
-There are three major modes of running %(appname)s.
+Mail bug reports and suggestions to <abpillai@gmail.com>."""
 
-In the default mode, %(appname)s works as a crawler. 
-
-With the -N or --nocrawl option, %(appname)s only downloads
-the url and saves it to the disk, similar to wget. 
-
-With the -m or --simulate option, %(appname)s performs crawling,
-but no files are downloaded. In this mode, caching is turned
-off automatically.
+USAGE2 = """\
+ %(program)s [options] URL
+ 
+%(appname)s %(version)s %(maturity)s: A multithreaded web downloader based on HarvestMan.
 
 Mail bug reports and suggestions to <abpillai@gmail.com>."""
 
@@ -75,8 +71,11 @@ class HarvestManStateObject(dict):
     def _init1(self):
 
         self.items_to_skip=[]
+        # Version for harvestman
         self.version='2.0'
+        # Maturity for harvestman
         self.maturity="beta 1"
+        # Single appname property for hget/harvestman
         self.appname='HarvestMan'
         self.progname="".join((self.appname," ",self.version," ",self.maturity))
         self.program = sys.argv[0]
@@ -242,7 +241,7 @@ class HarvestManStateObject(dict):
                          'proxypasswd' : ('ppasswd','str'),
                          'proxyport_value' : ('proxyport','int'),
 
-                         'urlserver_status' : ('urlserver','int'),
+                         # 'urlserver_status' : ('urlserver','int'),
                          'urlhost' : ('urlhost','str'),
                          'urlport_value' : ('urlport','int'),
 
@@ -469,7 +468,12 @@ class HarvestManStateObject(dict):
         
         args, optdict = '',{}
         try:
-            gopt = GenericOptionParser(options.getOptList(), usage = USAGE % self )
+            if self.appname == 'HarvestMan':
+                USAGE = USAGE1
+            elif self.appname == 'Hget':
+                USAGE = USAGE2
+                
+            gopt = GenericOptionParser(options.getOptList(self.appname), usage = USAGE % self )
             optdict, args = gopt.parse_arguments()
         except GenericOptionParserError, e:
             sys.exit('Error: ' + str(e))
