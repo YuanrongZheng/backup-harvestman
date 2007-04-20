@@ -2,7 +2,7 @@
 # -- coding: latin-1
 """ Hget - Extensible, modular, multithreaded Internet
     downloader program in the spirit of wget, using
-    HarvestMan codebase. 
+    HarvestMan codebase. H
     
     Version      - 1.0 beta 1.
 
@@ -89,6 +89,7 @@ class Hget(HarvestMan):
         self._cfg.appname = 'Hget'
         self._cfg.version = VERSION
         self._cfg.maturity = MATURITY
+        self._cfg.nocrawl = True
         
         # Get program options
         self._cfg.parse_arguments()

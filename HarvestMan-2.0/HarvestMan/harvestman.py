@@ -277,7 +277,7 @@ class HarvestMan(object):
         if not os.path.isfile(conf):
             logconsole('Checking bandwidth...',)
             conn = connector.HarvestManUrlConnector()
-            urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.com/schemas/HarvestMan.xsd')
+            urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.org/schemas/HarvestMan.xsd')
             bw = conn.calc_bandwidth(urlobj)
             logconsole('done.')
             bwstr='bandwidth=%f\n' % bw

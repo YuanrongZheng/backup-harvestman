@@ -1056,6 +1056,7 @@ class HarvestManUrlConnector(object):
                 # create a request object
                 request = urllib2.Request(urltofetch)
                 byterange = urlobj.range
+                
                 if byterange:
                     range1 = byterange[0]
                     range2 = byterange[-1]
@@ -1097,7 +1098,7 @@ class HarvestManUrlConnector(object):
                     logconsole("Url does not match size constraints")
                     # Dont do range checking on FTP servers since they
                     # typically support it by default.
-                    print urlobj.protocol
+
                     if urlobj.protocol != 'ftp://':
                         logconsole('Checking whether server supports multipart downloads...')
                         # See if the server supports 'Range' header
@@ -1124,6 +1125,7 @@ class HarvestManUrlConnector(object):
                     if not trynormal:
                         logconsole('Trying multipart download...')
                         # urlobj.trymultipart = True
+                        
                         ret = dmgr.download_multipart_url(urlobj, clength)
                         if ret==1:
                             logconsole('Cannot do multipart download, piece size greater than maxfile size!')
@@ -1143,11 +1145,9 @@ class HarvestManUrlConnector(object):
                     # would have been done before.
                     if not urlobj.range and showprogress:
                         self.set_progress_object(filename,1,[filename],nolengthmode)
-                    else:
-                        pass
                     
                     prog = self._cfg.progressobj
-                                
+                    
                     mypercent = 0.0
                     
                     self._reader = DataReader(self.__freq, urltofetch, clength)
@@ -1159,9 +1159,11 @@ class HarvestManUrlConnector(object):
 
                     while True:
                         if self._cfg.multipart: self._reader.readNext()
-                            
+                        
+
                         if clength:
                             percent,l,bw,eta = self._reader.get_info()
+                            
                             if percent and showprogress:
                                 prog.setScreenWidth(prog.getScreenWidth())
                                 #subdata = {'item-number': urlobj.mindex+1}

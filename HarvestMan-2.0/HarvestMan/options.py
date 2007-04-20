@@ -15,7 +15,7 @@ Copyright (C) 2007 Anand B Pillai
 
 hman_options=\
 [ ('version', 'short=v','long=version','help=Print version information and exit', 'type=bool'),
-  ('simulate', 'short=m','long=simulate','help=Simulates crawling with the given configuration, without performing any actual downloads','type=bool'),
+  ('simulate', 'short=m','long=simulate','help=Simulates crawling with the given configuration, without performing any actual downloads (same as -g simulator)','type=bool'),
   ('configfile', 'short=C','long=configfile','help=Read all options from the configuration file CFGFILE','meta=CFGFILE'),
   ('projectfile', 'short=P','long=projectfile','help=Load the project file PROJFILE','meta=PROJFILE'),
   ('urllist', 'short=F','long=urlfile',"help=Read a list of start URLs from file URLFILE and crawl them","meta=URLFILE"),  
@@ -36,7 +36,7 @@ hman_options=\
   ('maxfiles', 'short=M','long=maxfiles','help=Limit the number of files downloaded to NUMFILES','meta=NUMFILES'),
   ('timelimit', 'short=t','long=timelimit','help=Run the program for the specified time period PERIOD (in seconds)','meta=PERIOD'),
   ('savesessions', 'short=S','long=savesessions','help=Enable/disable session saver feature. If enabled(default), crashed sessions are automatically saved to disk and the program gives you the option of resuming them next time'),
-  ('robots', 'short=R','long=robots','help=Enable/disable Robot Exclusion Protocol.'),
+  ('robots', 'short=R','long=robots','help=Enable/disable Robot Exclusion Protocol and checking of META ROBOTS tags.'),
   ('urlfilter', 'short=u','long=urlfilter','help=Use regular expression FILTER for filtering urls','meta=FILTER'),
   ('plugin', 'short=g','long=plugin',"help=Load and run the plugin PLUGIN. Supported plugins are 'swish-e' and 'simulator'",'meta=PLUGIN')]
 

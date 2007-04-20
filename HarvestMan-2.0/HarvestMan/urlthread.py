@@ -156,7 +156,7 @@ class HarvestManUrlThread(threading.Thread):
         # This call will block if we exceed the number of connections
         # moreinfo("Creating connector for url ", urlobj.get_full_url())
         conn = conn_factory.create_connector( server )
-
+        
         if not url_obj.trymultipart:
             res = conn.save_url(url_obj)
         else:
