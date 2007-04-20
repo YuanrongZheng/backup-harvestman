@@ -30,13 +30,17 @@ def make_data_files():
     return data_files
     
 setup(name="HarvestMan",
-      version="1.5 b1",
-      description="HarvestMan - Extensible multithreaded Offline Browser/Web Crawler",
+      version="2.0 beta1",
+      description="Modular, Extensible, Flexible, Multithreaded WebCrawler Engine/Offline Browser",
       author="Anand B Pillai",
       author_email="abpillai_at_gmail_dot_com",
       url="http://harvestman.freezope.org/",
       license="GNU General Public License",
-      packages = ['HarvestMan', 'HarvestMan.common','HarvestMan.tools'],
+      packages = ['HarvestMan',
+                  'HarvestMan.common',
+                  'HarvestMan.tools',
+                  'HarvestMan.plugins',
+                  'HarvestMan.tests'],
       data_files=make_data_files(),
       )
 

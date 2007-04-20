@@ -39,6 +39,8 @@
    Mar 26 2007        Finished implementation of multipart, integrating
                       with the crawler pieces. Resuming of URLs and
                       caching changes are pending.
+
+   April 20 2007  Anand Added force-splitting option for hget.
    
    Copyright (C) 2004 Anand B Pillai.    
                               
@@ -588,9 +590,10 @@ class HarvestManUrlConnector(object):
         self._cfg = GetObject('config')        
         # Http header for current connection
         self._headers = CaselessDict()
-        # Data reader thread - only used for
-        # -N option
+        # Data reader object - used by hget
         self._reader = None
+        # Elasped time for reading data
+        self._elasped = 0.0
         
     def __del__(self):
         del self.__data
@@ -814,8 +817,12 @@ class HarvestManUrlConnector(object):
                     try:
                         # If gzip-encoded, need to deflate data
                         encoding = self.get_content_encoding()
-                        
+
+                        t1 = time.time()
                         data = self.__freq.read()
+
+                        self._elapsed = time.time() - t1
+                        
                         # Save a reference
                         data0 = data
                         self.__freq.close()                        
@@ -1092,15 +1099,20 @@ class HarvestManUrlConnector(object):
 
                 trynormal = False
                 # Check constraint on file size
-                if not byterange and not self.check_content_length():
+                if (not byterange and self._cfg.forcesplit) or \
+                       (not byterange and not self.check_content_length()):
                     maxsz = self._cfg.maxfilesize
-                    logconsole('Maximum file size for single downloads is %.0f bytes.' % maxsz)
-                    logconsole("Url does not match size constraints")
+                    if not self._cfg.forcesplit:
+                        logconsole('Maximum file size for single downloads is %.0f bytes.' % maxsz)
+                        logconsole("Url does not match size constraints")
+                    else:
+                        logconsole('Forcing download into %d parts' % self._cfg.numparts)
+                        
                     # Dont do range checking on FTP servers since they
                     # typically support it by default.
 
                     if urlobj.protocol != 'ftp://':
-                        logconsole('Checking whether server supports multipart downloads...')
+                        # logconsole('Checking whether server supports multipart downloads...')
                         # See if the server supports 'Range' header
                         # by requesting half the length
                         self._headers.clear()
@@ -1157,6 +1169,8 @@ class HarvestManUrlConnector(object):
                     else:
                         self._reader.start()
 
+                    t1 = time.time()
+                    
                     while True:
                         if self._cfg.multipart: self._reader.readNext()
                         
@@ -1191,6 +1205,8 @@ class HarvestManUrlConnector(object):
                             if self._reader._flag: break
                             mypercent += 2.0
                             if mypercent==100.0: mypercent=0.0
+
+                    self._elapsed = time.time() - t1
                     
                     data = self._reader.get_data()
 
@@ -1519,7 +1535,6 @@ class HarvestManUrlConnector(object):
         """ Calculate bandwidth using URL """
 
         url = urlobj.get_full_url()
-        t1 = time.time()
         # Set verbosity to silent
         logobj = GetObject('logger')
         self._cfg.verbosity = 0
@@ -1529,9 +1544,8 @@ class HarvestManUrlConnector(object):
         self._cfg.verbosity = self._cfg.verbosity_default
         logobj.setLogSeverity(self._cfg.verbosity)
         
-        t2 = time.time()
         if self.__data:
-            return float(len(self.__data))/(t2-t1)
+            return float(len(self.__data))/(self._elapsed)
         else:
             return 0
         

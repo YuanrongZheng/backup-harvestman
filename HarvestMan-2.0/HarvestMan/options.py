@@ -41,7 +41,8 @@ hman_options=\
   ('plugin', 'short=g','long=plugin',"help=Load and run the plugin PLUGIN. Supported plugins are 'swish-e' and 'simulator'",'meta=PLUGIN')]
 
 hget_options=\
-               []
+[ ('version', 'short=v','long=version','help=Print version information and exit', 'type=bool'),
+  ('numparts','short=n','long=numparts','help=Force-split download into <NUMPARTS> parts') ] 
 
 def getOptList(appname):
     """ Return the list of options """

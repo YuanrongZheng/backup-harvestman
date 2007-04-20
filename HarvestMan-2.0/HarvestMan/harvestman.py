@@ -275,16 +275,13 @@ class HarvestMan(object):
         # Look for harvestman.conf in user conf dir
         conf = os.path.join(self._cfg.userconfdir, 'harvestman.conf')
         if not os.path.isfile(conf):
-            logconsole('Checking bandwidth...',)
             conn = connector.HarvestManUrlConnector()
-            urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.org/schemas/HarvestMan.xsd')
+            urlobj = urlparser.HarvestManUrlParser('http://harvestmanontheweb.com/schemas/HarvestMan.xsd')
             bw = conn.calc_bandwidth(urlobj)
-            logconsole('done.')
             bwstr='bandwidth=%f\n' % bw
             if bw:
                 try:
                     open(conf,'w').write(bwstr)
-                    logconsole('Wrote bandwidth information to %s.' % conf)
                 except IOError, e:
                     pass
         else:

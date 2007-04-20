@@ -1,16 +1,19 @@
 #!/bin/bash
-# HarvestMan installation script for
-# Linux/Unix systems.
+# HarvestMan installation script for Linux/Unix/Unix like systems.
+# Tested on Ubuntu Edgy Eft, may not work for Macs.
 
 currver=`python -c "import sys; v = sys.version_info; print ''.join((str(v[0]),'.',str(v[1])))"`
+echo $currver
 
 function sym_link
 {
 sitedir=`python -c "import os; print os.path.join(os.path.dirname(os.__file__), 'site-packages')"`
-exepath=$sitedir/HarvestMan/harvestman.py
-if [ ! -f $exepath ]
+exepath1=$sitedir/HarvestMan/harvestman.py
+exepath2=$sitedir/HarvestMan/hget.py
+
+if [ ! -f $exepath1 ]
 then
-echo "Could not find $exepath"
+echo "Could not find $exepath1"
 echo "Re-run the installation or install manually"
 exit 2
 fi
@@ -21,6 +24,20 @@ rm -rf /usr/bin/harvestman
 fi
 echo "/usr/bin/env python $exepath \$*" > /usr/bin/harvestman
 chmod +x /usr/bin/harvestman
+
+if [ ! -f $exepath2 ]
+then
+echo "Could not find $exepath2"
+echo "Re-run the installation or install manually"
+exit 2
+fi
+
+if [ -f /usr/bin/hget ]
+then
+rm -rf /usr/bin/hget
+fi
+echo "/usr/bin/env python $exepath2 \$*" > /usr/bin/hget
+chmod +x /usr/bin/hget
 }
 
 case `whoami` in 
@@ -29,16 +46,15 @@ case `whoami` in
 esac
 
 case $currver in
-"2.4") echo "Python 2.4 detected...";;
-"2.3") echo "Python 2.3 detected...";;
-*) echo "Python 2.3 or 2.4 not detected";echo "Please upgrade your Python installation";exit 2;;
+"2.5"|"2.4"|"2.3") echo "Python $currver detected...";;
+*) echo "Suitable Python version not detected";echo "Please upgrade your Python installation";exit 2;;
 esac
 
 echo "Creating build..."
 python setup.py build
 echo "Installing..."
 python setup.py install
-echo "Creating link to HarvestMan in /usr/bin...";
+echo "Creating link to programs in /usr/bin...";
 sym_link
 
 # Clean up local build directory

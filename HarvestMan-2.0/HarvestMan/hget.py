@@ -2,7 +2,7 @@
 # -- coding: latin-1
 """ Hget - Extensible, modular, multithreaded Internet
     downloader program in the spirit of wget, using
-    HarvestMan codebase. H
+    HarvestMan codebase. 
     
     Version      - 1.0 beta 1.
 
@@ -13,8 +13,10 @@
 
  Modification History
 
-    Created: April 19 2004 Anand B Pillai
+    Created: April 19 2007 Anand B Pillai
 
+     April 20 2007 Added more command-line options   Anand
+     
 Copyright(C) 2007, Anand B Pillai
 
 """
@@ -38,20 +40,8 @@ class Hget(HarvestMan):
 
     def grab_url(self):
         """ Download URL """
-                
-        bw = self.calculate_bandwidth()
-        
-        # Calculate max file size
-        # Max-file size is estimated based on maximum of
-        # 1 hour of download.
-        if bw:
-            maxsz = bw*3600
-        else:
-            # If cannot get bandwidth, put a default max
-            # file size of 50 MB
-            maxsz = 52428800
-            
-        self._cfg.maxfilesize = maxsz
+
+        # print self._cfg.maxfilesize
         
         try:
             # Set url thread pool to write mode
@@ -100,10 +90,12 @@ class Hget(HarvestMan):
         if os.name == 'posix':
             # Calculate bandwidth and set max file size
             bw = self.calculate_bandwidth()
-            # Max file size is calculated as bw*timeout
-            # where timeout => max time for a worker thread
-            if bw: self._cfg.maxfilesize = bw*self._cfg.timeout
-        
+            # print 'BW',bw
+            # Max file size is calculated on basis of
+            # maximum 15 minutes of continous download.
+            if bw: self._cfg.maxfilesize = bw*900
+            else: self._cfg.maxfilesize = 10485760
+
     def main(self):
         """ Main routine """
 

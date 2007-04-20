@@ -28,7 +28,8 @@
                               as default.
    Mar 06 2007       Anand    Reset default option to queue.
    April 11 2007     Anand    Renamed xmlparser module to configparser.
-
+   April 20 2007     Anand    Added options for hget.
+   
    Copyright (C) 2004 Anand B Pillai.                              
 
 """
@@ -40,6 +41,7 @@ USAGE1 = """\
  %(program)s [options] [optional URL]
  
 %(appname)s %(version)s %(maturity)s: An extensible, multithreaded web crawler.
+Author: Anand B Pillai
 
 Mail bug reports and suggestions to <abpillai@gmail.com>."""
 
@@ -47,6 +49,7 @@ USAGE2 = """\
  %(program)s [options] URL
  
 %(appname)s %(version)s %(maturity)s: A multithreaded web downloader based on HarvestMan.
+Author: Anand B Pillai
 
 Mail bug reports and suggestions to <abpillai@gmail.com>."""
 
@@ -211,7 +214,9 @@ class HarvestManStateObject(dict):
         self.multipart = False
         # Current progress object
         self.progressobj = TextProgress()
-
+        # Flag for forcing multipart downloads
+        self.forcesplit = False
+        
     def copy(self):
         # Set non-picklable objects to None type
         self.progressobj = None
@@ -537,8 +542,6 @@ class HarvestManStateObject(dict):
                 if self.check_value(option,value): self.set_option_xml('robots_value', self.process_value(value))
             elif option=='urllist':
                 if self.check_value(option,value): self.set_option_xml('urllist', self.process_value(value))
-            elif option=='nocrawl':
-                self.nocrawl = value
             elif option=='proxy':
                 if self.check_value(option,value):
                     # Set proxyencrypted flat to False
@@ -577,6 +580,17 @@ class HarvestManStateObject(dict):
                 else:
                     print 'Error in command-line options: Invalid plugin %s!' % value
                     sys.exit(0)
+            # Hget options
+            elif option=='numparts':
+                # Setting numparts forces split downloads
+                self.numparts = abs(int(value))
+                if self.numparts == 0:
+                    print 'Error: Invalid value for number of parts, value should be non-zero!'
+                    sys.exit(1)
+                if self.numparts>1:
+                    self.forcesplit = True
+                else:
+                    print 'Warning: Setting numparts to 1 has no effect!'
 
         if self.nocrawl:
             self.pagecache = False

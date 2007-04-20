@@ -4,7 +4,7 @@
 |                                                          |
 |           URL: http://harvestman.freezope.org            |
 *==========================================================*
-Version 1.5 b1
+Version 2.0 b1
 Release Date: TBD
 
 Release Focus: Major Enhancements, Bug-fixes
@@ -40,30 +40,33 @@ other stylesheets referred in them.
 
 Other Changes
 =============
-1. Rewrote logger module to use Python logging API.
+1. Rewrote logger module to use Python logging API. 
 2. All print statements replaced to use logconsole
 method of the logger.
-3. No-crawl logic completely rewritten. It uses
+3. Log for the same project run after the first time,
+appends to the same log file, instead of deleting
+old logs.
+4. No-crawl logic completely rewritten. It uses
 a separate flow of information from the regular
 crawler.
-4. Program now creates a ".harvestman" folder in user's 
+5. Program now creates a ".harvestman" folder in user's 
 home directory on POSIX systems. Session files are saved
 under this directory. Also a copy of the config.xml
 file is stored there. The program tries to load this
 file if it cannot find a config.xml anywhere else.
-5. Replaced use of md5 module with sha module for
+6. Replaced use of md5 module with sha module for
 checking digest sums since it is more secure.
-6. Removed lock objects in datamgr module since 
+7. Removed lock objects in datamgr module since 
 operations on basic data types is automatically
 synchronized by the GIL.
-7. Removed strptime module since it is no longer used.
-8. Rewrote headers of all modules with correct module
+8. Removed strptime module since it is no longer used.
+9. Rewrote headers of all modules with correct module
 names, author information and copyright information.
-9. A __version__ and __author__ attribute added to all
+10. A __version__ and __author__ attribute added to all
 modules.
-10. Renamed certain classes which were starting with lower
+11. Renamed certain classes which were starting with lower
 cases. All classes now start with upper-case letters.
-11. The following command line options have been added,
+12. The following command line options have been added,
 removed or updated.
 
   1. --subdomain, -S: Removed, -S is now used for savesessions option.
@@ -74,18 +77,18 @@ removed or updated.
     option.
   6. -F, --urlfile: Read list of start URLs from a file (New option).
 
-12. Default value for maximum file size (for single file) increased
+13. Default value for maximum file size (for single file) increased
 to 5MB (was 1 MB earlier).
-13. Changed sleep times inside the loops of fetcher/crawler thread
+14. Changed sleep times inside the loops of fetcher/crawler thread
 clases to random times ranging from 0 to 0.3 second. This allows
 for more better resource allocation and pooling.
-14. Sleep times is available as a configuration option. This can
+15. Sleep times is available as a configuration option. This can
 be used to increase sleep-times for slow/traffic intense websites.
-15. Caching now supports HTTP 304 for projects run a second time
+16. Caching now supports HTTP 304 for projects run a second time
 with datacache enabled. If datacache is available, HarvestMan will
 use the HTTP header 'If-Modified-Since' to see if the file on 
 server-side is modified.
-16. Changes in data cache format. Data cache for each URL is
+17. Changes in data cache format. Data cache for each URL is
 dumped separately into a <hash>.data file where <hash> is the 
 hash value of the associated URL. The .data files are stored
 in a .cache-data folder in the project's cache directory.
