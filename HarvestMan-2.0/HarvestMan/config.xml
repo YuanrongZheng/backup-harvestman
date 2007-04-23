@@ -10,7 +10,7 @@
         <url>http://www.python.org/doc/current/tut/tut.html</url>
         <name>pytut</name>
 
-        <basedir>~/websites</basedir>
+        <basedir>E:/websites</basedir>
         <verbosity value="3"/>
       </project>
       
@@ -99,7 +99,7 @@
     </files>
     
     <indexer>
-      <localise value="0"/>
+      <localise value="1"/>
     </indexer>
     
     <display>

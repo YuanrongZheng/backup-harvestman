@@ -1171,7 +1171,8 @@ class HarvestManDataManager(object):
             
         if fatal: info(fatal,fns[6],'had fatal errors and failed to download.')
         if bytes: info(bytes,' bytes received at the rate of',bps,ratespec,'.\n')
-
+        info('*** Log Completed ***\n')
+        
         # get current time stamp
         s=time.localtime()
 

@@ -21,7 +21,7 @@ __author__ = 'Anand B Pillai'
 
 import bisect
 from Queue import *
-from time import time, sleep
+import time
 
 import crawler
 
@@ -67,7 +67,7 @@ class HarvestManCrawlerQueue(object):
         self._flag = 0
         self._pushes = 0
         self._lockedinst = 0
-        self._lasttimestamp = time()
+        self._lasttimestamp = time.time()
         self._trackers  = []
         self._requests = 0
         self._trackerindex = 0
@@ -149,7 +149,7 @@ class HarvestManCrawlerQueue(object):
         # Set state for simple data-members
         self._pushes = state.get('_pushes',0)
         self._lockedinst = state.get('_lockedinst', 0)
-        self._lasttimestamp = state.get('_lasttimestamp', time())
+        self._lasttimestamp = state.get('_lasttimestamp', time.time())
         self._requests = state.get('_requests', 0)
         self._lastblockedtime = state.get('_lastblockedtime', 0)
         self.buffer = state.get('buffer', [])
@@ -255,7 +255,7 @@ class HarvestManCrawlerQueue(object):
             if count==numstops:
                 break
             
-            sleep(1.0)
+            time.sleep(1.0)
 
     def restart(self):
         """ Alternate method to start from a previous restored state """
@@ -268,7 +268,7 @@ class HarvestManCrawlerQueue(object):
 
         # Start base tracker
         self._basetracker.start()
-        sleep(2.0)
+        time.sleep(2.0)
         
         for t in self._trackers[1:]:
             try:
@@ -277,7 +277,7 @@ class HarvestManCrawlerQueue(object):
                 logconsole(e)
                 pass
 
-        sleep(2.0)
+        time.sleep(2.0)
         self.mainloop()        
         # Set flag to 1 to denote that downloading is finished.
         self._flag = 1
@@ -290,13 +290,10 @@ class HarvestManCrawlerQueue(object):
         # Reset flag
         self._flag = 0
 
-        # Clear the event flag
-        # self.exitobj.clear()
-        
         if os.name=='nt':
             t1=time.clock()
         else:
-            t1=time()
+            t1=time.time()
 
         # Set start time on config object
         self._configobj.starttime = t1
@@ -320,7 +317,7 @@ class HarvestManCrawlerQueue(object):
             self._basetracker.start()
 
             while self._basetracker.get_status() != 0:
-                sleep(0.1)
+                time.sleep(0.1)
 
             for x in range(1, self._configobj.maxtrackers):
 
@@ -343,7 +340,7 @@ class HarvestManCrawlerQueue(object):
 
             # bug: give the threads some time to start,
             # otherwise we exit immediately sometimes.
-            sleep(2.0)
+            time.sleep(2.0)
 
             self.mainloop()
             
@@ -381,7 +378,7 @@ class HarvestManCrawlerQueue(object):
                         obj=self.data_q.get_nowait()
                         break
                     except Empty:
-                        sleep(0.3)
+                        time.sleep(0.3)
                         continue
                 
         elif role == 'fetcher' or role=='tracker':
@@ -393,10 +390,10 @@ class HarvestManCrawlerQueue(object):
                         obj = self.url_q.get_nowait()
                         break
                     except Empty:
-                        sleep(0.3)
+                        time.sleep(0.3)
                         continue
             
-        self._lasttimestamp = time()        
+        self._lasttimestamp = time.time()        
 
         self._requests += 1
         return obj
@@ -482,7 +479,7 @@ class HarvestManCrawlerQueue(object):
         
         dmgr = GetObject('datamanager')
             
-        currtime = time()
+        currtime = time.time()
         last_thread_time = dmgr.last_download_thread_report_time()
 
         if last_thread_time > self._lasttimestamp:
@@ -492,7 +489,7 @@ class HarvestManCrawlerQueue(object):
 
         is_blocked = self.is_blocked()
         if is_blocked:
-            self._lastblockedtime = time()
+            self._lastblockedtime = time.time()
             
         has_running_threads = dmgr.has_download_threads()
         # print 'Has running threads=>',has_running_threads
@@ -583,7 +580,7 @@ class HarvestManCrawlerQueue(object):
                 self._trackers[idx] = new_t
                 new_t._resuming = True
                 new_t.start()
-                sleep(2.0)
+                time.sleep(2.0)
             else:
                 # Could not make new thread, so decrement
                 # count of threads.
@@ -610,7 +607,7 @@ class HarvestManCrawlerQueue(object):
                     status = 1
                     break
                 except Full:
-                    sleep(0.5)
+                    time.sleep(0.5)
                     
         elif role == 'fetcher':
             # stuff = (obj[0].priority, (obj[0].index, obj[1]))
@@ -621,10 +618,10 @@ class HarvestManCrawlerQueue(object):
                     status = 1
                     break
                 except Full:
-                    sleep(0.5)
+                    time.sleep(0.5)
                     
         self._pushes += 1
-        self._lasttimestamp = time()
+        self._lasttimestamp = time.time()
 
         return status
     

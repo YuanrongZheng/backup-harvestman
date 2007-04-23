@@ -44,6 +44,8 @@
                                      all referring code from this module, crawler
                                      and urlqueue modules. Moved code for grabbing
                                      URL to new hget module.
+    Apr 24 2007          Anand       Made to work on Windows (XP SP2 Professional,
+                                     Python 2.5)
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -228,6 +230,7 @@ class HarvestMan(object):
 
         # crawls through a site using http/ftp/https protocols
         if self._cfg.project:
+            info('*** Log Started ***\n')
             if not self._cfg.resuming:
                 info('Starting project',self._cfg.project,'...')
             else:
@@ -471,20 +474,20 @@ class HarvestMan(object):
         # Open stream to log file
         SetLogFile()
         
-        try:
-            if not self._cfg.testnocrawl:
-                self.start_project()
-        except (KeyboardInterrupt, EOFError, Exception), e:
-            if not self._cfg.ignoreinterrupts:
-                logconsole('Exception received=>',str(e))
-                # dont allow to write cache, since it
-                # screws up existing cache.
-                GetObject('datamanager').conditional_cache_set()
-                self.save_current_state()
+        #try:
+        if not self._cfg.testnocrawl:
+            self.start_project()
+        #except (KeyboardInterrupt, EOFError, Exception), e:
+        #    if not self._cfg.ignoreinterrupts:
+        #        logconsole('Exception received=>',str(e))
+        #        # dont allow to write cache, since it
+        #        # screws up existing cache.
+        #        GetObject('datamanager').conditional_cache_set()
+        #        self.save_current_state()
                 
-                sys.excepthook = SysExceptHook
-                sys.tracebacklimit = 0
-                self.clean_up()
+        #        sys.excepthook = SysExceptHook
+        #        sys.tracebacklimit = 0
+        #        self.clean_up()
 
         self.finish_project()
 
@@ -625,6 +628,8 @@ class HarvestMan(object):
                 if f.endswith('.py') or f.endswith('.pyc'):
                     module = os.path.splitext(f)[0]
                     if module in loaded: continue    
+                    # Dont load __init__ modules
+                    if module == '__init__': continue
                     
                     # Load plugins
                     try:

@@ -120,7 +120,13 @@ class DataReader(tg.Thread):
             per = -1
             
         l = len(self._data)
-        bandwidth = float(l)/float(time.time() - self._start)
+
+        curr = time.time()
+        if curr>self._start:
+            bandwidth = float(l)/float(curr - self._start)
+        else:
+            bandwidth = 0
+            
         if bandwidth and self._clength:
             eta = int((self._clength - l)/float(bandwidth))
             # Convert to hr:min:sec

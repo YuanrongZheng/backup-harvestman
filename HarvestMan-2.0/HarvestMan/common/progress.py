@@ -44,8 +44,11 @@ import posixpath
 import time
 import sys
 import struct
-import fcntl
-import termios
+import os
+
+if os.name == 'posix':
+    import fcntl
+    import termios
 
 import thread
 import time
@@ -69,14 +72,16 @@ class Progress(object):
         self.__hassub = False
 
     def getScreenWidth(self):
-        s = struct.pack('HHHH', 0, 0, 0, 0)
-        try:
-            x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
-        except IOError:
+        if os.name == 'posix':
+            s = struct.pack('HHHH', 0, 0, 0, 0)
+            try:
+                x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
+            except IOError:
+                return 80
+
+            return struct.unpack('HHHH', x)[1]
+        else:
             return 80
-
-        return struct.unpack('HHHH', x)[1]
-
 
     def lock(self):
         self.__lock.acquire()
@@ -455,7 +460,7 @@ def test():
 def test2():
     prog = TextProgress()
     data = {"item-number": 0}
-    total, subtotal = 10, 10
+    total, subtotal = 10, 100
     prog.setFetcherMode(True)
     prog.setHasSub(True)
     prog.start()
