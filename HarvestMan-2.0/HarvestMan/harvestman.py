@@ -47,7 +47,10 @@
     Apr 24 2007          Anand       Made to work on Windows (XP SP2 Professional,
                                      Python 2.5)
     Apr 24 2007          Anand       Made the config directory creation/session
-                                     saver features to work on Windows also. 
+                                     saver features to work on Windows also.
+    Apr 24 2007          Anand       Modified connector algorithm to flush data to
+                                     temp files for hget. This makes sure that hget
+                                     can download huge files as multipart.
 
    Copyright (C) 2004 Anand B Pillai.     
 """     

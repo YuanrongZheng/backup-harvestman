@@ -160,9 +160,9 @@ class HarvestManStateObject(dict):
         self.testnocrawl = False
         self.nocrawl = False
         self.ignoreinterrupts = False
-        # self.subdomain = False
-        # Differentiate between sub-domains
-        # of a domain ?
+        # Differentiate between sub-domains of a domain ?
+        # When set to True, subdomains act like different
+        # domains, so they are filtered out for fetchlevel<=1
         self.subdomain = True
         self.getqueryforms = False
         self.requests = 5
@@ -216,6 +216,12 @@ class HarvestManStateObject(dict):
         self.progressobj = TextProgress()
         # Flag for forcing multipart downloads
         self.forcesplit = False
+        # Flag for flushing data for hget
+        # If True, data is flushed at interval
+        # to file objects to save memory. If False, then
+        # data is kept in memory and not flushed.
+        # Default is False.
+        self.flushdata = False
         
     def copy(self):
         # Set non-picklable objects to None type

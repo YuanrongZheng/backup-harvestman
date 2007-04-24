@@ -59,6 +59,7 @@ import urlparse
 import gzip
 import cStringIO
 import os
+import shutil
 
 from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
@@ -77,7 +78,7 @@ class DataReader(tg.Thread):
     """ Data reader thread class which is used by
     the HarvestMan hget interface """
     
-    def __init__(self, request, urltofetch, clength):
+    def __init__(self, request, urltofetch, filename, clength, mode = 0):
         self._request = request
         self._data = ''
         self._clength = int(clength)
@@ -85,6 +86,15 @@ class DataReader(tg.Thread):
         self._bs = 1024*8
         self._start = 0.0
         self._flag = False
+        # Mode: 0 => flush data to file (default)
+        #     : 1 => keep data in memory
+        self._mode = mode
+        if self._mode==0:
+            self._tmpf = open(filename, 'wb')
+        else:
+            self._tmpf = None
+        # Content-length so far
+        self._contentlen = 0
         tg.Thread.__init__(self, None, None, 'data reader')
 
     def initialize(self):
@@ -97,29 +107,35 @@ class DataReader(tg.Thread):
             block = self._request.read(self._bs)
             if block=='':
                 self._flag = True
+                # Close the file
+                if self._mode==0: self.close()                
                 break
             else:
                 self._data += block
+                self._contentlen += len(block)
+                # Flush data to disk
+                if self._mode==0: self.flush()
+
+    def flush(self):
+        """ Flush data to disk """
+
+        self._tmpf.write(self._data)
+        self._data = ''
+
+    def close(self):
+
+        self._tmpf.close()
         
-    def readNext(self):
-
-        block = self._request.read(self._bs)
-        if block=='':
-            self._flag = True
-            return False
-        else:
-            self._data += block
-
     def get_info(self):
         """ Return percentage, data downloaded, bandwidth, estimated time to
         complete as a tuple """
 
         if self._clength:
-            per = float(100.0*len(self._data))/float(self._clength)
+            per = float(100.0*self._contentlen)/float(self._clength)
         else:
             per = -1
             
-        l = len(self._data)
+        l = self._contentlen
 
         curr = time.time()
         if curr>self._start:
@@ -157,6 +173,9 @@ class DataReader(tg.Thread):
     def get_data(self):
         return self._data
 
+    def get_datalen(self):
+        return self._contentlen
+    
     def stop(self):
         self._flag = True
         
@@ -582,6 +601,8 @@ class HarvestManUrlConnector(object):
         self.__freq = urllib2.Request('file://')
         # data downloaded
         self.__data = ''
+        # length of data downloaded
+        self.__datalen = 0
         # error dictionary
         self.__error={ 'msg' : '',
                        'number': 0,
@@ -600,6 +621,12 @@ class HarvestManUrlConnector(object):
         self._reader = None
         # Elasped time for reading data
         self._elasped = 0.0
+        # Mode for data download
+        # 1 => Keep data in memory
+        # 0 => Flush data (default is 1)
+        self._mode = 1
+        # Temporary filename if any
+        self._tmpfname = ''
         
     def __del__(self):
         del self.__data
@@ -1167,19 +1194,20 @@ class HarvestManUrlConnector(object):
                     prog = self._cfg.progressobj
                     
                     mypercent = 0.0
+
+                    self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
+                    # print 'TMPFNAME=>',self._tmpfname,self
                     
-                    self._reader = DataReader(self.__freq, urltofetch, clength)
-                    # Don't run as thread for multipart downloads
-                    if self._cfg.multipart:
-                        self._reader.initialize()
-                    else:
-                        self._reader.start()
+                    self._reader = DataReader(self.__freq,
+                                              urltofetch,
+                                              self._tmpfname,
+                                              clength,
+                                              self._mode)
+                    self._reader.start()
 
                     t1 = time.time()
                     
                     while True:
-                        if self._cfg.multipart: self._reader.readNext()
-                        
 
                         if clength:
                             percent,l,bw,eta = self._reader.get_info()
@@ -1213,8 +1241,11 @@ class HarvestManUrlConnector(object):
                             if mypercent==100.0: mypercent=0.0
 
                     self._elapsed = time.time() - t1
-                    
-                    data = self._reader.get_data()
+
+                    if self._reader._mode==1:
+                        self.__data = self._reader.get_data()
+                    else:
+                        self.__datalen = self._reader.get_datalen()
 
                 except MemoryError, e:
                     # Catch memory error for sockets
@@ -1314,9 +1345,7 @@ class HarvestManUrlConnector(object):
             # attempt reconnect after some time
             time.sleep(self.__sleeptime)
 
-        if data: self.__data = data
-            
-        if data:
+        if self.__data or self.__datalen:
             return 0
         else:
             return -1
@@ -1545,10 +1574,18 @@ class HarvestManUrlConnector(object):
         logobj = GetObject('logger')
         self._cfg.verbosity = 0
         logobj.setLogSeverity(0)
+
+        # Reset force-split, otherwise download
+        # will be split!
+        fs = self._cfg.forcesplit
+        self._cfg.forcesplit = False
         ret = self.connect2(urlobj, showprogress=False)
         # Reset verbosity
         self._cfg.verbosity = self._cfg.verbosity_default
         logobj.setLogSeverity(self._cfg.verbosity)
+
+        # Set it back
+        self._cfg.forcesplit = fs
         
         if self.__data:
             return float(len(self.__data))/(self._elapsed)
@@ -1562,30 +1599,81 @@ class HarvestManUrlConnector(object):
         url = urlobj.get_full_url()
         print 'Connecting to %s...' % urlobj.get_full_domain()
         ret = self.connect2(urlobj)
+
+        status = 0
+        n, filename = 1, urlobj.get_filename()
+        
         if ret==2:
             # Trying multipart download...
             pool = GetObject('datamanager').get_url_threadpool()
-            while not pool.get_download_status(url):
+            while not pool.get_multipart_download_status(url):
                 time.sleep(1.0)
             print 'Data download completed.'
-            data = pool.get_url_data(url)
-            self.__data = data
+            if self._mode==1:
+                data = pool.get_multipart_url_data(url)
+                self.__data = data
+                if self.__data: status = 1
                 
-        if self.__data:
-            n, filename = 1, urlobj.get_filename()
-            origfilename = filename
-            # Check if file exists, if so save to
-            # filename.#n like wget.
-            while os.path.isfile(filename):
-                filename = ''.join((origfilename,'.',str(n)))
-                n += 1
+            elif self._mode==0:
+                # Get url info
+                infolist = pool.get_multipart_url_info(url)
+                infolist.sort()
+                # Get filenames
+                tmpflist = [item[1] for item in infolist]
+                print tmpflist
+                # Temp file name
+                self._tmpfname = filename + '.tmp'
                 
+                try:
+                    cf = open(self._tmpfname, 'wb')
+                    # Combine data into one
+                    for f in tmpflist:
+                        data = open(f, 'rb').read()
+                        cf.write(data)
+                        cf.flush()
+                        
+                    cf.close()
+
+                    status = 1
+
+                    for f in tmpflist:
+                        print f
+                        os.remove(f)
+                        
+                except (IOError, OSError), e:
+                    print e
+        else:
+            if self.__data or self.__datalen:
+                status = 1
+
+        if status==0:
+            print 'Download of URL',url ,'not completed.\n'
+            return 0
+        
+        origfilename = filename
+        # Check if file exists, if so save to
+        # filename.#n like wget.
+        while os.path.isfile(filename):
+            filename = ''.join((origfilename,'.',str(n)))
+            n += 1
+
+        if self._mode==1:
             res=self.__write_url(filename)
             if res:
                 print '\nSaved to %s.' % filename
                 return res
-        else:
-            print 'Download of URL',url ,'not completed.\n'
+        elif self._mode==0:
+            if os.path.isfile(self._tmpfname):
+                shutil.copy2(self._tmpfname, filename)
+                os.remove(self._tmpfname)
+                    
+                if os.path.isfile(filename):
+                    print '\nSaved to %s.' % filename
+                    return 1
+                else:
+                    print 'Error saving to file %s' % filename
+            else:
+                print 'Error saving to file %s' % filename
 
         return 0
 
@@ -1601,6 +1689,25 @@ class HarvestManUrlConnector(object):
         """ Return reader thread """
 
         return self._reader
+
+    def set_data_mode(self, mode):
+        """ Set the data mode """
+
+        # 0 => Data is flushed
+        # 1 => Data in memory (default)
+        self._mode = mode
+        
+    def get_data_mode(self):
+        """ Return the data mode """
+
+        # 0 => Data is flushed
+        # 1 => Data in memory (default)
+        return self._mode
+
+    def get_tmpfname(self):
+        """ Return temp filename if any """
+
+        return self._tmpfname
     
 class HarvestManUrlConnectorFactory(object):
     """ This class acts as a factory for HarvestManUrlConnector

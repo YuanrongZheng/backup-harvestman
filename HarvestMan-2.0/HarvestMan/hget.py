@@ -2,7 +2,7 @@
 # -- coding: latin-1
 """ Hget - Extensible, modular, multithreaded Internet
     downloader program in the spirit of wget, using
-    HarvestMan codebase. 
+    HarvestMan codebase, with HTTP multipart support.
     
     Version      - 1.0 beta 1.
 
@@ -16,6 +16,8 @@
     Created: April 19 2007 Anand B Pillai
 
      April 20 2007 Added more command-line options   Anand
+     April 24 2007 Made connector module to flush data  Anand
+                   to tempfiles when run with hget.
      
 Copyright(C) 2007, Anand B Pillai
 
@@ -53,6 +55,8 @@ class Hget(HarvestMan):
             self._cfg.connections = self._cfg.numparts + 2
             self._cfg.requests = self._cfg.numparts + 2
             conn = connector.HarvestManUrlConnector()
+            # Set mode
+            conn.set_data_mode(pool.get_data_mode())
             try:
                 urlobj = urlparser.HarvestManUrlParser(self._cfg.urls[0])
                 ret = conn.url_to_file(urlobj)
@@ -80,6 +84,8 @@ class Hget(HarvestMan):
         self._cfg.version = VERSION
         self._cfg.maturity = MATURITY
         self._cfg.nocrawl = True
+        # Need to make a config param out of it
+        self._cfg.flushdata = True
         
         # Get program options
         self._cfg.parse_arguments()
