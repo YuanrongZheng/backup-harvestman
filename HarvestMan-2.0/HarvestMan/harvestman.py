@@ -46,6 +46,8 @@
                                      URL to new hget module.
     Apr 24 2007          Anand       Made to work on Windows (XP SP2 Professional,
                                      Python 2.5)
+    Apr 24 2007          Anand       Made the config directory creation/session
+                                     saver features to work on Windows also. 
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -172,20 +174,15 @@ class HarvestMan(object):
         state['configobj'] = GetObject('config').copy()
         # print state['configobj']
         
-        # Dump with time-stamp - on POSIX dump this to the
-        # user's .harvestman/sessions directory. 
-        fname = '.harvestman_saves#' + str(int(time.time()))
-        if os.name == 'posix':
-            fname = os.path.join(self._cfg.usersessiondir, fname)
-            
+        # Dump with time-stamp 
+        fname = os.path.join(self._cfg.usersessiondir, '.harvestman_saves#' + str(int(time.time())))
         moreinfo('Saving run-state to file %s...' % fname)
 
-        # print state
-        #try:
-        cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
-        moreinfo('Saved run-state to file %s.' % fname)
-        #except pickle.PicklingError, e:
-        #    logconsole(e)
+        try:
+            cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
+            moreinfo('Saved run-state to file %s.' % fname)
+        except pickle.PicklingError, e:
+            logconsole(e)
         
     def welcome_message(self):
         """ Print a welcome message """
@@ -272,7 +269,7 @@ class HarvestMan(object):
     def calculate_bandwidth(self):
         """ Calculate bandwidth. This also sets limit on
         maximum file size """
-        
+
         # Calculate bandwidth
         bw = 0
         # Look for harvestman.conf in user conf dir
@@ -302,46 +299,56 @@ class HarvestMan(object):
     def create_initial_directories(self):
         """ Create initial directories """
 
-        # Create user's .harvestman directory on POSIX
+        # Create user's HarvestMan directory on POSIX at $HOME/.harvestman and 
+        # on Windows at $USERPROFILE/Local Settings/Application Data/HarvestMan
+        harvestman_dir = ''
+        
         if os.name == 'posix':
             homedir = os.environ.get('HOME')
             if homedir and os.path.isdir(homedir):
                 harvestman_dir = os.path.join(homedir, '.harvestman')
-                harvestman_conf_dir = os.path.join(harvestman_dir, 'conf')
-                harvestman_sessions_dir = os.path.join(harvestman_dir, 'sessions')
                 
-                self._cfg.userdir = harvestman_dir
-                self._cfg.userconfdir = harvestman_conf_dir
-                self._cfg.usersessiondir = harvestman_sessions_dir
-                
-                if not os.path.isdir(harvestman_dir):
-                    try:
-                        info('Looks like you are running HarvestMan for the first time in this machine')
-                        info('Doing initial setup...')
-                        info('Creating .harvestman directory in %s...' % homedir)
-                        os.makedirs(harvestman_dir)
-                    except (OSError, IOError), e:
-                        logconsole(e)
+        elif os.name == 'nt':
+            profiledir = os.environ.get('USERPROFILE')
+            if profiledir and os.path.isdir(profiledir):
+                harvestman_dir = os.path.join(profiledir, 'Local Settings', 'Application Data','HarvestMan')
 
-                if not os.path.isdir(harvestman_conf_dir):
-                    try:
-                        info('Creating "conf" sub-directory in %s...' % harvestman_dir)
-                        os.makedirs(harvestman_conf_dir)
-                        # Copy config.xml to $HOMEDIR/.harvestman/config folder if found
-                        if os.path.isfile('config.xml'):
-                            info('Copying current config file to %s...' % harvestman_conf_dir)
-                            shutil.copy2('config.xml',harvestman_conf_dir)
-                        
-                    except (OSError, IOError), e:
-                        logconsole(e)
+        if harvestman_dir:
+            harvestman_conf_dir = os.path.join(harvestman_dir, 'conf')
+            harvestman_sessions_dir = os.path.join(harvestman_dir, 'sessions')
 
-                if not os.path.isdir(harvestman_sessions_dir):
-                    try:
-                        info('Creating "sessions" sub-directory in %s...' % harvestman_dir)
-                        os.makedirs(harvestman_sessions_dir)                        
-                        info('Done.')
-                    except (OSError, IOError), e:
-                        logconsole(e)
+            self._cfg.userdir = harvestman_dir
+            self._cfg.userconfdir = harvestman_conf_dir
+            self._cfg.usersessiondir = harvestman_sessions_dir
+
+            if not os.path.isdir(harvestman_dir):
+                try:
+                    info('Looks like you are running HarvestMan for the first time in this machine')
+                    info('Doing initial setup...')
+                    info('Creating folder %s for storing HarvestMan application data...' % harvestman_dir)
+                    os.makedirs(harvestman_dir)
+                except (OSError, IOError), e:
+                    logconsole(e)
+
+            if not os.path.isdir(harvestman_conf_dir):
+                try:
+                    info('Creating "conf" sub-directory in %s...' % harvestman_dir)
+                    os.makedirs(harvestman_conf_dir)
+
+                    if os.path.isfile('config.xml'):
+                        info('Copying current config file to %s...' % harvestman_conf_dir)
+                        shutil.copy2('config.xml',harvestman_conf_dir)
+
+                except (OSError, IOError), e:
+                    logconsole(e)
+
+            if not os.path.isdir(harvestman_sessions_dir):
+                try:
+                    info('Creating "sessions" sub-directory in %s...' % harvestman_dir)
+                    os.makedirs(harvestman_sessions_dir)                        
+                    info('Done.')
+                except (OSError, IOError), e:
+                    logconsole(e)
         
     def _prepare(self):
         """ Do the basic things and get ready """
@@ -362,12 +369,11 @@ class HarvestMan(object):
         self.register_common_objects()
         self.create_initial_directories()
 
-        if os.name == 'posix':
-            # Calculate bandwidth and set max file size
-            bw = self.calculate_bandwidth()
-            # Max file size is calculated as bw*timeout
-            # where timeout => max time for a worker thread
-            if bw: self._cfg.maxfilesize = bw*self._cfg.timeout
+         # Calculate bandwidth and set max file size
+        bw = self.calculate_bandwidth()
+        # Max file size is calculated as bw*timeout
+        # where timeout => max time for a worker thread
+        if bw: self._cfg.maxfilesize = bw*self._cfg.timeout
                 
     def setdefaultlocale(self):
         """ Set the default locale """
@@ -474,20 +480,20 @@ class HarvestMan(object):
         # Open stream to log file
         SetLogFile()
         
-        #try:
-        if not self._cfg.testnocrawl:
-            self.start_project()
-        #except (KeyboardInterrupt, EOFError, Exception), e:
-        #    if not self._cfg.ignoreinterrupts:
-        #        logconsole('Exception received=>',str(e))
-        #        # dont allow to write cache, since it
-        #        # screws up existing cache.
-        #        GetObject('datamanager').conditional_cache_set()
-        #        self.save_current_state()
+        try:
+            if not self._cfg.testnocrawl:
+                self.start_project()
+        except (KeyboardInterrupt, EOFError, Exception), e:
+           if not self._cfg.ignoreinterrupts:
+               logconsole('Exception received=>',str(e))
+               # dont allow to write cache, since it
+               # screws up existing cache.
+               GetObject('datamanager').conditional_cache_set()
+               self.save_current_state()
                 
-        #        sys.excepthook = SysExceptHook
-        #        sys.tracebacklimit = 0
-        #        self.clean_up()
+               sys.excepthook = SysExceptHook
+               sys.tracebacklimit = 0
+               self.clean_up()
 
         self.finish_project()
 
@@ -503,7 +509,7 @@ class HarvestMan(object):
         """ Restore state of some objects from a previous run """
 
         try:
-            state = cPickle.load(open(state_file))
+            state = cPickle.load(open(state_file, 'rb'))
             # This has six keys - configobj, threadpool, ruleschecker,
             # datamanager, common and trackerqueue.
 
@@ -523,35 +529,35 @@ class HarvestMan(object):
             tq = GetObject('trackerqueue')
             ret = tq.set_state(state.get('trackerqueue'))
             if ret == -1:
-                moreinfo("Error restoring state in 'urlqueue' module - cannot proceed further!")
+                logconsole("Error restoring state in 'urlqueue' module - cannot proceed further!")
                 return -1
             else:
-                moreinfo("Restored state in urlqueue module.")
+                logconsole("Restored state in urlqueue module.")
             
             # Now update datamgr
             dm = GetObject('datamanager')
             ret = dm.set_state(state.get('datamanager'))
             if ret == -1:
-                moreinfo("Error restoring state in 'datamgr' module - cannot proceed further!")
+                logconsole("Error restoring state in 'datamgr' module - cannot proceed further!")
                 return -1
             else:
-                moreinfo("Restored state in datamgr module.")                
+                logconsole("Restored state in datamgr module.")                
             
             # Update threadpool if any
             pool = None
             if state.has_key('threadpool'):
                 pool = dm._urlThreadPool
                 ret = pool.set_state(state.get('threadpool'))
-                moreinfo('Restored state in urlthread module.')
+                logconsole('Restored state in urlthread module.')
             
             # Update ruleschecker
             rules = GetObject('ruleschecker')
             ret = rules.set_state(state.get('ruleschecker'))
-            moreinfo('Restored state in rules module.')
+            logconsole('Restored state in rules module.')
             
             return 0
         except (pickle.UnpicklingError, AttributeError, IndexError, EOFError), e:
-            return -1
+           return -1
 
     def run_saved_state(self):
 
@@ -566,10 +572,7 @@ class HarvestMan(object):
         self.set_locale()
         
         # See if there is a file named .harvestman_saves#...
-        if os.name == 'posix':
-            sessions_dir = self._cfg.usersessiondir
-        elif os.name == 'nt':
-            sessions_dir = '.'
+        sessions_dir = self._cfg.usersessiondir
 
         files = glob.glob(os.path.join(sessions_dir, '.harvestman_saves#*'))
 

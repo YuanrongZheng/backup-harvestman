@@ -87,14 +87,12 @@ class Hget(HarvestMan):
         self.register_common_objects()
         self.create_initial_directories()
         
-        if os.name == 'posix':
-            # Calculate bandwidth and set max file size
-            bw = self.calculate_bandwidth()
-            # print 'BW',bw
-            # Max file size is calculated on basis of
-            # maximum 15 minutes of continous download.
-            if bw: self._cfg.maxfilesize = bw*900
-            else: self._cfg.maxfilesize = 10485760
+        # Calculate bandwidth and set max file size
+        bw = self.calculate_bandwidth()
+        # Max file size is calculated on basis of
+        # maximum 15 minutes of continous download.
+        if bw: self._cfg.maxfilesize = bw*900
+        else: self._cfg.maxfilesize = 10485760
 
     def main(self):
         """ Main routine """
