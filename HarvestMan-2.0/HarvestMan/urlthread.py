@@ -99,7 +99,13 @@ class HarvestManUrlThread(threading.Thread):
         """ Return the temp filename if any """
 
         return self.__urltmpfile
-    
+
+    def set_tmpfname(self, filename):
+        """ Set the temporary filename """
+
+        # Typically called by connector objects
+        self.__urltmpfile = filename
+        
     def set_status(self, status):
         """ Set the download status of this thread """
 
@@ -410,6 +416,7 @@ class HarvestManUrlThreadPool(Queue):
     def spawn_threads(self):
         """ Start the download threads """
 
+        # print 'num=>',self.__numthreads
         for x in range(self.__numthreads):
             name = 'Worker-'+ str(x+1)
             fetcher = HarvestManUrlThread(name, self.__timeout, self)
@@ -687,3 +694,7 @@ class HarvestManUrlThreadPool(Queue):
         finally:
             self._cond.release()                
                     
+    def get_threads(self):
+        """ Return the list of thread objects """
+
+        return self.__threads

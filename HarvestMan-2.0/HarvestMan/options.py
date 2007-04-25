@@ -42,7 +42,10 @@ hman_options=\
 
 hget_options=\
 [ ('version', 'short=v','long=version','help=Print version information and exit', 'type=bool'),
-  ('numparts','short=n','long=numparts','help=Force-split download into <NUMPARTS> parts') ] 
+  ('numparts','short=n','long=numparts','help=Force-split download into <NUMPARTS> parts (max 20)'),
+  ('memory','short=m','long=inmem','help=Keep data in memory instead of flushing to disk', 'type=bool' ,'default=False')
+
+  ] 
 
 def getOptList(appname):
     """ Return the list of options """

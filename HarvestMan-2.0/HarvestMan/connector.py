@@ -116,6 +116,20 @@ class DataReader(tg.Thread):
                 # Flush data to disk
                 if self._mode==0: self.flush()
 
+    def readNext(self):
+
+        block = self._request.read(self._bs)
+        if block=='':
+            self._flag = True
+            # Close the file
+            if self._mode==0: self.close()                
+            return False
+        else:
+            self._data += block
+            self._contentlen += len(block)
+            # Flush data to disk
+            if self._mode==0: self.flush()                
+
     def flush(self):
         """ Flush data to disk """
 
@@ -1169,7 +1183,7 @@ class HarvestManUrlConnector(object):
 
                     if not trynormal:
                         logconsole('Trying multipart download...')
-                        # urlobj.trymultipart = True
+                        urlobj.trymultipart = True
                         
                         ret = dmgr.download_multipart_url(urlobj, clength)
                         if ret==1:
@@ -1196,19 +1210,26 @@ class HarvestManUrlConnector(object):
                     mypercent = 0.0
 
                     self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
-                    # print 'TMPFNAME=>',self._tmpfname,self
+                    # Report fname to calling thread
+                    ct = threading.currentThread()
+                    ct.set_tmpfname(self._tmpfname)
                     
                     self._reader = DataReader(self.__freq,
                                               urltofetch,
                                               self._tmpfname,
                                               clength,
                                               self._mode)
-                    self._reader.start()
+
+                    if urlobj.trymultipart:
+                        self._reader.initialize()
+                    else:
+                        self._reader.start()
 
                     t1 = time.time()
                     
                     while True:
-
+                        if urlobj.trymultipart: self._reader.readNext()
+                            
                         if clength:
                             percent,l,bw,eta = self._reader.get_info()
                             
@@ -1620,7 +1641,7 @@ class HarvestManUrlConnector(object):
                 infolist.sort()
                 # Get filenames
                 tmpflist = [item[1] for item in infolist]
-                print tmpflist
+                # print tmpflist
                 # Temp file name
                 self._tmpfname = filename + '.tmp'
                 
@@ -1637,7 +1658,7 @@ class HarvestManUrlConnector(object):
                     status = 1
 
                     for f in tmpflist:
-                        print f
+                        # print f
                         os.remove(f)
                         
                 except (IOError, OSError), e:

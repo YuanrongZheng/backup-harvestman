@@ -222,6 +222,9 @@ class HarvestManStateObject(dict):
         # data is kept in memory and not flushed.
         # Default is False.
         self.flushdata = False
+        # Flag for inmem - opposite of flushdata
+        # used only by hget
+        self.inmem = False
         
     def copy(self):
         # Set non-picklable objects to None type
@@ -593,11 +596,18 @@ class HarvestManStateObject(dict):
                 if self.numparts == 0:
                     print 'Error: Invalid value for number of parts, value should be non-zero!'
                     sys.exit(1)
+                if self.numparts > 20:
+                    print 'Error: Exceeding the maximum limit (20) of parts, please use a lower setting.'
+                    sys.exit(1)
                 if self.numparts>1:
                     self.forcesplit = True
                 else:
                     print 'Warning: Setting numparts to 1 has no effect!'
-
+            elif option=='memory':
+                if value:
+                    print 'Warning: Enabling in-memory flag, data will be stored in memory!'
+                    self.inmem = True
+                
         if self.nocrawl:
             self.pagecache = False
             self.rawsave = True
