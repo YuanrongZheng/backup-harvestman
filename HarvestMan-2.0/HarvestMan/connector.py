@@ -1212,7 +1212,9 @@ class HarvestManUrlConnector(object):
                     self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
                     # Report fname to calling thread
                     ct = threading.currentThread()
-                    ct.set_tmpfname(self._tmpfname)
+                    
+                    if ct.__class__.__name__ == 'HarvestManUrlThread':
+                        ct.set_tmpfname(self._tmpfname)
                     
                     self._reader = DataReader(self.__freq,
                                               urltofetch,
