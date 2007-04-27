@@ -686,6 +686,7 @@ class HarvestManDataManager(object):
             self._serversdict[domain] = {'accept-ranges': True}
             
         parts = self._cfg.numparts
+        # print parts
         # Calculate size of each piece
         piecesz = clength/parts
         
@@ -693,8 +694,6 @@ class HarvestManDataManager(object):
         pcsizes = [piecesz]*parts
         # For last URL add the reminder
         pcsizes[-1] += clength % parts 
-        # Set part-length size
-        urlobj.__class__.partlengths = [0]*parts
         # Create a URL object for each and set range
         urlobjects = []
         for x in range(parts):

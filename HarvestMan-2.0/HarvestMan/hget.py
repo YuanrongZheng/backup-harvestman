@@ -68,15 +68,17 @@ class Hget(HarvestMan):
         except KeyboardInterrupt:
             reader = conn.get_reader()
             if reader: reader.stop()
-            print 'Download aborted by user interrupt.'
+            print '\n\nDownload aborted by user interrupt.'
             # If flushdata mode, delete temporary files
             if self._cfg.flushdata:
                 print 'Cleaning up temporary files...'
+                fname1 = conn.get_tmpfname()
+                if fname1: os.remove(fname1)
+                
                 lthreads = pool.get_threads()
                 for t in lthreads:
                     try:
                         fname = t.get_tmpfname()
-                        # print 'Filename=>',fname
                         if fname: os.remove(fname)
                     except (IOError, OSError), e:
                         print e
@@ -100,7 +102,7 @@ class Hget(HarvestMan):
         self._cfg.version = VERSION
         self._cfg.maturity = MATURITY
         self._cfg.nocrawl = True
-        
+
         # Get program options
         self._cfg.parse_arguments()
 
@@ -110,6 +112,15 @@ class Hget(HarvestMan):
         self._cfg.requests = self._cfg.numparts + 2
         # Thread pool size need to be only equal to numparts
         self._cfg.threadpoolsize = self._cfg.numparts
+        # Set verbosity
+        # print self._cfg.hgetverbose
+        if self._cfg.hgetverbose:
+            self._cfg.verbosity=2
+            self._cfg.verbosities
+        else:
+            self._cfg.verbosity = 1
+
+        SetLogSeverity()
 
         self.register_common_objects()
         self.create_initial_directories()

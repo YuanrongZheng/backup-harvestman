@@ -155,13 +155,13 @@ class HarvestManUrlThread(threading.Thread):
 
         if not url_obj.trymultipart:
             if url_obj.is_image():
-                info('Downloading image ...', url)
+                moreinfo('Downloading image ...', url)
             else:
-                info('Downloading url ...', url)
+                moreinfo('Downloading url ...', url)
         else:
             startrange = url_obj.range[0]
             endrange = url_obj.range[-1]            
-            info('Downloading url %s, byte range(%d - %d)' % (url,startrange,endrange))
+            moreinfo('Downloading url %s, byte range(%d - %d)' % (url,startrange,endrange))
             
         server = url_obj.get_domain()
 
@@ -245,6 +245,7 @@ class HarvestManUrlThread(threading.Thread):
                 # reset busyflag
                 self.__busyflag = False
             except Exception, e:
+                # print 'Exception',e
                 # Now I am dead - so I need to tell the pool
                 # object to migrate my data and produce a new thread.
                 
@@ -518,6 +519,8 @@ class HarvestManUrlThreadPool(Queue):
                         infolist.append((urlObj.range[0],data))
                     elif fname:
                         infolist.append((urlObj.range[0],fname))
+                    else:
+                        self.__parts -= 1 # AD-HOC
                         
                     self.__multipartdata[url] = infolist
 
@@ -526,7 +529,7 @@ class HarvestManUrlThreadPool(Queue):
                     # Sort the data list  according to byte-range
                     infolist.sort()
                     # Download of this URL is complete...
-                    print 'Download of %s is complete...' % urlObj.get_full_url()
+                    logconsole('Download of %s is complete...' % urlObj.get_full_url())
                     if not flushmode:
                         data = ''.join([item[1] for item in infolist])
                         self.__multipartdata['data:' + url] = data
@@ -559,9 +562,20 @@ class HarvestManUrlThreadPool(Queue):
         for thread in self.__threads:
             if thread.is_busy():
                 val += 1
-
+                break
+            
         return val
 
+    def get_busy_threads(self):
+        """ Return a list of busy threads """
+
+        return [thread for thread in self.__threads if thread.is_busy()]
+
+    def get_active_count(self):
+        """ Return a count of active threads """
+
+        return len(self.get_busy_threads())
+    
     def locate_thread(self, url):
         """ Find a thread which downloaded a certain url """
 

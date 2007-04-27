@@ -77,8 +77,14 @@ __protocols__=["http", "ftp"]
 class DataReader(tg.Thread):
     """ Data reader thread class which is used by
     the HarvestMan hget interface """
+
+    # Class level attributes used for multipart
+    ORIGLENGTH = 0
+    START_TIME = 0.0
+    CONTENTLEN = []
+    MULTIPART = False
     
-    def __init__(self, request, urltofetch, filename, clength, mode = 0):
+    def __init__(self, request, urltofetch, filename, clength, mode = 0, index = 0):
         self._request = request
         self._data = ''
         self._clength = int(clength)
@@ -95,6 +101,8 @@ class DataReader(tg.Thread):
             self._tmpf = None
         # Content-length so far
         self._contentlen = 0
+        # Index - used only for multipart
+        self._index = index
         tg.Thread.__init__(self, None, None, 'data reader')
 
     def initialize(self):
@@ -144,21 +152,39 @@ class DataReader(tg.Thread):
         """ Return percentage, data downloaded, bandwidth, estimated time to
         complete as a tuple """
 
-        if self._clength:
-            per = float(100.0*self._contentlen)/float(self._clength)
-        else:
-            per = -1
-            
-        l = self._contentlen
-
         curr = time.time()
-        if curr>self._start:
-            bandwidth = float(l)/float(curr - self._start)
-        else:
-            bandwidth = 0
+        per, bandwidth, l, eta = -1, 0, 0, -1
+        
+        if not self.__class__.MULTIPART:
+            if self._clength:
+                per = float(100.0*self._contentlen)/float(self._clength)
             
-        if bandwidth and self._clength:
-            eta = int((self._clength - l)/float(bandwidth))
+            l = self._contentlen
+
+            if curr>self._start:
+                bandwidth = float(l)/float(curr - self._start)
+            
+            if bandwidth and self._clength:
+                eta = int((self._clength - l)/float(bandwidth))
+        else:
+            kls = self.__class__
+            kls.CONTENTLEN[self._index] = self._contentlen
+
+            total = sum(kls.CONTENTLEN)
+            
+            if kls.ORIGLENGTH:
+               per = float(100.0*total)/float(kls.ORIGLENGTH)
+            else:
+               per = -1
+
+            if curr>kls.START_TIME:
+               bandwidth = float(total)/float(curr - kls.START_TIME)
+
+            if bandwidth and kls.ORIGLENGTH:
+               eta = int((kls.ORIGLENGTH - total)/float(bandwidth))
+            pass
+        
+        if eta != -1:
             # Convert to hr:min:sec
             hh = eta/3600
             if hh:
@@ -189,6 +215,12 @@ class DataReader(tg.Thread):
 
     def get_datalen(self):
         return self._contentlen
+
+    def set_index(self, idx):
+        self._index = idx
+
+    def get_index(self):
+        return self._index
     
     def stop(self):
         self._flag = True
@@ -487,7 +519,7 @@ class HarvestManNetworkConnector(object):
         # and greater. 
         minor_version = sys.version_info[1]
         if minor_version>=3:
-            socket.setdefaulttimeout( self.__cfg.timeout )
+            socket.setdefaulttimeout( self.__cfg.socktimeout )
             # For Python 2.4, use cookielib support
             # To fix HTTP cookie errors such as those
             # produced by http://www.eidsvoll.kommune.no/
@@ -808,7 +840,6 @@ class HarvestManUrlConnector(object):
 
                     if supports_multipart==1:
                         extrainfo('Server %s supports multipart downloads' % hu.domain)
-                        # hu.trymultipart = True
                         dmgr.download_multipart_url(hu, clength)
                         return 3
                     
@@ -1124,7 +1155,7 @@ class HarvestManUrlConnector(object):
                 encoding = self.get_content_encoding()
                 ctype = self.get_content_type()
                 clength = int(self.get_content_length())
-
+                
                 if clength==0:
                     clength_str = 'Unknown'
                 elif clength>=1024*1024:
@@ -1144,7 +1175,19 @@ class HarvestManUrlConnector(object):
 
                     logconsole('Content Encoding: %s\n' % encoding)
 
-                trynormal = False
+                # Most FTP servers do not support HTTP like byte-range
+                # requests. The way to do multipart for FTP is to use
+                # the FTP restart (REST) command, but that requires writing
+                # new wrappers on top of ftplib instead of the current simpler
+                # way of routing everything using urllib2. This is planned
+                # for later.
+                
+                if urlobj.protocol == 'ftp://':
+                    logconsole('FTP request, not trying multipart download, defaulting to single thread')
+                    trynormal = True
+                else:
+                    trynormal = False
+
                 # Check constraint on file size
                 if (not byterange and self._cfg.forcesplit) or \
                        (not byterange and not self.check_content_length()):
@@ -1152,22 +1195,22 @@ class HarvestManUrlConnector(object):
                     if not self._cfg.forcesplit:
                         logconsole('Maximum file size for single downloads is %.0f bytes.' % maxsz)
                         logconsole("Url does not match size constraints")
-                    else:
+                    elif not trynormal:
                         logconsole('Forcing download into %d parts' % self._cfg.numparts)
                         
-                    # Dont do range checking on FTP servers since they
-                    # typically support it by default.
-
-                    if urlobj.protocol != 'ftp://':
-                        # logconsole('Checking whether server supports multipart downloads...')
+                    if not trynormal:
+                        logconsole('Checking whether server supports multipart downloads...')
                         # See if the server supports 'Range' header
                         # by requesting half the length
                         self._headers.clear()
                         request.add_header('Range','bytes=%d-%d' % (0,clength/2))
+                        self.__freq.close()                        
                         self.__freq = urllib2.urlopen(request)
+
                         # Set http headers
                         self.set_http_headers()
-                        range_result = self._headers.get('accept-ranges')
+                        # print self._headers
+                        range_result = self._headers.get('accept-ranges', '')
                         if range_result.lower()=='bytes':
                             logconsole('Server supports multipart downloads')
                         else:
@@ -1190,6 +1233,9 @@ class HarvestManUrlConnector(object):
                             logconsole('Cannot do multipart download, piece size greater than maxfile size!')
                             return 3
                         elif ret==0:
+                            # Set flag which indicates a multipart
+                            # download is in progress
+                            self._cfg.multipart = True
                             # Set progress object
                             if showprogress:
                                 self.set_progress_object(filename,1,[filename],nolengthmode)
@@ -1197,7 +1243,7 @@ class HarvestManUrlConnector(object):
                     
                 # if this is the not the first attempt, print a success msg
                 if numtries>1:
-                    logconsole("Reconnect succeeded => ", urltofetch)
+                    moreinfo("Reconnect succeeded => ", urltofetch)
 
                 try:
                     # Don't set progress object if multipart download - it
@@ -1212,6 +1258,8 @@ class HarvestManUrlConnector(object):
                     self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
                     # Report fname to calling thread
                     ct = threading.currentThread()
+
+                    # print self._tmpfname, ct
                     
                     if ct.__class__.__name__ == 'HarvestManUrlThread':
                         ct.set_tmpfname(self._tmpfname)
@@ -1222,32 +1270,42 @@ class HarvestManUrlConnector(object):
                                               clength,
                                               self._mode)
 
-                    if urlobj.trymultipart:
+
+                    # Setting class-level variables
+                    if self._cfg.multipart:
+                        if not DataReader.MULTIPART:
+                            DataReader.MULTIPART = True
+                            DataReader.START_TIME = time.time()
+                            DataReader.ORIGLENGTH = urlobj.clength
+                            DataReader.CONTENTLEN = [0]*self._cfg.numparts
+                            
+                        self._reader.set_index(urlobj.mindex)
                         self._reader.initialize()
                     else:
                         self._reader.start()
 
                     t1 = time.time()
+
+                    # Get number of active worker threads...
+                    nthreads = dmgr.get_url_threadpool().get_active_count()
+                    # If no active worker threads, then there is at least
+                    # the main thread which is active
+                    if nthreads==0: nthreads = 1
                     
                     while True:
-                        if urlobj.trymultipart: self._reader.readNext()
+                        if self._cfg.multipart: self._reader.readNext()
                             
                         if clength:
                             percent,l,bw,eta = self._reader.get_info()
                             
                             if percent and showprogress:
                                 prog.setScreenWidth(prog.getScreenWidth())
+                                infostring = 'TC: %d' % nthreads + \
+                                             ' BW: %4.2fK/s' % float(bw/1024.0) + \
+                                             ' ETA: %s' % str(eta)
+                                
                                 #subdata = {'item-number': urlobj.mindex+1}
-                                prog.setSubTopic(1, filename)
-                                if urlobj.range:
-                                    # If multi-part, calculate actual percentage
-                                    urlobj.__class__.partlengths[urlobj.mindex] = l
-                                    # Get data-downloaded sofar
-                                    datasofar = sum(urlobj.__class__.partlengths)
-                                    percent = int(100*float(datasofar)/float(urlobj.clength))
-                                    t = threading.currentThread()
-                                    prog.setSubTopic(1, '('+t.getName()+') ' + filename)
-
+                                prog.setSubTopic(1, infostring)
                                 prog.setSub(1, percent, 100) #, subdata=subdata)
                                 prog.show()
                                     
@@ -1255,7 +1313,8 @@ class HarvestManUrlConnector(object):
                         else:
                             if mypercent and showprogress:
                                 prog.setScreenWidth(prog.getScreenWidth())
-                                prog.setSubTopic(1, filename)
+                                infostring = 'TC: %d  ' % nthreads +  filename
+                                prog.setSubTopic(1, infostring)
                                 prog.setSub(1, mypercent, 100)
                                 prog.show()
                                 
@@ -1275,6 +1334,9 @@ class HarvestManUrlConnector(object):
                     pass
                     
                 break
+            #except Exception, e:
+            #    print 'ERROR:',e
+                
             except urllib2.HTTPError, e:
 
                 try:
@@ -1286,9 +1348,9 @@ class HarvestManUrlConnector(object):
                     pass
 
                 if self.__error['msg']:
-                    logconsole(self.__error['msg'], '=> ',urltofetch)
+                    moreinfo(self.__error['msg'], '=> ',urltofetch)
                 else:
-                    logconsole('HTTPError:',urltofetch)
+                    moreinfo('HTTPError:',urltofetch)
 
                 try:
                     errnum = int(self.__error['number'])
@@ -1332,9 +1394,9 @@ class HarvestManUrlConnector(object):
                     self.__error['msg'] = errdescn
 
                 if self.__error['msg']:
-                    logconsole(self.__error['msg'], '=> ',urltofetch)
+                    moreinfo(self.__error['msg'], '=> ',urltofetch)
                 else:
-                    logconsole('URLError:',urltofetch)
+                    moreinfo('URLError:',urltofetch)
 
                 errnum = self.__error['number']
                 if errnum == 10049 or errnum == 10061: # Proxy server error
@@ -1347,23 +1409,23 @@ class HarvestManUrlConnector(object):
                 # Generated by invalid ftp hosts and
                 # other reasons,
                 # bug(url: http://www.gnu.org/software/emacs/emacs-paper.html)
-                logconsole(e,'=>',urltofetch)
+                moreinfo(e,'=>',urltofetch)
 
             except ValueError, e:
                 self.__error['number'] = 41
                 self.__error['msg'] = str(e)                    
-                logconsole(e,'=>',urltofetch)
+                moreinfo(e,'=>',urltofetch)
 
             except AssertionError, e:
                 self.__error['number'] = 51
                 self.__error['msg'] = str(e)
-                logconsole(e,'=>',urltofetch)
+                moreinfo(e,'=>',urltofetch)
 
             except socket.error, e:
                 self.__error['msg'] = str(e)
                 errmsg = self.__error['msg']
 
-                logconsole('Socket Error: ',errmsg,'=> ',urltofetch)
+                moreinfo('Socket Error: ',errmsg,'=> ',urltofetch)
 
             # attempt reconnect after some time
             time.sleep(self.__sleeptime)
@@ -1624,7 +1686,10 @@ class HarvestManUrlConnector(object):
         ret = self.connect2(urlobj)
 
         status = 0
-        n, filename = 1, urlobj.get_filename()
+        if self._cfg.hgetoutfile:
+            n, filename = 1, self._cfg.hgetoutfile
+        else:
+            n, filename = 1, urlobj.get_filename()
         
         if ret==2:
             # Trying multipart download...

@@ -128,9 +128,6 @@ class HarvestManUrlParser(object):
     # Special string replacements
     special_strings_repl = (' ','~','+','"','<','>','#','%','{','}','|','\\','^','[',']','`')
 
-    # Used only for multi-part
-    partlengths = []
-    
     def reset_IDX(cls):
         HarvestManUrlParser.IDX = 0
 
@@ -341,7 +338,6 @@ class HarvestManUrlParser(object):
             # .. - if it does our rpath algorithm takes
             # care of it.
             if idx > 0:
-                debug('Reducing URL %s...' % self.url)
                 relpaths = self.reduce_url(relpaths)
 
             # Build relative path by checking for "." and ".." strings
@@ -1224,9 +1220,41 @@ if __name__=="__main__":
                HarvestManUrlParser('http://arstechnica.com/reviews/os/macosx-10.4.ars')]
                                   
                                   
+    l = [ HarvestManUrlParser('http://www.yahoo.com/photos/my photo.gif'),
+          HarvestManUrlParser('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
+          HarvestManUrlParser('http://cwc2003.rediffblogs.com'),
+          HarvestManUrlParser('/sports/2003/jun/25beck1.htm',
+                              'generic', 0, 'http://www.rediff.com', ''),
+          HarvestManUrlParser('ftp://ftp.gnu.org/pub/lpf.README'),
+          HarvestManUrlParser('http://www.python.org/doc/2.3b2/'),
+          HarvestManUrlParser('//images.sourceforge.net/div.png',
+                              'image', 0, 'http://sourceforge.net', ''),
+          HarvestManUrlParser('http://pyro.sourceforge.net/manual/LICENSE'),
+          HarvestManUrlParser('python/test.htm', 'generic', 0,
+                              'http://www.foo.com/bar/index.html', ''),
+          HarvestManUrlParser('/python/test.css', 'generic',
+                              0, 'http://www.foo.com/bar/vodka/test.htm', ''),
+          HarvestManUrlParser('/visuals/standard.css', 'generic', 0,
+                              'http://www.garshol.priv.no/download/text/perl.html'),
+          HarvestManUrlParser('www.fnorb.org/index.html', 'generic',
+                              0, 'http://pyro.sourceforge.net'),
+          HarvestManUrlParser('http://profigure.sourceforge.net/index.html',
+                              'generic', 0, 'http://pyro.sourceforge.net'),
+          HarvestManUrlParser('#anchor', 'anchor', 0, 
+                              'http://www.foo.com/bar/index.html'),
+          HarvestManUrlParser('nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html#__init__#index-after', 'anchor', 0, 'http://nltk.sourceforge.net/lite/doc/api/term-index.html'),              
+          HarvestManUrlParser('../icons/up.png', 'image', 0,
+                              'http://www.python.org/doc/current/tut/node2.html',
+                              ''),
+          HarvestManUrlParser('../eway/library/getmessage.asp?objectid=27015&moduleid=160',
+                              'generic',0,'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'),
+          HarvestManUrlParser('fileadmin/dz.gov.si/templates/../../../index.php',
+                              'generic',0,'http://www.dz-rs.si'),
+          HarvestManUrlParser('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70','form',True,'http://www.evvs.dk'),
+          HarvestManUrlParser('http://arstechnica.com/reviews/os/macosx-10.4.ars')]
     
 
-    for hu in hulist:
+    for hu in l:
         print 'Full filename = ', hu.get_full_filename()
         print 'Valid filename = ', hu.validfilename
         print 'Local Filename  = ', hu.get_filename()

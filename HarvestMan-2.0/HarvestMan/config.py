@@ -137,7 +137,12 @@ class HarvestManStateObject(dict):
         self.serverprioritydict = {}
         self.verbosity=2
         self.verbosity_default=2
+        # timeout for threads is a rather
+        # large 20 minutes.
         self.timeout=1200.00
+        # timeout for sockets is a modest
+        # two minutes
+        self.socktimeout = 120.00
         self.fetchertimeout=self.timeout
         self.getimagelinks=1
         self.getstylesheets=1
@@ -225,6 +230,10 @@ class HarvestManStateObject(dict):
         # Flag for inmem - opposite of flushdata
         # used only by hget
         self.inmem = False
+        # Hget outfile - default empty string
+        self.hgetoutfile = ''
+        # Hget verbosity flag - default False
+        self.hgetverbose = False
         
     def copy(self):
         # Set non-picklable objects to None type
@@ -493,120 +502,140 @@ class HarvestManStateObject(dict):
             sys.exit('Error: ' + str(e))
 
         cfgfile = False
-        
-        for option, value in optdict.items():
-            # If an option with value of null string, skip it
-            if value=='':
-               # print 'Skipping option',option
-               continue
-            else:
-               # print 'Processing option',option,'value',value
-               pass
-           
-            # first parse arguments with no options
-            if option=='version' and value:
-                self.print_version_info()
-                sys.exit(0)                
-            elif option=='configfile':
-                if self.check_value(option,value):
-                    self.set_option_xml('configfile_value', self.process_value(value))
-                    cfgfile = True
-                    # Continue parsing and take rest of options from cmd line
-            elif option=='projectfile':
-                if self.check_value(option,value):
-                    self.set_option_xml('projectfile_value', self.process_value(value))
-                    import utils 
 
-                    projector = utils.HarvestManProjectManager()
-
-                    if projector.read_project() == 0:
-                        # No need to parse further values
-                        return 0
-        
-            
-            elif option=='basedir':
-                if self.check_value(option,value): self.set_option_xml('basedir', self.process_value(value))
-            elif option=='project':
-                if self.check_value(option,value): self.set_option_xml('name', self.process_value(value))
-            elif option=='retries':
-                if self.check_value(option,value): self.set_option_xml('retries_value', self.process_value(value))
-            elif option=='localise':
-                if self.check_value(option,value): self.set_option_xml('localise_value', self.process_value(value))
-            elif option=='fetchlevel':
-                if self.check_value(option,value): self.set_option_xml('fetchlevel_value', self.process_value(value))
-            elif option=='maxthreads':
-                if self.check_value(option,value): self.set_option_xml('trackers_value', self.process_value(value))
-            elif option=='maxfiles':
-                if self.check_value(option,value): self.set_option_xml('maxfiles_value', self.process_value(value))
-            elif option=='timelimit':
-                if self.check_value(option,value): self.set_option_xml('timelimit_value', self.process_value(value))
-            elif option=='workers':
-                self.set_option_xml('workers_status',1)
-                if self.check_value(option,value): self.set_option_xml('workers_size', self.process_value(value))                
-            elif option=='urlfilter':
-                if self.check_value(option,value): self.set_option_xml('urlfilter', self.process_value(value))
-            elif option=='depth':
-                if self.check_value(option,value): self.set_option_xml('depth_value', self.process_value(value))
-            elif option=='robots':
-                if self.check_value(option,value): self.set_option_xml('robots_value', self.process_value(value))
-            elif option=='urllist':
-                if self.check_value(option,value): self.set_option_xml('urllist', self.process_value(value))
-            elif option=='proxy':
-                if self.check_value(option,value):
-                    # Set proxyencrypted flat to False
-                    self.proxyenc=False
-                    self.set_option_xml('proxyserver', self.process_value(value))
-            elif option=='proxyuser':
-                if self.check_value(option,value): self.set_option_xml('proxyuser', self.process_value(value))                
-            elif option=='proxypasswd':
-                if self.check_value(option,value): self.set_option_xml('proxypasswd', self.process_value(value))
-            elif option=='urlserver':
-                if self.check_value(option,value): self.set_option_xml('urlserver_status', self.process_value(value))
-                
-            elif option=='cache':
-                if self.check_value(option,value): self.set_option_xml('cache_status', self.process_value(value))
-            elif option=='connections':
-                if self.check_value(option,value):
-                    val = self.process_value(value)
-                    if val>=self.connections:
-                        self.connections = val + 1
-                    self.set_option_xml('requests_value', val)
-            elif option=='verbosity':
-                if self.check_value(option,value): self.set_option_xml('verbosity_value', self.process_value(value))
-            elif option=='savesessions':
-                if self.check_value(option,value): self.set_option_xml('savesessions_value', self.process_value(value))
-            elif option=='simulate':
-                self.set_option_xml('simulate_value', value)
-            elif option=='plugin':
-                if value == 'swish-e':
-                    from common.common import SetLogSeverity
-                    
-                    self.swishplugin = True
-                    self.verbosity = 0
-                    SetLogSeverity()
-                elif value == 'simulator':
-                    self.simulate = True
+        if self.appname == 'HarvestMan':
+            for option, value in optdict.items():
+                # If an option with value of null string, skip it
+                if value=='':
+                   # print 'Skipping option',option
+                   continue
                 else:
-                    print 'Error in command-line options: Invalid plugin %s!' % value
-                    sys.exit(0)
+                   # print 'Processing option',option,'value',value
+                   pass
+
+                # first parse arguments with no options
+                if option=='version' and value:
+                    self.print_version_info()
+                    sys.exit(0)                
+                elif option=='configfile':
+                    if self.check_value(option,value):
+                        self.set_option_xml('configfile_value', self.process_value(value))
+                        cfgfile = True
+                        # Continue parsing and take rest of options from cmd line
+                elif option=='projectfile':
+                    if self.check_value(option,value):
+                        self.set_option_xml('projectfile_value', self.process_value(value))
+                        import utils 
+
+                        projector = utils.HarvestManProjectManager()
+
+                        if projector.read_project() == 0:
+                            # No need to parse further values
+                            return 0
+
+
+                elif option=='basedir':
+                    if self.check_value(option,value): self.set_option_xml('basedir', self.process_value(value))
+                elif option=='project':
+                    if self.check_value(option,value): self.set_option_xml('name', self.process_value(value))
+                elif option=='retries':
+                    if self.check_value(option,value): self.set_option_xml('retries_value', self.process_value(value))
+                elif option=='localise':
+                    if self.check_value(option,value): self.set_option_xml('localise_value', self.process_value(value))
+                elif option=='fetchlevel':
+                    if self.check_value(option,value): self.set_option_xml('fetchlevel_value', self.process_value(value))
+                elif option=='maxthreads':
+                    if self.check_value(option,value): self.set_option_xml('trackers_value', self.process_value(value))
+                elif option=='maxfiles':
+                    if self.check_value(option,value): self.set_option_xml('maxfiles_value', self.process_value(value))
+                elif option=='timelimit':
+                    if self.check_value(option,value): self.set_option_xml('timelimit_value', self.process_value(value))
+                elif option=='workers':
+                    self.set_option_xml('workers_status',1)
+                    if self.check_value(option,value): self.set_option_xml('workers_size', self.process_value(value))                
+                elif option=='urlfilter':
+                    if self.check_value(option,value): self.set_option_xml('urlfilter', self.process_value(value))
+                elif option=='depth':
+                    if self.check_value(option,value): self.set_option_xml('depth_value', self.process_value(value))
+                elif option=='robots':
+                    if self.check_value(option,value): self.set_option_xml('robots_value', self.process_value(value))
+                elif option=='urllist':
+                    if self.check_value(option,value): self.set_option_xml('urllist', self.process_value(value))
+                elif option=='proxy':
+                    if self.check_value(option,value):
+                        # Set proxyencrypted flat to False
+                        self.proxyenc=False
+                        self.set_option_xml('proxyserver', self.process_value(value))
+                elif option=='proxyuser':
+                    if self.check_value(option,value): self.set_option_xml('proxyuser', self.process_value(value))                
+                elif option=='proxypasswd':
+                    if self.check_value(option,value): self.set_option_xml('proxypasswd', self.process_value(value))
+                elif option=='urlserver':
+                    if self.check_value(option,value): self.set_option_xml('urlserver_status', self.process_value(value))
+
+                elif option=='cache':
+                    if self.check_value(option,value): self.set_option_xml('cache_status', self.process_value(value))
+                elif option=='connections':
+                    if self.check_value(option,value):
+                        val = self.process_value(value)
+                        if val>=self.connections:
+                            self.connections = val + 1
+                        self.set_option_xml('requests_value', val)
+                elif option=='verbosity':
+                    if self.check_value(option,value): self.set_option_xml('verbosity_value', self.process_value(value))
+                elif option=='savesessions':
+                    if self.check_value(option,value): self.set_option_xml('savesessions_value', self.process_value(value))
+                elif option=='simulate':
+                    self.set_option_xml('simulate_value', value)
+                elif option=='plugin':
+                    if value == 'swish-e':
+                        from common.common import SetLogSeverity
+
+                        self.swishplugin = True
+                        self.verbosity = 0
+                        SetLogSeverity()
+                    elif value == 'simulator':
+                        self.simulate = True
+                    else:
+                        print 'Error in command-line options: Invalid plugin %s!' % value
+                        sys.exit(0)
+
+        elif self.appname == 'Hget':
             # Hget options
-            elif option=='numparts':
-                # Setting numparts forces split downloads
-                self.numparts = abs(int(value))
-                if self.numparts == 0:
-                    print 'Error: Invalid value for number of parts, value should be non-zero!'
-                    sys.exit(1)
-                if self.numparts > 20:
-                    print 'Error: Exceeding the maximum limit (20) of parts, please use a lower setting.'
-                    sys.exit(1)
-                if self.numparts>1:
-                    self.forcesplit = True
+            for option, value in optdict.items():
+                # If an option with value of null string, skip it
+                if value=='':
+                   # print 'Skipping option',option
+                   continue
                 else:
-                    print 'Warning: Setting numparts to 1 has no effect!'
-            elif option=='memory':
-                if value:
-                    print 'Warning: Enabling in-memory flag, data will be stored in memory!'
-                    self.inmem = True
+                   # print 'Processing option',option,'value',value
+                   pass
+
+                # first parse arguments with no options
+                if option=='version' and value:
+                    self.print_version_info()
+                    sys.exit(0)                               
+                elif option=='numparts':
+                    # Setting numparts forces split downloads
+                    self.numparts = abs(int(value))
+                    if self.numparts == 0:
+                        print 'Error: Invalid value for number of parts, value should be non-zero!'
+                        sys.exit(1)
+                    if self.numparts > 20:
+                        print 'Error: Exceeding the maximum limit (20) of parts, please use a lower setting.'
+                        sys.exit(1)
+                    if self.numparts>1:
+                        self.forcesplit = True
+                    else:
+                        print 'Warning: Setting numparts to 1 has no effect!'
+                elif option=='memory':
+                    if value:
+                        print 'Warning: Enabling in-memory flag, data will be stored in memory!'
+                        self.inmem = True
+                elif option=='output':
+                    self.hgetoutfile = value
+                elif option=='verbose':
+                    self.hgetverbose = value
                 
         if self.nocrawl:
             self.pagecache = False
