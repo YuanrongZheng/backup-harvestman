@@ -474,7 +474,22 @@ def ping_urlserver_udp(host, port):
     except socket.error:
         debug('Could not connect to (%s:%d)' % (host, port))
         return ''    
-        
+
+def GetTempDir():
+    """ Return the temporary directory """
+
+    # Currently used by hget
+    tmpdir = max(map(lambda x: os.environ.get(x, 'nf'), ['TEMP','TMP','TEMPDIR','TMPDIR']))
+    if tmpdir=='nf':
+        # No temp dir env variable
+        if os.name == 'posix':
+            if os.path.isdir('/tmp'):
+                return '/tmp'
+            elif os.path.isdir('/usr/tmp'):
+                return '/usr/tmp'
+        elif os.name == 'nt':
+            pass
+    
 # Modified to use the logger object
 def info(arg, *args):
     """ Print basic information, will print if verbosity is >=1 """
