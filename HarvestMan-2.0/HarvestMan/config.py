@@ -234,6 +234,8 @@ class HarvestManStateObject(dict):
         self.hgetoutfile = ''
         # Hget verbosity flag - default False
         self.hgetverbose = False
+        # Hget temp flag - default False
+        self.hgetnotemp = False
         
     def copy(self):
         # Set non-picklable objects to None type
@@ -632,6 +634,11 @@ class HarvestManStateObject(dict):
                     if value:
                         print 'Warning: Enabling in-memory flag, data will be stored in memory!'
                         self.inmem = True
+                elif option=='notempdir':
+                    if value:
+                        print 'Temporary files will be saved to current directory'
+                        # Do not use temporary directory for saving intermediate files
+                        self.hgetnotemp = True
                 elif option=='output':
                     self.hgetoutfile = value
                 elif option=='verbose':

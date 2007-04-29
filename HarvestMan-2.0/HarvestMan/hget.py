@@ -20,6 +20,16 @@
                    to tempfiles when run with hget.
      April 25 2007 Implementation of hget features is  Anand
                    completed!
+     April 30 2007 Many fixes/enhancements to hget.
+                   1. Reconnection of a lost connection does not
+                   lose already downloaded data.
+                   2. Closing of files of threads when download is
+                   aborted.
+                   3. Thread count shows current number of threads
+                   which are actually doing downloads, reflecting
+                   the activity.
+                   4. Final printing of time taken, average bandwidth
+                   and file size.
      
 Copyright(C) 2007, Anand B Pillai
 
@@ -74,18 +84,43 @@ class Hget(HarvestMan):
                 print 'Cleaning up temporary files...'
                 fname1 = conn.get_tmpfname()
                 if fname1: os.remove(fname1)
-                
+
                 lthreads = pool.get_threads()
+                lfiles = []
                 for t in lthreads:
+                    fname = t.get_tmpfname()
+                    print 'fname=>',fname
+                    if fname: lfiles.append(fname)
+                    t.close_file()
+                    
+                pool.end_all_threads()
+
+                for f in lfiles:
                     try:
-                        fname = t.get_tmpfname()
-                        if fname: os.remove(fname)
+                        os.remove(f)
                     except (IOError, OSError), e:
-                        print e
-                        
+                        print 'Error: ',e
+                        pass
+                    
                 print 'Done'
                 
             print ''
+
+    def create_initial_directories(self):
+        """ Create the initial directories for Hget """
+
+        super(Hget, self).create_initial_directories()
+        # Create temporary directory for saving files
+        if not self._cfg.hgetnotemp:
+            try:
+                tmp = GetMyTempDir()
+                if not os.path.isdir(tmp):
+                    os.makedirs(tmp)
+                # Could not make tempdir, set hgetnotemp to True
+                if not os.path.isdir(tmp):
+                    self._cfg.hgetnotemp = True
+            except Exception, e:
+                pass
 
     def _prepare(self):
         """ Do the basic things and get ready """

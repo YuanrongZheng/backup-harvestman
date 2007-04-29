@@ -41,7 +41,13 @@
                       caching changes are pending.
 
    April 20 2007  Anand Added force-splitting option for hget.
-   
+   April 30 2007  Anand Using datetime module to convert seconds to
+                        hh:mm:ss display.
+                        DataReader obejcts not recreated when a lost
+                        connection is resumed, instead new data is
+                        added to existing data, by adjusting byte range
+                        if necessary.
+                      
    Copyright (C) 2004 Anand B Pillai.    
                               
 """
@@ -52,6 +58,7 @@ __author__ = 'Anand B Pillai'
 import sys
 import socket
 import time
+import datetime
 import threading as tg
 
 import urllib2 
@@ -103,10 +110,19 @@ class DataReader(tg.Thread):
         self._contentlen = 0
         # Index - used only for multipart
         self._index = index
+        # Initialized flag
+        self._init = False
         tg.Thread.__init__(self, None, None, 'data reader')
 
     def initialize(self):
         self._start = time.time()
+        self._init = True
+
+    def is_initialized(self):
+        return self._init
+    
+    def set_request(self, request):
+        self._request = request
         
     def run(self):
         self.initialize()
@@ -153,14 +169,16 @@ class DataReader(tg.Thread):
         complete as a tuple """
 
         curr = time.time()
-        per, bandwidth, l, eta = -1, 0, 0, -1
+        per, pertotal, bandwidth, l, eta = -1, -1, 0, 0, -1
         
         if not self.__class__.MULTIPART:
             if self._clength:
-                per = float(100.0*self._contentlen)/float(self._clength)
+                pertotal = float(100.0*self._contentlen)/float(self._clength)
             
             l = self._contentlen
 
+            per = pertotal
+            
             if curr>self._start:
                 bandwidth = float(l)/float(curr - self._start)
             
@@ -173,10 +191,11 @@ class DataReader(tg.Thread):
             total = sum(kls.CONTENTLEN)
             
             if kls.ORIGLENGTH:
-               per = float(100.0*total)/float(kls.ORIGLENGTH)
-            else:
-               per = -1
+               pertotal = float(100.0*total)/float(kls.ORIGLENGTH)
 
+            if self._clength:
+                per = float(100.0*self._contentlen)/float(self._clength)
+                
             if curr>kls.START_TIME:
                bandwidth = float(total)/float(curr - kls.START_TIME)
 
@@ -185,30 +204,32 @@ class DataReader(tg.Thread):
             pass
         
         if eta != -1:
+            # print eta
             # Convert to hr:min:sec
-            hh = eta/3600
-            if hh:
-                eta = (hh % 3600)
+            #hh = eta/3600
+            #if hh:
+            #    eta = (hh % 3600)
             
-            mm = eta/60
+            #mm = eta/60
 
-            if mm:
-                ss = (eta % 60)
-            else:
-                ss = eta
+            #if mm:
+            #    ss = (eta % 60)
+            #else:
+            #    ss = eta
 
-            if hh<10:
-                hh = '0'+str(hh)
-            if mm<10:
-                mm = '0'+str(mm)
-            if ss<10:
-                ss = '0'+str(ss)
+            #if hh<10:
+            #    hh = '0'+str(hh)
+            #if mm<10:
+            #    mm = '0'+str(mm)
+            #if ss<10:
+            #    ss = '0'+str(ss)
                 
-            eta = ':'.join((str(hh),str(mm),str(ss)))
+            #eta = ':'.join((str(hh),str(mm),str(ss)))
+            eta = str(datetime.timedelta(seconds=int(eta)))
         else:
             eta = 'NaN'
         
-        return (per, l, bandwidth, eta)
+        return (per, pertotal, l, bandwidth, eta)
 
     def get_data(self):
         return self._data
@@ -1145,6 +1166,12 @@ class HarvestManUrlConnector(object):
                 if byterange:
                     range1 = byterange[0]
                     range2 = byterange[-1]
+                    # For a repeat connection, don't redownload already
+                    # downloaded data.
+                    if numtries>1 and self._reader:
+                        datasofar = self._reader.get_datalen()
+                        if datasofar: range1 += datasofar
+                        
                     request.add_header('Range','bytes=%d-%d' % (range1,range2))
                 
                 self.__freq = urllib2.urlopen(request)
@@ -1254,22 +1281,26 @@ class HarvestManUrlConnector(object):
                     prog = self._cfg.progressobj
                     
                     mypercent = 0.0
-
+                    
                     self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
+                    if not self._cfg.hgetnotemp:
+                        self._tmpfname = os.path.join(GetMyTempDir(), self._tmpfname)
+                        
                     # Report fname to calling thread
                     ct = threading.currentThread()
 
                     # print self._tmpfname, ct
-                    
                     if ct.__class__.__name__ == 'HarvestManUrlThread':
                         ct.set_tmpfname(self._tmpfname)
-                    
-                    self._reader = DataReader(self.__freq,
-                                              urltofetch,
-                                              self._tmpfname,
-                                              clength,
-                                              self._mode)
 
+                    if self._reader==None:
+                        self._reader = DataReader(self.__freq,
+                                                  urltofetch,
+                                                  self._tmpfname,
+                                                  clength,
+                                                  self._mode)
+                    else:
+                        self._reader.set_request(self.__freq)
 
                     # Setting class-level variables
                     if self._cfg.multipart:
@@ -1278,38 +1309,40 @@ class HarvestManUrlConnector(object):
                             DataReader.START_TIME = time.time()
                             DataReader.ORIGLENGTH = urlobj.clength
                             DataReader.CONTENTLEN = [0]*self._cfg.numparts
-                            
-                        self._reader.set_index(urlobj.mindex)
-                        self._reader.initialize()
-                    else:
-                        self._reader.start()
+
+                    if not self._reader.is_initialized():
+                        if self._cfg.multipart:
+                            self._reader.set_index(urlobj.mindex)
+                            self._reader.initialize()
+                        else:
+                            self._reader.start()
 
                     t1 = time.time()
 
-                    # Get number of active worker threads...
-                    nthreads = dmgr.get_url_threadpool().get_active_count()
-                    # If no active worker threads, then there is at least
-                    # the main thread which is active
-                    if nthreads==0: nthreads = 1
-                    
                     while True:
                         if self._cfg.multipart: self._reader.readNext()
                             
                         if clength:
-                            percent,l,bw,eta = self._reader.get_info()
+                            per1,per2,l,bw,eta = self._reader.get_info()
                             
-                            if percent and showprogress:
+                            if per2 and showprogress:
                                 prog.setScreenWidth(prog.getScreenWidth())
+                                # Get number of active worker threads...
+                                nthreads = dmgr.get_url_threadpool().get_busy_count()
+                                # If no active worker threads, then there is at least
+                                # the main thread which is active
+                                if nthreads==0: nthreads = 1
+                                
                                 infostring = 'TC: %d' % nthreads + \
                                              ' BW: %4.2fK/s' % float(bw/1024.0) + \
                                              ' ETA: %s' % str(eta)
                                 
                                 #subdata = {'item-number': urlobj.mindex+1}
                                 prog.setSubTopic(1, infostring)
-                                prog.setSub(1, percent, 100) #, subdata=subdata)
+                                prog.setSub(1, per2, 100) #, subdata=subdata)
                                 prog.show()
                                     
-                            if percent==100.0: break
+                            if per1==100.0: break
                         else:
                             if mypercent and showprogress:
                                 prog.setScreenWidth(prog.getScreenWidth())
@@ -1683,8 +1716,11 @@ class HarvestManUrlConnector(object):
 
         url = urlobj.get_full_url()
         print 'Connecting to %s...' % urlobj.get_full_domain()
-        ret = self.connect2(urlobj)
 
+        start = time.time()
+        ret = self.connect2(urlobj)
+        end = time.time()
+        
         status = 0
         if self._cfg.hgetoutfile:
             n, filename = 1, self._cfg.hgetoutfile
@@ -1696,6 +1732,8 @@ class HarvestManUrlConnector(object):
             pool = GetObject('datamanager').get_url_threadpool()
             while not pool.get_multipart_download_status(url):
                 time.sleep(1.0)
+            end = time.time()
+
             print 'Data download completed.'
             if self._mode==1:
                 data = pool.get_multipart_url_data(url)
@@ -1745,10 +1783,15 @@ class HarvestManUrlConnector(object):
             filename = ''.join((origfilename,'.',str(n)))
             n += 1
 
+        tgap = end - start
+        timestr = str(datetime.timedelta(seconds=int(tgap)))
         if self._mode==1:
             res=self.__write_url(filename)
             if res:
+                sz = os.path.getsize(filename)
+                bw = float(sz)/float(1024*tgap)
                 print '\nSaved to %s.' % filename
+                print '%d bytes downloaded in %s hours at an average of %.2f kb/s.' % (sz, timestr, bw)
                 return res
         elif self._mode==0:
             if os.path.isfile(self._tmpfname):
@@ -1757,6 +1800,9 @@ class HarvestManUrlConnector(object):
                     
                 if os.path.isfile(filename):
                     print '\nSaved to %s.' % filename
+                    sz = os.path.getsize(filename)
+                    bw = float(sz)/float(1024*tgap)
+                    print '%d bytes downloaded in %s hours at an average of %.2f kb/s.' % (sz, timestr, bw)
                     return 1
                 else:
                     print 'Error saving to file %s' % filename

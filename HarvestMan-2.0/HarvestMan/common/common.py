@@ -479,8 +479,9 @@ def GetTempDir():
     """ Return the temporary directory """
 
     # Currently used by hget
-    tmpdir = max(map(lambda x: os.environ.get(x, 'nf'), ['TEMP','TMP','TEMPDIR','TMPDIR']))
-    if tmpdir=='nf':
+    tmpdir = max(map(lambda x: os.environ.get(x, ''), ['TEMP','TMP','TEMPDIR','TMPDIR']))
+
+    if tmpdir=='':
         # No temp dir env variable
         if os.name == 'posix':
             if os.path.isdir('/tmp'):
@@ -488,8 +489,18 @@ def GetTempDir():
             elif os.path.isdir('/usr/tmp'):
                 return '/usr/tmp'
         elif os.name == 'nt':
-            pass
-    
+            profiledir = os.environ.get('USERPROFILE','')
+            if profiledir:
+                return os.path.join(profiledir,'Local Settings','Temp')
+    else:
+        return os.path.abspath(tmpdir)
+
+def GetMyTempDir():
+    """ Return temporary directory for HarvestMan """
+
+    # This is tempdir/HarvestMan
+    return os.path.join(GetTempDir(), 'harvestman')
+
 # Modified to use the logger object
 def info(arg, *args):
     """ Print basic information, will print if verbosity is >=1 """

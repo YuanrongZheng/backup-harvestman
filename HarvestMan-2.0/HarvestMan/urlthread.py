@@ -67,7 +67,7 @@ class HarvestManUrlThread(threading.Thread):
         self.__sleepTime = 1.0
         # error dictionary
         self.__error = {}
-        # download status flag
+        # download status 
         self.__downloadstatus = 0
         # busy flag
         self.__busyflag = False
@@ -77,6 +77,8 @@ class HarvestManUrlThread(threading.Thread):
         self.__data = ''
         # Url temp file, used for mode 0
         self.__urltmpfile = ''
+        # Current connector
+        self.__conn = None
         # initialize threading
         threading.Thread.__init__(self, None, None, name)
         
@@ -168,22 +170,22 @@ class HarvestManUrlThread(threading.Thread):
         conn_factory = GetObject('connectorfactory')
         # This call will block if we exceed the number of connections
         # moreinfo("Creating connector for url ", urlobj.get_full_url())
-        conn = conn_factory.create_connector( server )
-        conn.set_data_mode(self.__pool.get_data_mode())
-        mode = conn.get_data_mode()
+        self.__conn = conn_factory.create_connector( server )
+        self.__conn.set_data_mode(self.__pool.get_data_mode())
+        mode = self.__conn.get_data_mode()
         
         if not url_obj.trymultipart:
-            res = conn.save_url(url_obj)
+            res = self.__conn.save_url(url_obj)
         else:
-            res = conn.wrapper_connect(url_obj)
+            res = self.__conn.wrapper_connect(url_obj)
             # This has a different return value.
             # 0 indicates data was downloaded fine.
             if res==0: res=1
             
             if mode == 0:
-                self.__urltmpfile = conn.get_tmpfname()
+                self.__urltmpfile = self.__conn.get_tmpfname()
             elif mode == 1:
-                self.__data = conn.get_data()
+                self.__data = self.__conn.get_data()
 
         # Remove the connector from the factory
         conn_factory.remove_connector(server)
@@ -192,9 +194,9 @@ class HarvestManUrlThread(threading.Thread):
         self.__downloadstatus = res
         
         # get error flag from connector
-        self.__error = conn.get_error()
+        self.__error = self.__conn.get_error()
 
-        del conn
+        del self.__conn
         
         # Notify thread pool
         self.__pool.notify(self)
@@ -245,7 +247,7 @@ class HarvestManUrlThread(threading.Thread):
                 # reset busyflag
                 self.__busyflag = False
             except Exception, e:
-                # print 'Exception',e
+                print 'Exception',e
                 # Now I am dead - so I need to tell the pool
                 # object to migrate my data and produce a new thread.
                 
@@ -320,6 +322,13 @@ class HarvestManUrlThread(threading.Thread):
 
         self.__timeout = value
 
+    def close_file(self):
+        """ Close temporary file objects of the connector """
+
+        # Currently used only by hget
+        if self.__conn:
+            reader = self.__conn.get_reader()
+            if reader: reader.close()
         
 class HarvestManUrlThreadPool(Queue):
     """ Thread group/pool class to manage download threads """
@@ -487,6 +496,7 @@ class HarvestManUrlThreadPool(Queue):
 
         try:
             self._cond.acquire()
+
             # Mark the time stamp (last thread report time)
             self._ltrt = time.time()
 
@@ -551,9 +561,9 @@ class HarvestManUrlThreadPool(Queue):
                 dmgr.update_file_stats( urlObj, tstatus)
             else:
                 dmgr.update_failed_files( urlObj )
+
         finally:
             self._cond.release()
-            
 
     def has_busy_threads(self):
         """ Return whether I have any busy threads """
@@ -571,11 +581,11 @@ class HarvestManUrlThreadPool(Queue):
 
         return [thread for thread in self.__threads if thread.is_busy()]
 
-    def get_active_count(self):
-        """ Return a count of active threads """
+    def get_busy_count(self):
+        """ Return a count of busy threads """
 
         return len(self.get_busy_threads())
-    
+
     def locate_thread(self, url):
         """ Find a thread which downloaded a certain url """
 
