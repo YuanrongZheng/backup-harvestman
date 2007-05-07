@@ -570,7 +570,7 @@ class HarvestManDataManager(object):
         # typ mapping
         # 0 => saved files
         if typ==0:
-            lookuplist = self._downloaddict['_savedfiles']
+            lookuplist = self._downloaddict.get('_savedfiles', [])
             if filename in lookuplist:
                 lookuplist.remove(filename)
                 return True
@@ -686,7 +686,6 @@ class HarvestManDataManager(object):
             self._serversdict[domain] = {'accept-ranges': True}
             
         parts = self._cfg.numparts
-        # print parts
         # Calculate size of each piece
         piecesz = clength/parts
         

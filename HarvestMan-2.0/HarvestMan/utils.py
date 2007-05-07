@@ -290,13 +290,12 @@ class HarvestManCacheManager(object):
                                 # Check if there is a datafile with name=hash(url)
                                 fname = os.path.join(self.__datacachedir, str(abs(hash(url))) + '.data')
                                 if fname in datafiles:
-                                    # print 'Added data cache for',url
                                     try:
                                         cachekey['data'] = zlib.decompress(open(fname).read())
                                     except zlib.error, e:
                                         pass
                                     except Exception, e:
-                                        print e
+                                        logconsole(str(e))
                         else:
                             for d in domain_cache.values():
                                 if 'data' in d and d['data']:
@@ -362,7 +361,6 @@ class HarvestManCacheManager(object):
                         # Filename is hash of the URL
                         if os.path.isdir(self.__datacachedir):
                             filename = os.path.join(self.__datacachedir, str(abs(hash(url))) + '.data')
-                            # print filename
                             data = cachekey['data']
 
                             try:
@@ -370,7 +368,7 @@ class HarvestManCacheManager(object):
                             except zlib.error, e:
                                 pass
                             except Exception, e:
-                                print e
+                                logconsole(str(e))
                                 
                             del cachekey['data']
                         else:
@@ -381,7 +379,7 @@ class HarvestManCacheManager(object):
                 pickler.dump( urldict, cachefilename)
                 
         except HarvestManSerializerError, e:
-            print e
+            logconsole(str(e))
             return -1
 
         return 0

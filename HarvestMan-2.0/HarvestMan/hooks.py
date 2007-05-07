@@ -117,7 +117,6 @@ class HarvestManHooks(Singleton):
             # Replace function with the new one
             funcobj = getattr(klass, function)
             setattr(klass, function, func)
-            # print getattr(klass, function)
         else:
             # No class perhaps. Directly override
             setattr(M, function, func)

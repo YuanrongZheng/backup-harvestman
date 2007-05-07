@@ -247,7 +247,7 @@ class HarvestManUrlThread(threading.Thread):
                 # reset busyflag
                 self.__busyflag = False
             except Exception, e:
-                print 'Exception',e
+                # print 'Exception',e
                 # Now I am dead - so I need to tell the pool
                 # object to migrate my data and produce a new thread.
                 
@@ -426,7 +426,6 @@ class HarvestManUrlThreadPool(Queue):
     def spawn_threads(self):
         """ Start the download threads """
 
-        # print 'num=>',self.__numthreads
         for x in range(self.__numthreads):
             name = 'Worker-'+ str(x+1)
             fetcher = HarvestManUrlThread(name, self.__timeout, self)

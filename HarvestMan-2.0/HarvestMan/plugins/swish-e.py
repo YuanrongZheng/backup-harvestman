@@ -19,7 +19,10 @@ Copyright (C) 2007 Anand B Pillai
 __version__ = '2.0 b1'
 __author__ = 'Anand B Pillai'
 
+import sys, os
 import hooks
+import time
+
 from common.common import *
 from types import StringTypes
 
@@ -28,14 +31,17 @@ def process_url_further(self, data):
     
     if (type(data) in StringTypes) and len(data):
         if self.wp.can_index:
-            print 'Path-Name:',self._urlobject.get_full_filename()
-            print 'Content-Length:',len(data)
-            print
+            sys.stdout.write('Path-Name: ' + self._urlobject.get_full_url() + '\n')
+            sys.stdout.write('Content-Length: ' + str(len(data)) + '\n')
+            sys.stdout.write('\n')
             # Swish-e seems to be very sensitive to any additional
             # blank lines between content and headers. So stripping
             # the data of trailing and preceding newlines is important.
-            print data.strip()      
+            sys.stdout.flush()
+            sys.stdout.write(data.strip() + '\n')
+            sys.stdout.flush()
             
+    return data
 
 def apply_plugin():
     """ Apply the plugin - overrideable method """
@@ -52,7 +58,6 @@ def apply_plugin():
 
     # Makes sense to activate the callback only if swish-integration
     # is enabled.
-    #if cfg.swishplugin:
     hooks.register_post_callback_method('crawler:fetcher_process_url_callback',
                                         process_url_further)
     # Turn off caching, since no files are saved
@@ -63,7 +68,10 @@ def apply_plugin():
     # Turn off session-saver feature
     cfg.savesessions = False
     # Turn off interrupt handling
-    cfg.ignoreinterrupts = True
-    self.verbosity = 0
-    self.verbosities = [0]*len(self.verbosities)
-    SetLogSeverity()
+    # cfg.ignoreinterrupts = True
+    # No need for localising
+    cfg.localise = 0
+    # Turn off image downloading
+    cfg.images = 0
+    # Increase sleep time
+    cfg.sleeptime = 1.0

@@ -22,7 +22,7 @@ if [ -f /usr/bin/harvestman ]
 then
 rm -rf /usr/bin/harvestman
 fi
-echo "/usr/bin/env python $exepath \$*" > /usr/bin/harvestman
+echo "/usr/bin/env python $exepath1 \$*" > /usr/bin/harvestman
 chmod +x /usr/bin/harvestman
 
 if [ ! -f $exepath2 ]

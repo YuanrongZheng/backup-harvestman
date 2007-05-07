@@ -204,27 +204,6 @@ class DataReader(tg.Thread):
             pass
         
         if eta != -1:
-            # print eta
-            # Convert to hr:min:sec
-            #hh = eta/3600
-            #if hh:
-            #    eta = (hh % 3600)
-            
-            #mm = eta/60
-
-            #if mm:
-            #    ss = (eta % 60)
-            #else:
-            #    ss = eta
-
-            #if hh<10:
-            #    hh = '0'+str(hh)
-            #if mm<10:
-            #    mm = '0'+str(mm)
-            #if ss<10:
-            #    ss = '0'+str(ss)
-                
-            #eta = ':'.join((str(hh),str(mm),str(ss)))
             eta = str(datetime.timedelta(seconds=int(eta)))
         else:
             eta = 'NaN'
@@ -838,7 +817,6 @@ class HarvestManUrlConnector(object):
                     maxsz = self._cfg.maxfilesize
                     extrainfo("Url",urltofetch,"does not match size constraints, trying multi-part download...")
                     supports_multipart = dmgr.supports_range_requests(hu)
-                    # print 'supports multipart=>',supports_multipart
                     
                     # Dont do range checking on FTP servers since they
                     # typically support it by default.
@@ -868,7 +846,6 @@ class HarvestManUrlConnector(object):
                 # differentiate between directory like urls
                 # and file like urls.
                 actual_url = self.__freq.geturl()
-                # print 'ACTUAL URL=>',actual_url
                 
                 # Replace the urltofetch in actual_url with null
                 if actual_url:
@@ -991,7 +968,6 @@ class HarvestManUrlConnector(object):
                     break
 
             except urllib2.URLError, e:
-                # print 'Error=>',e
                 errdescn = ''
                 
                 try:
@@ -1012,8 +988,8 @@ class HarvestManUrlConnector(object):
                 
                 if errdescn:
                     self.__error['msg'] = errdescn
-                else:
-                    print 'errdescn is null!'
+                #else:
+                #    print 'errdescn is null!'
 
                 if self.__error['msg']:
                     extrainfo(self.__error['msg'], '=> ',urltofetch)
@@ -1236,7 +1212,6 @@ class HarvestManUrlConnector(object):
 
                         # Set http headers
                         self.set_http_headers()
-                        # print self._headers
                         range_result = self._headers.get('accept-ranges', '')
                         if range_result.lower()=='bytes':
                             logconsole('Server supports multipart downloads')
@@ -1289,7 +1264,6 @@ class HarvestManUrlConnector(object):
                     # Report fname to calling thread
                     ct = threading.currentThread()
 
-                    # print self._tmpfname, ct
                     if ct.__class__.__name__ == 'HarvestManUrlThread':
                         ct.set_tmpfname(self._tmpfname)
 

@@ -251,7 +251,6 @@ class HarvestManCrawlerQueue(object):
             if self.is_exit_condition():
                 count += 1
 
-            # print count
             if count==numstops:
                 break
             
@@ -492,7 +491,6 @@ class HarvestManCrawlerQueue(object):
             self._lastblockedtime = time.time()
             
         has_running_threads = dmgr.has_download_threads()
-        # print 'Has running threads=>',has_running_threads
         timed_out = False
 
         # If the trackers are blocked, but waiting for sub-threads

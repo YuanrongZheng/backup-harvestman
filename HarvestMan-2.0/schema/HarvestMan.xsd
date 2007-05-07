@@ -221,12 +221,13 @@
   <!--- Defining the 'control' element -->
   <xsd:complexType name="ConfigControlType">
     <xsd:sequence>
-      <!--- Consists of five elements, 'links', 'extent' and 'limits', 'rules' & 'filters' -->
+      <!--- Consists of six elements, 'links', 'extent' and 'limits', 'rules', filters' & plugins -->
       <xsd:element name="links" type="ControlLinksType"/>
       <xsd:element name="extent" type="ControlExtentType"/>
       <xsd:element name="limits" type="ControlLimitsType"/>
       <xsd:element name="rules" type="ControlRulesType"/>
       <xsd:element name="filters" type="ControlFiltersType"/>
+      <xsd:element name="plugins" type="ControlPluginsType"/>
     </xsd:sequence>
   </xsd:complexType>
   
@@ -345,6 +346,18 @@
       <xsd:element name="junkfilter" minOccurs="0">
         <xsd:complexType>
           <xsd:attribute name="value" type="xsd:boolean" default="0" use="optional"/>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>       
+  </xsd:complexType>
+
+   <!--- Defining the 'plugins' element -->
+  <xsd:complexType name="ControlPluginsType">
+    <xsd:sequence>
+      <xsd:element name="plugin" minOccurs="0" maxOccurs="unbounded">
+        <xsd:complexType>
+          <xsd:attribute name="name" type="xsd:string" use="required"/>
+          <xsd:attribute name="enable" type="xsd:boolean" use="required"/>
         </xsd:complexType>
       </xsd:element>
     </xsd:sequence>       

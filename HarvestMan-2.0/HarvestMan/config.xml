@@ -83,8 +83,7 @@
       </filters>
       <plugins>
         <plugin name="swish-e" enable="0" />
-        <plugin name="simulator" enable="1" />
-        <plugin name="arbitrary" enable="0" />
+        <plugin name="simulator" enable="0" />
       </plugins>
     </control>
 

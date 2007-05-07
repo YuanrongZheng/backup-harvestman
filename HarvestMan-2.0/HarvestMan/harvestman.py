@@ -51,6 +51,9 @@
     Apr 24 2007          Anand       Modified connector algorithm to flush data to
                                      temp files for hget. This makes sure that hget
                                      can download huge files as multipart.
+    May 7 2007           Anand       Added plugin as option in configuration file.
+                                     Added ability to process more than one plugin
+                                     at once. Modified loading logic of plugins.
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -175,7 +178,6 @@ class HarvestMan(object):
 
         # Get config object
         state['configobj'] = GetObject('config').copy()
-        # print state['configobj']
         
         # Dump with time-stamp 
         fname = os.path.join(self._cfg.usersessiondir, '.harvestman_saves#' + str(int(time.time())))
@@ -369,6 +371,10 @@ class HarvestMan(object):
         if not self._cfg.resuming:
             self._cfg.get_program_options()
 
+
+    def init(self):
+        """ Initialization """
+        
         self.register_common_objects()
         self.create_initial_directories()
 
@@ -661,6 +667,9 @@ class HarvestMan(object):
 
         # Load plugins
         if self._cfg.plugins: self.process_plugins()
+
+        # Init only later
+        self.init()
         
         # See if a crash file is there, then try to load it and run
         # program from crashed state.

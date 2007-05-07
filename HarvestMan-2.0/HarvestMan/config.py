@@ -207,8 +207,6 @@ class HarvestManStateObject(dict):
         self.pluginenabled = []
         # Control var for simulation feature
         self.simulate = False
-        # Control var for swish integration
-        self.swishplugin = False
         # Time to sleep between requests
         self.sleeptime = 0.3
         self.randomsleep = True
@@ -601,6 +599,7 @@ class HarvestManStateObject(dict):
                     self.plugins = [plugin.strip() for plugin in plugins]
                     self.pluginenabled = [1]*len(self.plugins)
                     if 'swish-e' in self.plugins:
+                        # Disable any message output for swish-e
                         from common.common import SetLogSeverity
                         
                         self.verbosity = 0
@@ -857,8 +856,13 @@ class HarvestManStateObject(dict):
                 if not enabled:
                     self.plugins.remove(plugin)
 
-            #print 'PLUGINS=>',self.plugins
-            #sys.exit(0)
+            if 'swish-e' in self.plugins:
+                # Disable any message output for swish-e
+                from common.common import SetLogSeverity
+                
+                self.verbosity = 0
+                self.verbosities = [0]*len(self.verbosities)
+                SetLogSeverity()
 
     def parse_config_file(self):
         """ Opens the configuration file and parses it """
