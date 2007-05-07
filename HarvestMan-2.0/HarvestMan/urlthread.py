@@ -78,7 +78,7 @@ class HarvestManUrlThread(threading.Thread):
         # Url temp file, used for mode 0
         self.__urltmpfile = ''
         # Current connector
-        self.__conn = None
+        self._conn = None
         # initialize threading
         threading.Thread.__init__(self, None, None, name)
         
@@ -170,22 +170,22 @@ class HarvestManUrlThread(threading.Thread):
         conn_factory = GetObject('connectorfactory')
         # This call will block if we exceed the number of connections
         # moreinfo("Creating connector for url ", urlobj.get_full_url())
-        self.__conn = conn_factory.create_connector( server )
-        self.__conn.set_data_mode(self.__pool.get_data_mode())
-        mode = self.__conn.get_data_mode()
+        self._conn = conn_factory.create_connector( server )
+        self._conn.set_data_mode(self.__pool.get_data_mode())
+        mode = self._conn.get_data_mode()
         
         if not url_obj.trymultipart:
-            res = self.__conn.save_url(url_obj)
+            res = self._conn.save_url(url_obj)
         else:
-            res = self.__conn.wrapper_connect(url_obj)
+            res = self._conn.wrapper_connect(url_obj)
             # This has a different return value.
             # 0 indicates data was downloaded fine.
             if res==0: res=1
             
             if mode == 0:
-                self.__urltmpfile = self.__conn.get_tmpfname()
+                self.__urltmpfile = self._conn.get_tmpfname()
             elif mode == 1:
-                self.__data = self.__conn.get_data()
+                self.__data = self._conn.get_data()
 
         # Remove the connector from the factory
         conn_factory.remove_connector(server)
@@ -194,9 +194,9 @@ class HarvestManUrlThread(threading.Thread):
         self.__downloadstatus = res
         
         # get error flag from connector
-        self.__error = self.__conn.get_error()
+        self.__error = self._conn.get_error()
 
-        del self.__conn
+        del self._conn
         
         # Notify thread pool
         self.__pool.notify(self)
@@ -326,8 +326,8 @@ class HarvestManUrlThread(threading.Thread):
         """ Close temporary file objects of the connector """
 
         # Currently used only by hget
-        if self.__conn:
-            reader = self.__conn.get_reader()
+        if self._conn:
+            reader = self._conn.get_reader()
             if reader: reader.close()
         
 class HarvestManUrlThreadPool(Queue):

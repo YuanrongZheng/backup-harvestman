@@ -29,6 +29,7 @@
    Mar 06 2007       Anand    Reset default option to queue.
    April 11 2007     Anand    Renamed xmlparser module to configparser.
    April 20 2007     Anand    Added options for hget.
+   eMay 7 2007       Anand    Modified option parsing for plugin option.
    
    Copyright (C) 2004 Anand B Pillai.                              
 
@@ -200,6 +201,10 @@ class HarvestManStateObject(dict):
         self.runfile = None
         # Control var for session-saver feature.
         self.savesessions = True
+        # List of enabled plugins
+        self.plugins = []
+        # Attribute value of plugin enabled
+        self.pluginenabled = []
         # Control var for simulation feature
         self.simulate = False
         # Control var for swish integration
@@ -335,8 +340,9 @@ class HarvestManStateObject(dict):
                                                  ('allserverfilters', 'list')),
                          'urlprioritydict_value': ('urlprioritydict', 'dict'),
                          'serverprioritydict_value': ('serverprioritydict', 'dict'),
-                         'http_compress' : ('httpcompress', 'int')
-                         
+                         'http_compress' : ('httpcompress', 'int'),
+                         'plugin_name': ('plugins','list:str'),
+                         'plugin_enable': ('pluginenabled', 'list:int')
                          }
 
     def assign_option(self, option_val, value):
@@ -589,18 +595,17 @@ class HarvestManStateObject(dict):
                     if self.check_value(option,value): self.set_option_xml('savesessions_value', self.process_value(value))
                 elif option=='simulate':
                     self.set_option_xml('simulate_value', value)
-                elif option=='plugin':
-                    if value == 'swish-e':
+                elif option=='plugins':
+                    # Plugin is specified as plugin1+plugin2+...
+                    plugins = value.split('+')
+                    self.plugins = [plugin.strip() for plugin in plugins]
+                    self.pluginenabled = [1]*len(self.plugins)
+                    if 'swish-e' in self.plugins:
                         from common.common import SetLogSeverity
-
-                        self.swishplugin = True
+                        
                         self.verbosity = 0
+                        self.verbosities = [0]*len(self.verbosities)
                         SetLogSeverity()
-                    elif value == 'simulator':
-                        self.simulate = True
-                    else:
-                        print 'Error in command-line options: Invalid plugin %s!' % value
-                        sys.exit(0)
 
         elif self.appname == 'Hget':
             # Hget options
@@ -769,12 +774,6 @@ class HarvestManStateObject(dict):
         if num==0:
             msg = 'Fatal Error: No URLs given, Aborting.\nFor command-line options run with -h option'
             sys.exit(msg)
-            
-
-        # If swish plugin enabled, set verbosity to zero
-        if self.swishplugin:
-            self.verbosity = 0
-            self.verbosities = [0]*len(self.verbosities)
 
         if not len(self.projtimeouts): self.projtimeouts.append(self.projtimeout)
         if not len(self.verbosities): self.verbosities.append(self.verbosity)
@@ -848,6 +847,19 @@ class HarvestManStateObject(dict):
             if not basedir:
                 self.basedirs.append('.')
 
+            # Fix plugins
+            # For every plugin find if it is enabled,
+            # if not, remove from list.
+            plugins = self.plugins[:]
+            for x in range(len(plugins)):
+                plugin = plugins[x]
+                enabled = self.pluginenabled[x]
+                if not enabled:
+                    self.plugins.remove(plugin)
+
+            #print 'PLUGINS=>',self.plugins
+            #sys.exit(0)
+
     def parse_config_file(self):
         """ Opens the configuration file and parses it """
 
@@ -878,7 +890,7 @@ class HarvestManStateObject(dict):
         res = self.parse_arguments()
         if res==-1:
             self.parse_config_file()
-            
+
         # fix errors in config variables
         self.__fix()
 

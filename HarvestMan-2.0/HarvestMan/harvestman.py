@@ -626,36 +626,32 @@ class HarvestMan(object):
         """ Load all plugin modules """
 
         plugin_dir = os.path.abspath(os.path.join(os.path.dirname('__file__'), 'plugins'))
-        loaded = []
         
         if os.path.isdir(plugin_dir):
             sys.path.append(plugin_dir)
-            for f in os.listdir(plugin_dir):
-                if f.endswith('.py') or f.endswith('.pyc'):
-                    module = os.path.splitext(f)[0]
-                    if module in loaded: continue    
-                    # Dont load __init__ modules
-                    if module == '__init__': continue
-                    
-                    # Load plugins
+            # Load plugins specified in plugins list
+            for plugin in self._cfg.plugins:
+                # Load plugins
+                try:
+                    logconsole('Loading plugin %s...' % plugin)
+                    M = __import__(plugin)
+                    func = getattr(M, 'apply_plugin', None)
+                    if not func:
+                        logconsole('Invalid plugin %s, should define function "apply_plugin"!' % plugin)
                     try:
-                        M = __import__(module)
-                        func = getattr(M, 'apply_plugin', None)
-                        if not func:
-                            logconsole('Invalid plugin module %s, should define function "apply_plugin"!' % f)
-                        else:
-                            loaded.append(module)
-                            try:
-                                logconsole('Applying plugin %s...' % f)
-                                func()
-                            except Exception, e:
-                                print 'Error while trying to apply plugin %s' % f
-                                print 'Error is:',str(e)
-                                sys.exit(0)
-                    except ImportError, e:
-                        print 'Error importing plugin module %s' % f
-                        print 'Error is:',str(e)
+                        logconsole('Applying plugin %s...' % plugin)
+                        func()
+                    except Exception, e:
+                        logconsole('Error while trying to apply plugin %s' % plugin)
+                        logconsole('Error is:',str(e))
                         sys.exit(0)
+                except ImportError, e:
+                    logconsole('Error importing plugin module %s' % plugin)
+                    logconsole('Error is:',str(e))
+                    logconsole('Invalid plugin: %s !' % plugin)
+                    sys.exit(0)
+
+        # sys.exit(0)
                         
     def main(self):
         """ Main routine """
@@ -664,7 +660,7 @@ class HarvestMan(object):
         self._prepare()
 
         # Load plugins
-        self.process_plugins()
+        if self._cfg.plugins: self.process_plugins()
         
         # See if a crash file is there, then try to load it and run
         # program from crashed state.

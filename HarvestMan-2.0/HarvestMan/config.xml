@@ -81,7 +81,13 @@
         <wordfilter></wordfilter>
         <junkfilter value="0"/>
       </filters>
+      <plugins>
+        <plugin name="swish-e" enable="0" />
+        <plugin name="simulator" enable="1" />
+        <plugin name="arbitrary" enable="0" />
+      </plugins>
     </control>
+
     <system>
       <workers status="1" size="10" timeout="1200"/>
       <trackers value="10"/>
