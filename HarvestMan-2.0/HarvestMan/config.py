@@ -596,15 +596,9 @@ class HarvestManStateObject(dict):
                 elif option=='plugins':
                     # Plugin is specified as plugin1+plugin2+...
                     plugins = value.split('+')
-                    self.plugins = [plugin.strip() for plugin in plugins]
+                    # Remove any duplicate occurence of same plugin
+                    self.plugins = list(set([plugin.strip() for plugin in plugins]))
                     self.pluginenabled = [1]*len(self.plugins)
-                    if 'swish-e' in self.plugins:
-                        # Disable any message output for swish-e
-                        from common.common import SetLogSeverity
-                        
-                        self.verbosity = 0
-                        self.verbosities = [0]*len(self.verbosities)
-                        SetLogSeverity()
 
         elif self.appname == 'Hget':
             # Hget options
@@ -847,6 +841,8 @@ class HarvestManStateObject(dict):
                 self.basedirs.append('.')
 
             # Fix plugins
+            # Remove duplicates if any
+            self.plugins = list(set(self.plugins))
             # For every plugin find if it is enabled,
             # if not, remove from list.
             plugins = self.plugins[:]

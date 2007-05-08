@@ -72,6 +72,7 @@ from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
 
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
+from httplib import BadStatusLine
 
 # Defining pluggable functions
 __plugins__ = { 'save_url_plugin': 'HarvestManUrlConnector:save_url' }
@@ -1018,13 +1019,23 @@ class HarvestManUrlConnector(object):
                 # bug(url: http://www.gnu.org/software/emacs/emacs-paper.html)
                 extrainfo(e ,'=> ',urltofetch)
 
-            except ValueError, e:
+            except BadStatusLine, e:
                 self.__error['number'] = 41
+                self.__error['msg'] = str(e)
+                extrainfo(e, '=> ',urltofetch)
+
+            except TypeError, e:
+                self.__error['number'] = 51
+                self.__error['msg'] = str(e)
+                extrainfo(e, '=> ',urltofetch)
+                
+            except ValueError, e:
+                self.__error['number'] = 61
                 self.__error['msg'] = str(e)                    
                 extrainfo(e, '=> ',urltofetch)
 
             except AssertionError, e:
-                self.__error['number'] = 51
+                self.__error['number'] = 71
                 self.__error['msg'] = str(e)
                 extrainfo(e ,'=> ',urltofetch)
 
@@ -1418,15 +1429,25 @@ class HarvestManUrlConnector(object):
                 # bug(url: http://www.gnu.org/software/emacs/emacs-paper.html)
                 moreinfo(e,'=>',urltofetch)
 
-            except ValueError, e:
+            except BadStatusLine, e:
                 self.__error['number'] = 41
-                self.__error['msg'] = str(e)                    
-                moreinfo(e,'=>',urltofetch)
+                self.__error['msg'] = str(e)
+                extrainfo(e, '=> ',urltofetch)
 
-            except AssertionError, e:
+            except TypeError, e:
                 self.__error['number'] = 51
                 self.__error['msg'] = str(e)
-                moreinfo(e,'=>',urltofetch)
+                extrainfo(e, '=> ',urltofetch)
+                
+            except ValueError, e:
+                self.__error['number'] = 61
+                self.__error['msg'] = str(e)                    
+                extrainfo(e, '=> ',urltofetch)
+
+            except AssertionError, e:
+                self.__error['number'] = 71
+                self.__error['msg'] = str(e)
+                extrainfo(e ,'=> ',urltofetch)
 
             except socket.error, e:
                 self.__error['msg'] = str(e)
@@ -1823,6 +1844,8 @@ class HarvestManUrlConnectorFactory(object):
     active connectors, and the number of simultaneous requests
     to the same server """
 
+    klass = HarvestManUrlConnector
+    
     def __init__(self, maxsize):
         # The requests dictionary
         self.__requests = {}
@@ -1857,7 +1880,7 @@ class HarvestManUrlConnectorFactory(object):
         self.add_request(server)
         
         # Make a connector 
-        connector = HarvestManUrlConnector()
+        connector = self.__class__.klass()
         return connector
         
     def remove_connector(self, server):

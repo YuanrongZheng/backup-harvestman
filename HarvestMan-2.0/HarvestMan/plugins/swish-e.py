@@ -28,18 +28,24 @@ from types import StringTypes
 
 def process_url_further(self, data):
     """ Post process url callback for swish-e """
-    
+
+    time.sleep(1.0)
+               
     if (type(data) in StringTypes) and len(data):
         if self.wp.can_index:
+            #try:
+            #    data = data.encode('utf-8')
+            #except UnicodeDecodeError, e:
+            #    # Dont index this
+            #    return data
+            #    pass
             sys.stdout.write('Path-Name: ' + self._urlobject.get_full_url() + '\n')
             sys.stdout.write('Content-Length: ' + str(len(data)) + '\n')
             sys.stdout.write('\n')
             # Swish-e seems to be very sensitive to any additional
             # blank lines between content and headers. So stripping
             # the data of trailing and preceding newlines is important.
-            sys.stdout.flush()
             sys.stdout.write(data.strip() + '\n')
-            sys.stdout.flush()
             
     return data
 
@@ -64,7 +70,7 @@ def apply_plugin():
     cfg.pagecache = 0
     # Turn off console-logging
     logger = GetObject('logger')
-    logger.disableConsoleLogging()
+    #logger.disableConsoleLogging()
     # Turn off session-saver feature
     cfg.savesessions = False
     # Turn off interrupt handling
@@ -75,3 +81,4 @@ def apply_plugin():
     cfg.images = 0
     # Increase sleep time
     cfg.sleeptime = 1.0
+    # sys.stderr = open('swish-errors.txt','wb')

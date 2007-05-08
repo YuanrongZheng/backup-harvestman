@@ -55,12 +55,12 @@ class HarvestManLogger(object):
     MOREDEBUG = 5
 
     # Dictionary from levels to level names
-    __namemap = { 0: 'DISABLE',
-                  1: 'INFO',
-                  2: 'MOREINFO',
-                  3: 'EXTRAINFO',
-                  4: 'DEBUG',
-                  5: 'MOREDEBUG' }
+    _namemap = { 0: 'DISABLE',
+                 1: 'INFO',
+                 2: 'MOREINFO',
+                 3: 'EXTRAINFO',
+                 4: 'DEBUG',
+                 5: 'MOREDEBUG' }
 
     # Map of instances
     _instances = {'default': None}
@@ -91,17 +91,18 @@ class HarvestManLogger(object):
         else:
             pass
 
-
     def __getMessage(self, arg, *args):
         """ Private method to create a message string from the supplied arguments """
-        
-        return ''.join((str(arg),' ',' '.join([str(item) for item in args])))
 
+        try:
+            return ''.join((str(arg),' ',' '.join([str(item) for item in args])))
+        except UnicodeEncodeError:
+            return ''.join((str(arg),' ',' '.join([str(item.encode('iso-8859-1')) for item in args])))
 
     def getLevelName(self, level):
         """ Return the level name, given the level value """
         
-        return self.__namemap.get(level, '')
+        return self._namemap.get(level, '')
 
     def getLogLevel(self):
         """ Return the current log level """

@@ -56,9 +56,10 @@ class MethodWrapperBaseMetaClass(type):
         # find methods with pre or post conditions
         methods = []
         for k, v in dict.iteritems():
-            if k.startswith('pre_') or k.startswith('post_'):
-                assert isinstance(v, function)
-            elif isinstance(v, function):
+            #if k.startswith('pre_') or k.startswith('post_'):
+            #    print v
+            #    assert isinstance(v, list)
+            if isinstance(v, function):
                 methods.append(k)
         for m in methods:
             pre = dict.get("pre_%s_callback" % m)
@@ -74,10 +75,12 @@ class MethodWrapperMetaClass(MethodWrapperBaseMetaClass):
     def make_wrapper_method(func, pre, post):
         def method(self, *args, **kwargs):
             if pre:
-                pre(self, *args, **kwargs)
+                for f in pre:
+                    f(self, *args, **kwargs)
             x = func(self, *args, **kwargs)
             if post:
-                post(self, x, *args, **kwargs)
+                for f in post:
+                    f(self, x, *args, **kwargs)
             return x
 
         if func.__doc__:
@@ -97,10 +100,13 @@ def set_wrapper_method(klass, method, callback, where='post'):
     # Note: 'method' is the method name, not the method object
 
     # Set callback
-    if where=='post':
-        setattr(klass, 'post_' + method + '_callback', callback)
-    elif where=='pre':
-        setattr(klass, 'pre_' + method + '_callback', callback)        
+    attr = where + '_' + method + '_callback'
+    l = getattr(klass, attr, None)
+    if not l:
+        setattr(klass, attr, [callback])
+    else:
+        l.append(callback)
+        setattr(klass, attr, l)            
 
 def test():
     class MyClass(object):
@@ -117,18 +123,27 @@ def test():
         print 'Myfunc#1 called'
 
     def myfunc2(self, x):
-        print x
         print 'Myfunc#2 called'
 
+    def myfunc3(self, x):
+        print 'Myfunc#3 called!'
 
+    class MyClass2(MyClass):
+        pass
+    
     set_wrapper_method(MyClass, 'f', myfunc1, 'pre')    
     set_wrapper_method(MyClass, 'f', myfunc2, 'post')
+    set_wrapper_method(MyClass, 'f', myfunc3, 'post')    
 
     c = MyClass()
     d = MyClass()
     e = MyClass()
     c.f()
 
+    g = MyClass2()
+    print 'hi'
+    g.f()
+    
 if __name__=="__main__":
     test()
     
