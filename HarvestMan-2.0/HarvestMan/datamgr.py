@@ -33,10 +33,12 @@ import binascii
 import re
 import sha
 import copy
+import random
 
 import threading as tg
 # Utils
 import utils
+import urlparser
 
 from urlthread import HarvestManUrlThreadPool
 from connector import *
@@ -673,6 +675,67 @@ class HarvestManDataManager(object):
 
         return 0
 
+    def get_sourceforge_servers(self):
+        """ Return a list of sf.net download servers """
+
+        l=['http://umn.dl.sourceforge.net','http://jaist.dl.sourceforge.net',
+           'http://mesh.dl.sourceforge.net','http://superb-west.dl.sourceforge.net',
+           'http://superb-east.dl.sourceforge.net','http://keihanna.dl.sourceforge.net',
+           'http://optusnet.dl.sourceforge.net','http://kent.dl.sourceforge.net',
+           'http://ufpr.dl.sourceforge.net','http://ovh.dl.sourceforge.net',
+           'http://switch.dl.sourceforge.net','http://nchc.dl.sourceforge.net',
+           'http://heanet.dl.sourceforge.net','http://surfnet.dl.sourceforge.net',
+           'http://easynews.dl.sourceforge.net','http://belnet.dl.sourceforge.net',
+           'http://puzzle.dl.sourceforge.net','http://internap.dl.sourceforge.net']
+
+        return l
+    
+    def download_multipart_url_sf(self, urlobj, clength):
+        """ Download URL multipart from sourceforge.net servers """
+
+        logconsole('Sourceforge URL found - Splitting download to sourceforge.net mirrors...')
+        # List of servers - note that we are not doing
+        # any kind of search for the nearest servers. Instead
+        # a random list is created.
+        parts = self._cfg.numparts
+        # Calculate size of each piece
+        piecesz = clength/parts
+        
+        # Calculate size of each piece
+        pcsizes = [piecesz]*parts
+        # For last URL add the reminder
+        pcsizes[-1] += clength % parts 
+        # Create a URL object for each and set range
+        urlobjects = []
+
+        # Get relative path of the URL w.r.t root
+        relpath = urlobj.get_relative_url()
+        relpath = 'sourceforge' + relpath
+        
+        # Get a random list of servers
+        sf = random.sample(self.get_sourceforge_servers(), parts)
+
+        for x in range(parts):
+            # urlobjects.append(copy.deepcopy(urlobj))
+            newurlobj = urlparser.HarvestManUrlParser(relpath,baseurl=sf[x])
+            print newurlobj.get_full_url()
+            urlobjects.append(newurlobj)
+
+        prev = 0
+        for x in range(parts):
+            curr = pcsizes[x]
+            next = curr + prev
+            urlobject = urlobjects[x]
+            urlobject.trymultipart = True
+            urlobject.clength = clength
+            urlobject.range = xrange(prev, next)
+            urlobject.mindex = x
+            prev = next
+            self._urlThreadPool.push(urlobject)
+
+        # Push this URL objects to the pool
+        return 0
+    
     def download_multipart_url(self, urlobj, clength):
         """ Download a URL using HTTP/1.1 multipart download
         using range headers """
@@ -684,7 +747,10 @@ class HarvestManDataManager(object):
             self._serversdict[domain]
         except KeyError:
             self._serversdict[domain] = {'accept-ranges': True}
-            
+
+        if domain.endswith('sourceforge.net'):
+            return self.download_multipart_url_sf(urlobj, clength)
+        
         parts = self._cfg.numparts
         # Calculate size of each piece
         piecesz = clength/parts

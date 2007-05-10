@@ -795,6 +795,9 @@ class HarvestManUrlConnector(object):
                     request.add_header('Accept-Encoding', 'gzip')
                     
                 self._freq = urllib2.urlopen(request)
+                if acturl != urltofetch:
+                    logconsole('Redirected to %s...' % acturl)
+                    
                 # Set http headers
                 self.set_http_headers()
 
@@ -1342,8 +1345,8 @@ class HarvestManUrlConnector(object):
                     pass
                     
                 break
-            #except Exception, e:
-            #    print 'ERROR:',e
+            except Exception, e:
+                print 'ERROR:',e
                 
             except urllib2.HTTPError, e:
 
@@ -1700,7 +1703,7 @@ class HarvestManUrlConnector(object):
         This is used by the -N option of HarvestMan """
 
         url = urlobj.get_full_url()
-        print 'Connecting to %s...' % urlobj.get_full_domain()
+        logconsole('Connecting to %s...' % urlobj.get_full_domain())
 
         start = time.time()
         ret = self.connect2(urlobj)
@@ -1715,19 +1718,19 @@ class HarvestManUrlConnector(object):
         if ret==2:
             # Trying multipart download...
             pool = GetObject('datamanager').get_url_threadpool()
-            while not pool.get_multipart_download_status(url):
+            while not pool.get_multipart_download_status(urlobj):
                 time.sleep(1.0)
             end = time.time()
 
             print 'Data download completed.'
             if self._mode==1:
-                data = pool.get_multipart_url_data(url)
+                data = pool.get_multipart_url_data(urlobj)
                 self._data = data
                 if self._data: status = 1
                 
             elif self._mode==0:
                 # Get url info
-                infolist = pool.get_multipart_url_info(url)
+                infolist = pool.get_multipart_url_info(urlobj)
                 infolist.sort()
                 # Get filenames
                 tmpflist = [item[1] for item in infolist]

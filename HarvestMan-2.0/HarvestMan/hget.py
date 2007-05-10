@@ -30,6 +30,8 @@
                    the activity.
                    4. Final printing of time taken, average bandwidth
                    and file size.
+
+     May 10 2007   Added support for sf.net mirrors in multipart.
      
 Copyright(C) 2007, Anand B Pillai
 

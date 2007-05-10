@@ -196,7 +196,7 @@ class HarvestManUrlThread(threading.Thread):
         # get error flag from connector
         self._error = self._conn.get_error()
 
-        del self._conn
+        self._conn = None
         
         # Notify thread pool
         self._pool.notify(self)
@@ -247,7 +247,7 @@ class HarvestManUrlThread(threading.Thread):
                 # reset busyflag
                 self._busyflag = False
             except Exception, e:
-                # print 'Exception',e
+                print 'Exception',e
                 # Now I am dead - so I need to tell the pool
                 # object to migrate my data and produce a new thread.
                 
@@ -514,10 +514,10 @@ class HarvestManUrlThreadPool(Queue):
                 else:
                     data = thread.get_data()
 
-                url = urlObj.get_full_url()
+                index = urlObj.index
 
-                if url in self._multipartdata:
-                    infolist = self._multipartdata[url]
+                if index in self._multipartdata:
+                    infolist = self._multipartdata[index]
                     if data:
                         infolist.append((urlObj.range[0],data))
                     elif fname:
@@ -528,11 +528,11 @@ class HarvestManUrlThreadPool(Queue):
                         infolist.append((urlObj.range[0],data))
                     elif fname:
                         infolist.append((urlObj.range[0],fname))
-                    else:
-                        self._parts -= 1 # AD-HOC
+                    #else:
+                    #    self._parts -= 1 # AD-HOC
                         
-                    self._multipartdata[url] = infolist
-
+                    self._multipartdata[index] = infolist
+                    
                 # print 'Length of data list is',len(infolist)
                 if len(infolist)==self._parts:
                     # Sort the data list  according to byte-range
@@ -541,11 +541,11 @@ class HarvestManUrlThreadPool(Queue):
                     logconsole('Download of %s is complete...' % urlObj.get_full_url())
                     if not flushmode:
                         data = ''.join([item[1] for item in infolist])
-                        self._multipartdata['data:' + url] = data
+                        self._multipartdata['data:' + str(index)] = data
                     else:
                         pass
                     
-                    self._multipartstatus[url] = True
+                    self._multipartstatus[index] = True
 
             # if the thread failed, update failure stats on the data manager
             dmgr = GetObject('datamanager')
@@ -677,17 +677,17 @@ class HarvestManUrlThreadPool(Queue):
     def get_multipart_download_status(self, url):
         """ Get status of multipart downloads """
 
-        return self._multipartstatus.get(url, False)
+        return self._multipartstatus.get(url.index, False)
 
     def get_multipart_url_data(self, url):
         """ Return data for multipart downloads """
 
-        return self._multipartdata.get('data:'+url, '')
+        return self._multipartdata.get('data:'+ str(url.index), '')
 
     def get_multipart_url_info(self, url):
         """ Return information for multipart downloads """
 
-        return self._multipartdata.get(url, '')
+        return self._multipartdata.get(url.index, '')
 
     def get_data_mode(self):
         """ Return the data mode """
