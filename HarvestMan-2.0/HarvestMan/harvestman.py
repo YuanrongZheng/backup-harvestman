@@ -54,6 +54,10 @@
     May 7 2007           Anand       Added plugin as option in configuration file.
                                      Added ability to process more than one plugin
                                      at once. Modified loading logic of plugins.
+    May 10 2007          Anand       Replaced a number of private attributes in classes
+                                     (with double underscores), to semi-private (one
+                                     underscore). This helps in inheriting from these
+                                     classes.
 
    Copyright (C) 2004 Anand B Pillai.     
 """     
@@ -355,7 +359,7 @@ class HarvestMan(object):
                 except (OSError, IOError), e:
                     logconsole(e)
         
-    def _prepare(self):
+    def prepare(self):
         """ Do the basic things and get ready """
 
         # Init Config Object
@@ -663,7 +667,7 @@ class HarvestMan(object):
         """ Main routine """
 
         # Prepare myself
-        self._prepare()
+        self.prepare()
 
         # Load plugins
         if self._cfg.plugins: self.process_plugins()

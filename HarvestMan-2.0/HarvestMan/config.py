@@ -756,7 +756,7 @@ class HarvestManStateObject(dict):
 
         print 'Version: %s %s' % (self.version, self.maturity)
 
-    def __fix(self):
+    def _fix(self):
         """ Fix errors in config variables """
 
         # If there is more than one url, we
@@ -892,7 +892,7 @@ class HarvestManStateObject(dict):
             self.parse_config_file()
 
         # fix errors in config variables
-        self.__fix()
+        self._fix()
 
     def __getattr__(self, name):
         try:

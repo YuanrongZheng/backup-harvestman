@@ -18,7 +18,7 @@
                                 (removed Ctrl-Ms).
 
    April 11 2007        Anand   Not doing I.P comparison for
-                                non-robots.txt URLs in __compare_domains
+                                non-robots.txt URLs in compare_domains
                                 method as it is erroneous.
 
    Copyright (C) 2004 Anand B Pillai.
@@ -129,7 +129,7 @@ class HarvestManRulesChecker(object):
             pass
 
        # now apply the url filter
-        if self.__apply_url_filter(url):
+        if self.apply_url_filter(url):
             extrainfo("Custom filter - filtered ", url)
             return True
 
@@ -140,17 +140,17 @@ class HarvestManRulesChecker(object):
                 return True
 
         # check if this is an external link
-        if self.__is_external_link( urlObj ):
+        if self.is_external_link( urlObj ):
             extrainfo("External link - filtered ", urlObj.get_full_url())
             return True
 
         # now apply REP
-        if self.__apply_rep(urlObj):
+        if self.apply_rep(urlObj):
             extrainfo("Robots.txt rules prevents download of ", url)
             return True
 
         # depth check
-        if self.__apply_depth_check(urlObj):
+        if self.apply_depth_check(urlObj):
             extrainfo("Depth exceeds - filtered ", urlObj.get_full_url())
             return True
 
@@ -164,7 +164,7 @@ class HarvestManRulesChecker(object):
         except:
             self._filter.append(link)
 
-    def __compare_domains(self, domain1, domain2, robots=False):
+    def compare_domains(self, domain1, domain2, robots=False):
         """ Compare two domains (servers) first by
         ip and then by name and return True if both point
         to the same server, return False otherwise. """
@@ -172,17 +172,17 @@ class HarvestManRulesChecker(object):
         # For comparing robots.txt file, first compare by
         # ip and then by name.
         if robots: 
-            firstval=self.__compare_by_ip(domain1, domain2)
+            firstval=self.compare_by_ip(domain1, domain2)
             if firstval:
                 return firstval
             else:
-                return self.__compare_by_name(domain1, domain2)
+                return self.compare_by_name(domain1, domain2)
 
         # otherwise, we do only a name check
         else:
-            return self.__compare_by_name(domain1, domain2)
+            return self.compare_by_name(domain1, domain2)
 
-    def __get_base_server(self, server):
+    def _get_base_server(self, server):
         """ Return the base server name of  the passed
         server (domain) name """
 
@@ -202,7 +202,7 @@ class HarvestManRulesChecker(object):
             # so return it straight away
             return server
 
-    def __compare_by_name(self, domain1, domain2):
+    def compare_by_name(self, domain1, domain2):
         """ Compare two servers by their names. Return True
         if similar, False otherwise """
 
@@ -215,8 +215,8 @@ class HarvestManRulesChecker(object):
             # variable is set. For example, this will
             # return True for two servers like server1.foo.com
             # and server2.foo.com or server1.base and server2.base
-            baseserver1 = self.__get_base_server(domain1)
-            baseserver2 = self.__get_base_server(domain2)
+            baseserver1 = self._get_base_server(domain1)
+            baseserver2 = self._get_base_server(domain2)
             # extrainfo('Server1:%s, Server2:%s' % (baseserver1, baseserver2))
             
             if baseserver1.lower() == baseserver2.lower():
@@ -231,7 +231,7 @@ class HarvestManRulesChecker(object):
             # subdomains.
             return False
 
-    def __compare_by_ip(self, domain1, domain2):
+    def compare_by_ip(self, domain1, domain2):
         """ Compare two servers by their ip address. Return
         True if same, False otherwise """
 
@@ -244,7 +244,7 @@ class HarvestManRulesChecker(object):
         if ip1==ip2: return True
         else: return False
 
-    def __apply_rep(self, urlObj):
+    def apply_rep(self, urlObj):
         """ See if the robots.txt file on the server
         allows fetching of this url. Return 0 on success
         (fetching allowed) and 1 on failure(fetching blocked) """
@@ -340,7 +340,7 @@ class HarvestManRulesChecker(object):
 
         return True
 
-    def __apply_url_filter(self, url):
+    def apply_url_filter(self, url):
         """ See if we have a filter matching the url.
         Return 1 for blocking the url and 0 for allowing it """
 
@@ -424,7 +424,7 @@ class HarvestManRulesChecker(object):
         # We wont reach here
         return 0
 
-    def __apply_server_filter(self, urlObj):
+    def apply_server_filter(self, urlObj):
         """ See if we have a filter matching the server of
         this url. Return 1 on success(blocked) and 0 on failure
         (allowed) """
@@ -545,7 +545,7 @@ class HarvestManRulesChecker(object):
 
         # Check if both of them are in the same
         # domain
-        if self.__compare_domains(urlObj.get_domain(), baseUrlObj.get_domain()):
+        if self.compare_domains(urlObj.get_domain(), baseUrlObj.get_domain()):
             # Get url directory sans domain
             directory = urlObj.get_url_directory_sans_domain()
             bdir = baseUrlObj.get_url_directory_sans_domain()
@@ -570,9 +570,9 @@ class HarvestManRulesChecker(object):
         server = urlObj.get_domain()
         baseserver = baseUrlObj.get_domain()
 
-        return not self.__compare_domains( server, baseserver )
+        return not self.compare_domains( server, baseserver )
 
-    def __is_external_link(self, urlObj):
+    def is_external_link(self, urlObj):
         """ Check if the url is an external link relative to starting url,
         using the download rules set by the user """
 
@@ -620,7 +620,7 @@ class HarvestManRulesChecker(object):
                     bdir = baseUrlObj.get_url_directory()
 
                     if parentdir == bdir:
-                        self.__increment_ext_directory_count(directory)
+                        self._increment_ext_directory_count(directory)
                         return False
                     else:
                         return True
@@ -637,7 +637,7 @@ class HarvestManRulesChecker(object):
             # Increment external directory count
             directory = urlObj.get_url_directory()
 
-            res=self.__ext_directory_check(directory)
+            res=self._ext_directory_check(directory)
             if not res:
                 extrainfo("External directory error - filtered!")
                 self.add_to_filter(urlObj.get_full_url())
@@ -645,7 +645,7 @@ class HarvestManRulesChecker(object):
 
             # Apply depth check for external dirs here
             if self._configobj.extdepth:
-                if self.__apply_depth_check(urlObj, mode=2):
+                if self.apply_depth_check(urlObj, mode=2):
                     return True
 
             if self._configobj.epagelinks:
@@ -674,7 +674,7 @@ class HarvestManRulesChecker(object):
 
                     server = urlObj.get_domain()
                     if parentUrlObj.get_domain() == baseserver:
-                        self.__increment_ext_server_count(server)
+                        self._increment_ext_server_count(server)
                         return False
                     else:
                         return True
@@ -688,19 +688,19 @@ class HarvestManRulesChecker(object):
                 self._configobj.eserverlinks=1
                 # do other checks , just fall through
 
-            res = self.__ext_server_check(urlObj.get_domain())
+            res = self._ext_server_check(urlObj.get_domain())
 
             if not res:
                 self.add_to_filter(urlObj.get_full_url())
                 return True
 
             # Apply filter for servers here
-            if self.__apply_server_filter(urlObj):
+            if self.apply_server_filter(urlObj):
                 return True
 
             # Apply depth check for external servers here
             if self._configobj.extdepth:
-                if self.__apply_depth_check(urlObj, mode=2):
+                if self.apply_depth_check(urlObj, mode=2):
                     return True
 
             if self._configobj.eserverlinks:
@@ -716,7 +716,7 @@ class HarvestManRulesChecker(object):
         # We should not reach here
         return False
 
-    def __apply_depth_check(self, urlObj, mode=0):
+    def apply_depth_check(self, urlObj, mode=0):
         """ Apply the depth setting for this url, if any """
 
         # depth variable is -1 means no depth-check
@@ -740,11 +740,11 @@ class HarvestManRulesChecker(object):
 
         return False
 
-    def __ext_directory_check(self, directory):
+    def _ext_directory_check(self, directory):
         """ Check whether the directory <directory>
         should be considered external """
 
-        index=self.__increment_ext_directory_count(directory)
+        index=self._increment_ext_directory_count(directory)
 
         # Are we above a prescribed limit ?
         if self._configobj.maxextdirs and len(self._extdirs)>self._configobj.maxextdirs:
@@ -761,11 +761,11 @@ class HarvestManRulesChecker(object):
         else:
             return True
 
-    def __ext_server_check(self, server):
+    def _ext_server_check(self, server):
         """ Check whether the server <server> should be considered
         external """
 
-        index=self.__increment_ext_server_count(server)
+        index=self._increment_ext_server_count(server)
 
         # are we above a prescribed limit ?
         if self._configobj.maxextservers and len(self._extservers)>self._configobj.maxextservers:
@@ -781,7 +781,7 @@ class HarvestManRulesChecker(object):
         else:
             return True
 
-    def __increment_ext_directory_count(self, directory):
+    def _increment_ext_directory_count(self, directory):
         """ Increment the external dir count """
 
         index=-1
@@ -792,7 +792,7 @@ class HarvestManRulesChecker(object):
 
         return index
 
-    def __increment_ext_server_count(self,server):
+    def _increment_ext_server_count(self,server):
         """ Increment the external server count """
 
         index=-1
@@ -888,36 +888,36 @@ class HarvestManRulesChecker(object):
         urlfilterstr = self._configobj.urlfilter
         # print 'URL FILTER STRING=>',urlfilterstr
         
-        url_filters = self.__make_filter(urlfilterstr)
+        url_filters = self._make_filter(urlfilterstr)
         # print 'URL FILTERS=>',url_filters
         
         self._configobj.set_option('urlfilterre_value', url_filters)
 
         # server filter string
         serverfilterstr = self._configobj.serverfilter
-        server_filters = self.__make_filter(serverfilterstr)
+        server_filters = self._make_filter(serverfilterstr)
         self._configobj.set_option('serverfilterre_value', server_filters)
 
         #  url/server priority filters
         urlprioritystr = self._configobj.urlpriority
         # The return is a dictionary
-        url_priorities = self.__make_priority(urlprioritystr)
+        url_priorities = self._make_priority(urlprioritystr)
 
         self._configobj.set_option('urlprioritydict_value', url_priorities)
 
         serverprioritystr = self._configobj.serverpriority
         # The return is a dictionary        
-        server_priorities = self.__make_priority(serverprioritystr)
+        server_priorities = self._make_priority(serverprioritystr)
 
         self._configobj.set_option('serverprioritydict_value', server_priorities)
 
         # word filter list
         wordfilterstr = self._configobj.wordfilter
         if wordfilterstr:
-            word_filter = self.__make_word_filter(wordfilterstr)
+            word_filter = self._make_word_filter(wordfilterstr)
             self._configobj.wordfilterre = word_filter
 
-    def __make_priority(self, pstr):
+    def _make_priority(self, pstr):
         """ Generate a priority dictionary from the priority string """
 
         # file priority is based on file extensions &
@@ -953,7 +953,7 @@ class HarvestManRulesChecker(object):
 
         return d
 
-    def __make_filter(self, fstr,servers=0):
+    def _make_filter(self, fstr,servers=0):
         """ Function used to convert url filter strings
         to python regular expresssions """
 
@@ -991,14 +991,14 @@ class HarvestManRulesChecker(object):
         # print 'Exclude=>',exclude
         # print 'Include=>',include
         
-        exclusionfilter=self.__create_filter(exclude,servers)
-        inclusionfilter=self.__create_filter(include,servers)
-        allfilter = self.__create_filter(all, servers)
+        exclusionfilter=self._create_filter(exclude,servers)
+        inclusionfilter=self._create_filter(include,servers)
+        allfilter = self._create_filter(all, servers)
 
         # return a 3 tuple of (inclusionfilter, exclusionfilter, allfilter)
         return (inclusionfilter, exclusionfilter, allfilter)
 
-    def __create_filter(self, strlist, servers=0):
+    def _create_filter(self, strlist, servers=0):
         """ Create a python regular expression based on
         the list of filter strings provided as input """
 
@@ -1052,7 +1052,7 @@ class HarvestManRulesChecker(object):
 
         return refilter
 
-    def __parse_word_filter(self, s):
+    def _parse_word_filter(self, s):
 
         scopy = s[:]
         oparmatch, clparmatch = False, False
@@ -1071,13 +1071,13 @@ class HarvestManRulesChecker(object):
                     self._rexplist.append(newstr)
                 replacestr = ''.join(('(', newstr, ')'))
                 scopy = scopy.replace(replacestr, '')
-                self.__parse_word_filter(scopy)
+                self._parse_word_filter(scopy)
 
         if not clparmatch and not oparmatch:
             if scopy: self._rexplist.append(scopy)
 
 
-    def __make_not_expr(self, s):
+    def _make_not_expr(self, s):
         """ Make a NOT expression """
 
         if s.find('!') == 0:
@@ -1085,7 +1085,7 @@ class HarvestManRulesChecker(object):
         else:
             return s
 
-    def __is_inbetween(self, l, elem):
+    def _is_inbetween(self, l, elem):
         """ Find out if an element is in between in a list """
 
         i = l.index(elem)
@@ -1106,7 +1106,7 @@ class HarvestManRulesChecker(object):
             else:
                 return False
 
-    def __make_word_filter(self, s):
+    def _make_word_filter(self, s):
         """ Create a word filter rule for HarvestMan """
 
         # Word filter strings can be simple or compound.
@@ -1124,17 +1124,17 @@ class HarvestManRulesChecker(object):
             logconsole('Error in word regular expression')
             return None
 
-        self.__parse_word_filter(s)
+        self._parse_word_filter(s)
         # if NOT is one of the members, reverse
         # the list.
         if '!' in self._rexplist:
             self._rexplist.reverse()
 
-        rstr = self.__make_word_regexp( self._rexplist )
+        rstr = self._make_word_regexp( self._rexplist )
         r = re.compile( rstr, re.IGNORECASE )
         return r
 
-    def __make_word_regexp(self, mylist):
+    def _make_word_regexp(self, mylist):
 
 
         is_list = True
@@ -1156,15 +1156,15 @@ class HarvestManRulesChecker(object):
 
         # Implementing NOT
         if elem == '!':
-            return ''.join(('(?!', self.__make_word_regexp(mylist[1:]), ')'))
+            return ''.join(('(?!', self._make_word_regexp(mylist[1:]), ')'))
         # Implementing OR
         elif elem.find(' | ') != -1:
             listofors = elem.split(' | ')
             for o in listofors:
-                in_bet = self.__is_inbetween(listofors, o)
+                in_bet = self._is_inbetween(listofors, o)
 
                 if o:
-                    o = self.__make_not_expr(o)
+                    o = self._make_not_expr(o)
                     if in_bet:
                         s = ''.join((s, '|', self._wordstr, o, '.*'))
                     else:
@@ -1176,18 +1176,18 @@ class HarvestManRulesChecker(object):
 
             for a in listofands:
                 if a:
-                    a = self.__make_not_expr(a)                   
+                    a = self._make_not_expr(a)                   
                     s = ''.join((s, self._wordstr, a, '.*'))
 
         else:
             if elem:
-                elem = self.__make_not_expr(elem)             
+                elem = self._make_not_expr(elem)             
                 s = ''.join((self._wordstr, elem, '.*'))
 
         if eor:
             return s
         else:
-            return ''.join((s, self.__make_word_regexp(mylist[1:])))
+            return ''.join((s, self._make_word_regexp(mylist[1:])))
 
 
     def clean_up(self):
@@ -1588,12 +1588,12 @@ class JunkFilter(object):
         self.reset_match()
         
         # Check domain first
-        ret = self.__check_domain(url_obj)
+        ret = self._check_domain(url_obj)
         if not ret:
             return ret
 
         # Check pattern next
-        return self.__check_pattern(url_obj)
+        return self._check_pattern(url_obj)
 
     def base_domain(self, domain):
 
@@ -1603,7 +1603,7 @@ class JunkFilter(object):
         else:
             return domain
             
-    def __check_domain(self, url_obj):
+    def _check_domain(self, url_obj):
         """ Check whether the url belongs to a junk
         domain. Return true if url is O.K (NOT a junk
         domain) and False otherwise """
@@ -1625,7 +1625,7 @@ class JunkFilter(object):
 
         return True
 
-    def __check_pattern(self, url_obj):
+    def _check_pattern(self, url_obj):
         """ Check whether the url matches a junk pattern.
         Return true if url is O.K (not a junk pattern) and
         false otherwise """

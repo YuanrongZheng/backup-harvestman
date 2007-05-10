@@ -254,41 +254,41 @@ class HarvestManCacheManager(object):
     """ Utility class to read/write project cache files """
 
     def __init__(self, directory):
-        self.__cachedir = directory
-        self.__datacachedir = os.path.join(directory, '.cache-data')
+        self._cachedir = directory
+        self._datacachedir = os.path.join(directory, '.cache-data')
         
     def read_project_cache(self):
         """ Try to read the project cache file """
 
         # Get cache filename
-        if not os.path.exists(self.__cachedir):
+        if not os.path.exists(self._cachedir):
             moreinfo("Project cache not found")
             return None
 
-        return self.__read_pickled_cache()
+        return self._read_pickled_cache()
 
-    def __read_pickled_cache(self):
+    def _read_pickled_cache(self):
 
         cfg = GetObject('config')
 
         cache_obj = {}
         try:
             pickler = HarvestManSerializer()
-            for f in os.listdir(self.__cachedir):
+            for f in os.listdir(self._cachedir):
                 if f.endswith('.hmc'):
-                    fullpath = os.path.join(self.__cachedir, f)
+                    fullpath = os.path.join(self._cachedir, f)
                     # This is the cache dictionary for a domain
                     # The domain name is the bin_decrypted form
                     # of the filename with .hmc removed.
                     domain_cache = pickler.load(fullpath)
 
                     if cfg.datacache:
-                        if os.path.isdir(self.__datacachedir):
+                        if os.path.isdir(self._datacachedir):
                             # Get list of .data files
-                            datafiles = glob.glob(os.path.join(self.__datacachedir, '*.data'))
+                            datafiles = glob.glob(os.path.join(self._datacachedir, '*.data'))
                             for url, cachekey in domain_cache.iteritems():
                                 # Check if there is a datafile with name=hash(url)
-                                fname = os.path.join(self.__datacachedir, str(abs(hash(url))) + '.data')
+                                fname = os.path.join(self._datacachedir, str(abs(hash(url))) + '.data')
                                 if fname in datafiles:
                                     try:
                                         cachekey['data'] = zlib.decompress(open(fname).read())
@@ -317,20 +317,20 @@ class HarvestManCacheManager(object):
     def write_project_cache(self, cache_obj, format):
 
         try:
-            if not os.path.isdir(self.__cachedir):
-                if not os.path.exists(self.__cachedir):
-                    os.makedirs(self.__cachedir)
-                    extrainfo('Created cache directory => ', self.__cachedir)
-                if not os.path.isdir(self.__datacachedir):
+            if not os.path.isdir(self._cachedir):
+                if not os.path.exists(self._cachedir):
+                    os.makedirs(self._cachedir)
+                    extrainfo('Created cache directory => ', self._cachedir)
+                if not os.path.isdir(self._datacachedir):
                     # Create data-cache directory
-                    os.makedirs(self.__datacachedir)
-                    extrainfo('Created data cache directory => ', self.__datacachedir)
+                    os.makedirs(self._datacachedir)
+                    extrainfo('Created data cache directory => ', self._datacachedir)
         except OSError, e:
             debug('OS Exception ', e)
             return -1
 
         # Copy a readme.txt file to the cache directory
-        readmefile = os.path.join(self.__cachedir, "Readme.txt")
+        readmefile = os.path.join(self._cachedir, "Readme.txt")
         try:
             fs=open(readmefile, 'w')
             fs.write(HARVESTMAN_CACHE_README)
@@ -339,11 +339,11 @@ class HarvestManCacheManager(object):
             debug(str(e))
 
         if format == 'pickled':
-            return self.__write_pickled_cache(cache_obj)
+            return self._write_pickled_cache(cache_obj)
 
         return -1
 
-    def __write_pickled_cache(self, cache_obj):
+    def _write_pickled_cache(self, cache_obj):
 
         # Cache object is a dictionary of domain
         # names as keys and url dictionaries as
@@ -359,8 +359,8 @@ class HarvestManCacheManager(object):
                     if 'data' in cachekey and cachekey['data']:
                         # Write out the data in another file
                         # Filename is hash of the URL
-                        if os.path.isdir(self.__datacachedir):
-                            filename = os.path.join(self.__datacachedir, str(abs(hash(url))) + '.data')
+                        if os.path.isdir(self._datacachedir):
+                            filename = os.path.join(self._datacachedir, str(abs(hash(url))) + '.data')
                             data = cachekey['data']
 
                             try:
@@ -375,7 +375,7 @@ class HarvestManCacheManager(object):
                             cachekey['data']=zlib.compress(cachekey['data'])
 
                 # Filename is encrypted form of domain name + .hmc
-                cachefilename = os.path.join(self.__cachedir, bin_crypt(domain) + '.hmc')
+                cachefilename = os.path.join(self._cachedir, bin_crypt(domain) + '.hmc')
                 pickler.dump( urldict, cachefilename)
                 
         except HarvestManSerializerError, e:
@@ -394,16 +394,16 @@ class HarvestManProjectManager(object):
         """ Write project files """
 
         moreinfo('Writing Project Files...')
-        self.__write_pickled_project_file()
+        self._write_pickled_project_file()
 
     def read_project(self):
         """ Load an existing HarvestMan project file and
         crete dictionary for the passed config object """
 
         projectfile = GetObject('config').projectfile
-        return self.__read_pickled_project_file(projectfile)
+        return self._read_pickled_project_file(projectfile)
 
-    def __read_pickled_project_file(self, projectfile):
+    def _read_pickled_project_file(self, projectfile):
 
         config = GetObject('config')
 
@@ -424,7 +424,7 @@ class HarvestManProjectManager(object):
             logconsole(e)
             return -1
 
-    def __write_pickled_project_file(self):
+    def _write_pickled_project_file(self):
 
         # FIXME: Try fixing copy() on config class
         # and use it here. 
@@ -465,8 +465,8 @@ class HarvestManBrowser(object):
         if self._cfg.browsepage == 0:
             return
 
-        if self.__add_project_to_browse_page() == -1:
-            self.__make_initial_browse_page()
+        if self._add_project_to_browse_page() == -1:
+            self._make_initial_browse_page()
 
     def open_project_browse_page(self):
         """ Open the project page in the user's web-browser """
@@ -482,7 +482,7 @@ class HarvestManBrowser(object):
             logconsole(e)
         return 
 
-    def __add_project_to_browse_page(self):
+    def _add_project_to_browse_page(self):
         """ Append new project information to existing project browser page """
 
         browsefile=os.path.join(self._cfg.basedir, 'index.html')
@@ -553,7 +553,7 @@ class HarvestManBrowser(object):
                 logconsole(e)
                 return -1
 
-    def __make_initial_browse_page(self):
+    def _make_initial_browse_page(self):
         """ This creates an xhtml page for browsing the downloaded
         files similar to HTTrack copier """
 

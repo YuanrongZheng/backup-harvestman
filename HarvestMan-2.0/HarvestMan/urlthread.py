@@ -56,27 +56,27 @@ class HarvestManUrlThread(threading.Thread):
         thread """
 
         # url Object (This is an instance of urlPathParser class)
-        self.__urlobject = None
+        self._urlobject = None
         # thread queue object pooling this thread
-        self.__pool = threadpool
+        self._pool = threadpool
         # max lifetime for the thread
-        self.__timeout = timeout
+        self._timeout = timeout
         # start time of thread
-        self.__starttime = 0
+        self._starttime = 0
         # sleep time
-        self.__sleepTime = 1.0
+        self._sleepTime = 1.0
         # error dictionary
-        self.__error = {}
+        self._error = {}
         # download status 
-        self.__downloadstatus = 0
+        self._downloadstatus = 0
         # busy flag
-        self.__busyflag = False
+        self._busyflag = False
         # end flag
-        self.__endflag = False
+        self._endflag = False
         # Url data, only used for mode 1
-        self.__data = ''
+        self._data = ''
         # Url temp file, used for mode 0
-        self.__urltmpfile = ''
+        self._urltmpfile = ''
         # Current connector
         self._conn = None
         # initialize threading
@@ -85,49 +85,49 @@ class HarvestManUrlThread(threading.Thread):
     def get_error(self):
         """ Get error value of this thread """
 
-        return self.__error
+        return self._error
 
     def get_status(self):
         """ Get the download status of this thread """
 
-        return self.__downloadstatus
+        return self._downloadstatus
 
     def get_data(self):
         """ Return the data of this thread """
 
-        return self.__data
+        return self._data
 
     def get_tmpfname(self):
         """ Return the temp filename if any """
 
-        return self.__urltmpfile
+        return self._urltmpfile
 
     def set_tmpfname(self, filename):
         """ Set the temporary filename """
 
         # Typically called by connector objects
-        self.__urltmpfile = filename
+        self._urltmpfile = filename
         
     def set_status(self, status):
         """ Set the download status of this thread """
 
-        self.__downloadstatus = status
+        self._downloadstatus = status
 
     def is_busy(self):
         """ Get busy status for this thread """
 
-        return self.__busyflag
+        return self._busyflag
 
     def set_busy_flag(self, flag):
         """ Set busy status for this thread """
 
-        self.__busyflag = flag
+        self._busyflag = flag
 
     def join(self):
         """ The thread's join method to be called
         by other threads """
 
-        threading.Thread.join(self, self.__timeout)
+        threading.Thread.join(self, self._timeout)
 
     def terminate(self):
         """ Kill this thread """
@@ -141,16 +141,16 @@ class HarvestManUrlThread(threading.Thread):
 
         # If download was not completed, push-back object
         # to the pool.
-        if self.__downloadstatus==0 and self.__urlobject:
-            self.__pool.push(self.__urlobject)
+        if self._downloadstatus==0 and self._urlobject:
+            self._pool.push(self._urlobject)
             
-        self.__endflag = True
+        self._endflag = True
 
     def download(self, url_obj):
         """ Download this url """
 
         # Set download status
-        self.__downloadstatus = 0
+        self._downloadstatus = 0
         
         url = url_obj.get_full_url()
         server = url_obj.get_domain()
@@ -171,7 +171,7 @@ class HarvestManUrlThread(threading.Thread):
         # This call will block if we exceed the number of connections
         # moreinfo("Creating connector for url ", urlobj.get_full_url())
         self._conn = conn_factory.create_connector( server )
-        self._conn.set_data_mode(self.__pool.get_data_mode())
+        self._conn.set_data_mode(self._pool.get_data_mode())
         mode = self._conn.get_data_mode()
         
         if not url_obj.trymultipart:
@@ -183,23 +183,23 @@ class HarvestManUrlThread(threading.Thread):
             if res==0: res=1
             
             if mode == 0:
-                self.__urltmpfile = self._conn.get_tmpfname()
+                self._urltmpfile = self._conn.get_tmpfname()
             elif mode == 1:
-                self.__data = self._conn.get_data()
+                self._data = self._conn.get_data()
 
         # Remove the connector from the factory
         conn_factory.remove_connector(server)
 
         # Set this as download status
-        self.__downloadstatus = res
+        self._downloadstatus = res
         
         # get error flag from connector
-        self.__error = self._conn.get_error()
+        self._error = self._conn.get_error()
 
         del self._conn
         
         # Notify thread pool
-        self.__pool.notify(self)
+        self._pool.notify(self)
 
         if res != 0:
             if not url_obj.trymultipart:            
@@ -214,16 +214,16 @@ class HarvestManUrlThread(threading.Thread):
     def run(self):
         """ Run this thread """
 
-        while not self.__endflag:
+        while not self._endflag:
             try:
                 if os.name=='nt' or sys.platform == 'win32':
-                  self.__starttime=time.clock()
+                  self._starttime=time.clock()
                 else:
-                    self.__starttime=time.time()
+                    self._starttime=time.time()
 
-                url_obj = self.__pool.get_next_urltask()
+                url_obj = self._pool.get_next_urltask()
 
-                if self.__pool.check_duplicates(url_obj):
+                if self._pool.check_duplicates(url_obj):
                     continue
 
                 if not url_obj:
@@ -231,10 +231,10 @@ class HarvestManUrlThread(threading.Thread):
                     continue
 
                 # set busy flag to 1
-                self.__busyflag = True
+                self._busyflag = True
 
                 # Save reference
-                self.__urlobject = url_obj
+                self._urlobject = url_obj
 
                 filename, url = url_obj.get_full_filename(), url_obj.get_full_url()
                 if not filename and not url:
@@ -243,9 +243,9 @@ class HarvestManUrlThread(threading.Thread):
                 # Perf fix: Check end flag
                 # in case the program was terminated
                 # between start of loop and now!
-                if not self.__endflag: self.download(url_obj)
+                if not self._endflag: self.download(url_obj)
                 # reset busyflag
-                self.__busyflag = False
+                self._busyflag = False
             except Exception, e:
                 # print 'Exception',e
                 # Now I am dead - so I need to tell the pool
@@ -259,42 +259,42 @@ class HarvestManUrlThread(threading.Thread):
                     debug('Looks like a repeating error, not trying to restart worker thread %s' % (str(self)))
                 else:
                     self.__class__._lasterror = e
-                    self.__pool.dead_thread_callback(self)
+                    self._pool.dead_thread_callback(self)
                     extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))
 
 
     def get_url(self):
 
-        if self.__urlobject:
-            return self.__urlobject.get_full_url()
+        if self._urlobject:
+            return self._urlobject.get_full_url()
 
         return ""
 
     def get_filename(self):
 
-        if self.__urlobject:
-            return self.__urlobject.get_full_filename()
+        if self._urlobject:
+            return self._urlobject.get_full_filename()
 
         return ""
 
     def get_urlobject(self):
         """ Return this thread's url object """
 
-        return self.__urlobject
+        return self._urlobject
 
     def set_urlobject(self, urlobject):
             
-        self.__urlobject = urlobject
+        self._urlobject = urlobject
         
     def get_start_time(self):
         """ Return the start time of current download """
 
-        return self.__starttime
+        return self._starttime
 
     def set_start_time(self, starttime):
         """ Return the start time of current download """
 
-        self.__starttime = starttime
+        self._starttime = starttime
     
     def get_elapsed_time(self):
         """ Get the time taken for this thread """
@@ -306,7 +306,7 @@ class HarvestManUrlThread(threading.Thread):
         else:
             now=time.time()
 
-        fetchtime=float(math.ceil((now-self.__starttime)*100)/100)
+        fetchtime=float(math.ceil((now-self._starttime)*100)/100)
         return fetchtime
 
     def long_running(self):
@@ -315,12 +315,12 @@ class HarvestManUrlThread(threading.Thread):
 
         # if any thread is running for more than <timeout>
         # time, return TRUE
-        return (self.get_elapsed_time() > self.__timeout)
+        return (self.get_elapsed_time() > self._timeout)
 
     def set_timeout(self, value):
         """ Set the timeout value for this thread """
 
-        self.__timeout = value
+        self._timeout = value
 
     def close_file(self):
         """ Close temporary file objects of the connector """
@@ -337,14 +337,14 @@ class HarvestManUrlThreadPool(Queue):
         """ Initialize this class """
 
         # list of spawned threads
-        self.__threads = []
+        self._threads = []
         # list of url tasks
-        self.__tasks = []
+        self._tasks = []
 
         self._cfg = GetObject('config')
         # Maximum number of threads spawned
-        self.__numthreads = self._cfg.threadpoolsize
-        self.__timeout = self._cfg.timeout
+        self._numthreads = self._cfg.threadpoolsize
+        self._timeout = self._cfg.timeout
         
         # Last thread report time
         self._ltrt = 0.0
@@ -352,23 +352,23 @@ class HarvestManUrlThreadPool(Queue):
         self.buffer = []
         # Data dictionary for multi-part downloads
         # Keys are URLs and value is the data
-        self.__multipartdata = {}
+        self._multipartdata = {}
         # Status of URLs being downloaded in
         # multipart. Keys are URLs
-        self.__multipartstatus = {}
+        self._multipartstatus = {}
         # Number of parts
-        self.__parts = self._cfg.numparts
+        self._parts = self._cfg.numparts
         # Data mode
         # 0 => Flush data
         # 1 => keep data in memory (default)
         # This mode is perpetuated to connector objects
         # and reader objects belonging to connectors. It
         # is not an attribute of this class
-        self.__datamode = 1
-        if self._cfg.flushdata: self.__datamode = 0
+        self._datamode = 1
+        if self._cfg.flushdata: self._datamode = 0
         # Condition object
         self._cond = threading.Condition(threading.Lock())        
-        Queue.__init__(self, self.__numthreads + 5)
+        Queue.__init__(self, self._numthreads + 5)
         
     def get_state(self):
         """ Return a snapshot of the current state of this
@@ -380,12 +380,12 @@ class HarvestManUrlThreadPool(Queue):
         
         tdict = {}
         
-        for t in self.__threads:
+        for t in self._threads:
             d2 = {}
-            d2['__urlobject'] = t.get_urlobject()
-            d2['__busyflag'] = t.is_busy()
-            d2['__downloadstatus'] = t.get_status()
-            d2['__starttime'] = t.get_start_time()
+            d2['_urlobject'] = t.get_urlobject()
+            d2['_busyflag'] = t.is_busy()
+            d2['_downloadstatus'] = t.get_status()
+            d2['_starttime'] = t.get_start_time()
 
             tdict[t.getName()]  = d2
 
@@ -397,27 +397,27 @@ class HarvestManUrlThreadPool(Queue):
         """ Set state to a previous saved state """
 
         # Maximum number of threads spawned
-        self.__numthreads = self._cfg.threadpoolsize
-        self.__timeout = self._cfg.timeout
-        self.__parts = self._cfg.numparts
+        self._numthreads = self._cfg.threadpoolsize
+        self._timeout = self._cfg.timeout
+        self._parts = self._cfg.numparts
         
         self.buffer = state.get('buffer',[])
         self.queue = state.get('queue', deque([]))
         
         for name,tdict in state.get('threadinfo').items():
-            fetcher = HarvestManUrlThread(name, self.__timeout, self)
-            fetcher.set_urlobject(tdict.get('__urlobject'))
-            fetcher.set_busy_flag(tdict.get('__busyflag', False))
-            fetcher.set_status(tdict.get('__downloadstatus', 0))
-            fetcher.set_start_time(tdict.get('__starttime', 0))            
+            fetcher = HarvestManUrlThread(name, self._timeout, self)
+            fetcher.set_urlobject(tdict.get('_urlobject'))
+            fetcher.set_busy_flag(tdict.get('_busyflag', False))
+            fetcher.set_status(tdict.get('_downloadstatus', 0))
+            fetcher.set_start_time(tdict.get('_starttime', 0))            
             
             fetcher.setDaemon(True)
-            self.__threads.append(fetcher)
+            self._threads.append(fetcher)
             
     def start_threads(self):
         """ Start threads if they are not running """
 
-        for t in self.__threads:
+        for t in self._threads:
             try:
                 t.start()
             except AssertionError, e:
@@ -426,12 +426,12 @@ class HarvestManUrlThreadPool(Queue):
     def spawn_threads(self):
         """ Start the download threads """
 
-        for x in range(self.__numthreads):
+        for x in range(self._numthreads):
             name = 'Worker-'+ str(x+1)
-            fetcher = HarvestManUrlThread(name, self.__timeout, self)
+            fetcher = HarvestManUrlThread(name, self._timeout, self)
             fetcher.setDaemon(True)
             # Append this thread to the list of threads
-            self.__threads.append(fetcher)
+            self._threads.append(fetcher)
             fetcher.start()
 
     def download_urls(self, listofurlobjects):
@@ -441,10 +441,10 @@ class HarvestManUrlThreadPool(Queue):
         for urlinfo in listofurlobjects:
             self.push(urlinfo)
 
-    def __get_num_blocked_threads(self):
+    def _get_num_blocked_threads(self):
 
         blocked = 0
-        for t in self.__threads:
+        for t in self._threads:
             if not t.is_busy(): blocked += 1
 
         return blocked
@@ -453,9 +453,9 @@ class HarvestManUrlThreadPool(Queue):
         """ The queue is considered blocked if all threads
         are waiting for data, and no data is coming """
 
-        blocked = self.__get_num_blocked_threads()
+        blocked = self._get_num_blocked_threads()
 
-        if blocked == len(self.__threads):
+        if blocked == len(self._threads):
             return True
         else:
             return False
@@ -474,7 +474,7 @@ class HarvestManUrlThreadPool(Queue):
         try:
             self.put( urlObj )
             # If this URL was multipart, mark it as such
-            self.__multipartstatus[url] = False
+            self._multipartstatus[url] = False
         except Full:
             self.buffer.append(urlObj)
         
@@ -516,8 +516,8 @@ class HarvestManUrlThreadPool(Queue):
 
                 url = urlObj.get_full_url()
 
-                if url in self.__multipartdata:
-                    infolist = self.__multipartdata[url]
+                if url in self._multipartdata:
+                    infolist = self._multipartdata[url]
                     if data:
                         infolist.append((urlObj.range[0],data))
                     elif fname:
@@ -529,23 +529,23 @@ class HarvestManUrlThreadPool(Queue):
                     elif fname:
                         infolist.append((urlObj.range[0],fname))
                     else:
-                        self.__parts -= 1 # AD-HOC
+                        self._parts -= 1 # AD-HOC
                         
-                    self.__multipartdata[url] = infolist
+                    self._multipartdata[url] = infolist
 
                 # print 'Length of data list is',len(infolist)
-                if len(infolist)==self.__parts:
+                if len(infolist)==self._parts:
                     # Sort the data list  according to byte-range
                     infolist.sort()
                     # Download of this URL is complete...
                     logconsole('Download of %s is complete...' % urlObj.get_full_url())
                     if not flushmode:
                         data = ''.join([item[1] for item in infolist])
-                        self.__multipartdata['data:' + url] = data
+                        self._multipartdata['data:' + url] = data
                     else:
                         pass
                     
-                    self.__multipartstatus[url] = True
+                    self._multipartstatus[url] = True
 
             # if the thread failed, update failure stats on the data manager
             dmgr = GetObject('datamanager')
@@ -568,7 +568,7 @@ class HarvestManUrlThreadPool(Queue):
         """ Return whether I have any busy threads """
 
         val=0
-        for thread in self.__threads:
+        for thread in self._threads:
             if thread.is_busy():
                 val += 1
                 break
@@ -578,7 +578,7 @@ class HarvestManUrlThreadPool(Queue):
     def get_busy_threads(self):
         """ Return a list of busy threads """
 
-        return [thread for thread in self.__threads if thread.is_busy()]
+        return [thread for thread in self._threads if thread.is_busy()]
 
     def get_busy_count(self):
         """ Return a count of busy threads """
@@ -588,7 +588,7 @@ class HarvestManUrlThreadPool(Queue):
     def locate_thread(self, url):
         """ Find a thread which downloaded a certain url """
 
-        for x in self.__threads:
+        for x in self._threads:
             if not x.is_busy():
                 if x.get_url() == url:
                     return x
@@ -599,7 +599,7 @@ class HarvestManUrlThreadPool(Queue):
         """ Find all threads which are downloading a certain url """
 
         threads=[]
-        for x in self.__threads:
+        for x in self._threads:
             if x.is_busy():
                 if x.get_url() == url:
                     threads.append(x)
@@ -635,13 +635,13 @@ class HarvestManUrlThreadPool(Queue):
         kill it, and remove it from the thread pool """
 
         pool=[]
-        for thread in self.__threads:
+        for thread in self._threads:
             if thread.long_running(): pool.append(thread)
 
         for thread in pool:
             extrainfo('Killing hanging thread ', thread)
             # remove this thread from the thread list
-            self.__threads.remove(thread)
+            self._threads.remove(thread)
             # kill it
             try:
                 thread.terminate()
@@ -653,7 +653,7 @@ class HarvestManUrlThreadPool(Queue):
     def end_all_threads(self):
         """ Kill all running threads """
 
-        for t in self.__threads:
+        for t in self._threads:
             try:
                 t.terminate()
                 del t
@@ -664,9 +664,9 @@ class HarvestManUrlThreadPool(Queue):
     def remove_finished_threads(self):
         """ Clean up all threads that have completed """
 
-        for thread in self.__threads:
+        for thread in self._threads:
             if not thread.is_busy():
-                self.__threads.remove(thread)
+                self._threads.remove(thread)
                 del thread
 
     def last_thread_report_time(self):
@@ -677,22 +677,22 @@ class HarvestManUrlThreadPool(Queue):
     def get_multipart_download_status(self, url):
         """ Get status of multipart downloads """
 
-        return self.__multipartstatus.get(url, False)
+        return self._multipartstatus.get(url, False)
 
     def get_multipart_url_data(self, url):
         """ Return data for multipart downloads """
 
-        return self.__multipartdata.get('data:'+url, '')
+        return self._multipartdata.get('data:'+url, '')
 
     def get_multipart_url_info(self, url):
         """ Return information for multipart downloads """
 
-        return self.__multipartdata.get(url, '')
+        return self._multipartdata.get(url, '')
 
     def get_data_mode(self):
         """ Return the data mode """
 
-        return self.__datamode
+        return self._datamode
     
     def dead_thread_callback(self, t):
         """ Call back function called by a thread if it
@@ -702,22 +702,22 @@ class HarvestManUrlThreadPool(Queue):
 
         try:
             self._cond.acquire()
-            new_t = HarvestManUrlThread(t.getName(), self.__timeout, self)
+            new_t = HarvestManUrlThread(t.getName(), self._timeout, self)
             # Migrate data and start thread
             if new_t:
                 new_t.set_urlobject(t.get_urlobject())
                 # Replace dead thread in the list
-                idx = self.__threads.index(t)
-                self.__threads[idx] = new_t
+                idx = self._threads.index(t)
+                self._threads[idx] = new_t
                 new_t.start()
             else:
                 # Could not make new thread, remove
                 # current thread anyway
-                self.__threads.remove(t)
+                self._threads.remove(t)
         finally:
             self._cond.release()                
                     
     def get_threads(self):
         """ Return the list of thread objects """
 
-        return self.__threads
+        return self._threads

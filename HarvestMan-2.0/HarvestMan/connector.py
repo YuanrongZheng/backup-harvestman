@@ -333,50 +333,50 @@ class HarvestManNetworkConnector(object):
     
     def __init__(self):
         # use proxies flag
-        self.__useproxy=0
+        self._useproxy=0
         # check for ssl support in python
-        self.__initssl=False
+        self._initssl=False
         # Number of socket errors
-        self.__sockerrs = 0
+        self._sockerrs = 0
         # Config object
-        self.__cfg = GetObject('config')
+        self._cfg = GetObject('config')
         
         if hasattr(socket, 'ssl'):
-            self.__initssl=True
+            self._initssl=True
             __protocols__.append("https")
 
         # dictionary of protocol:proxy values
-        self.__proxydict = {}
+        self._proxydict = {}
         # dictionary of protocol:proxy auth values
-        self.__proxyauth = {}
-        self.__configure()
+        self._proxyauth = {}
+        self.configure()
         
     def set_useproxy(self, val=True):
         """ Set the value of use-proxy flag. Also
         set proxy dictionaries to default values """
 
-        self.__useproxy=val
+        self._useproxy=val
 
         if val:
             proxystring = 'proxy:80'
             
             # proxy variables
-            self.__proxydict["http"] =  proxystring
-            self.__proxydict["https"] = proxystring
-            self.__proxydict["ftp"] = proxystring
+            self._proxydict["http"] =  proxystring
+            self._proxydict["https"] = proxystring
+            self._proxydict["ftp"] = proxystring
             # set default for proxy authentication
             # tokens.
-            self.__proxyauth["http"] = ""
-            self.__proxyauth["https"] = ""
-            self.__proxyauth["ftp"] = ""            
+            self._proxyauth["http"] = ""
+            self._proxyauth["https"] = ""
+            self._proxyauth["ftp"] = ""            
 
     def set_ftp_proxy(self, proxyserver, proxyport, authinfo=(), encrypted=True):
         """ Set ftp proxy """
 
         if encrypted:
-            self.__proxydict["ftp"] = "".join((bin_decrypt(proxyserver),  ':', str(proxyport)))
+            self._proxydict["ftp"] = "".join((bin_decrypt(proxyserver),  ':', str(proxyport)))
         else:
-            self.__proxydict["ftp"] = "".join((proxyserver, ':', str(proxyport)))
+            self._proxydict["ftp"] = "".join((proxyserver, ':', str(proxyport)))
 
         if authinfo:
             try:
@@ -389,15 +389,15 @@ class HarvestManNetworkConnector(object):
             else:
                 passwdstring = "".join((username, ':', passwd))
 
-            self.__proxyauth["ftp"] = passwdstring
+            self._proxyauth["ftp"] = passwdstring
 
     def set_https_proxy(self, proxyserver, proxyport, authinfo=(), encrypted=True):
         """ Set https(ssl) proxy  """
 
         if encrypted:
-            self.__proxydict["https"] = "".join((bin_decrypt(proxyserver), ':', str(proxyport)))
+            self._proxydict["https"] = "".join((bin_decrypt(proxyserver), ':', str(proxyport)))
         else:
-            self.__proxydict["https"] = "".join((proxyserver, ':', str(proxyport)))
+            self._proxydict["https"] = "".join((proxyserver, ':', str(proxyport)))
 
         if authinfo:
             try:
@@ -410,15 +410,15 @@ class HarvestManNetworkConnector(object):
             else:
                 passwdstring = "".join((username, ':', passwd))
 
-            self.__proxyauth["https"] = passwdstring
+            self._proxyauth["https"] = passwdstring
 
     def set_http_proxy(self, proxyserver, proxyport, authinfo=(), encrypted=True):
         """ Set http proxy """
 
         if encrypted:
-            self.__proxydict["http"] = "".join((bin_decrypt(proxyserver), ':', str(proxyport)))
+            self._proxydict["http"] = "".join((bin_decrypt(proxyserver), ':', str(proxyport)))
         else:
-            self.__proxydict["http"] = "".join((proxyserver, ':', str(proxyport)))
+            self._proxydict["http"] = "".join((proxyserver, ':', str(proxyport)))
 
         if authinfo:
             try:
@@ -431,7 +431,7 @@ class HarvestManNetworkConnector(object):
             else:
                 passwdstring= "".join((username, ':', passwd))
 
-            self.__proxyauth["http"] = passwdstring
+            self._proxyauth["http"] = passwdstring
 
     def set_proxy(self, server, port, authinfo=(), encrypted=True):
         """ Set generic (all protocols) proxy values.
@@ -456,35 +456,25 @@ class HarvestManNetworkConnector(object):
         else:
             passwdstring = "".join((username, ':', passwd))
 
-        self.__proxyauth = {"http" : passwdstring,
+        self._proxyauth = {"http" : passwdstring,
                             "https" : passwdstring,
                             "ftp" : passwdstring }
 
-    def configure_protocols(self):
-        """ Just a wrapper """
-        
-        self.__configure_protocols()
-
-    def configure_network(self):
-        """ Just a wrapper """
-
-        self.__configure_network()
-
-    def __configure(self):
+    def configure(self):
         """ Wrapping up wrappers """
         
-        self.__configure_network()
-        self.__configure_protocols()
+        self.configure_network()
+        self.configure_protocols()
         
-    def __configure_network(self):
+    def configure_network(self):
         """ Initialise network for the user """
 
         # First: Configuration of network (proxies/intranet etc)
         
         # Check for proxies in the config object
-        if self.__cfg.proxy:
+        if self._cfg.proxy:
             self.set_useproxy(True)
-            proxy = self.__cfg.proxy
+            proxy = self._cfg.proxy
             
             index = proxy.rfind(':')
             if index != -1:
@@ -495,19 +485,19 @@ class HarvestManNetworkConnector(object):
                 if index != -1:
                     server = server[(index+7):]
 
-                self.set_proxy(server, int(port), (), self.__cfg.proxyenc)
+                self.set_proxy(server, int(port), (), self._cfg.proxyenc)
 
             else:
-                port = self.__cfg.proxyport
-                server = self.__cfg.proxy
-                self.set_proxy(server, int(port), (), self.__cfg.proxyenc)
+                port = self._cfg.proxyport
+                server = self._cfg.proxy
+                self.set_proxy(server, int(port), (), self._cfg.proxyenc)
 
             # Set proxy username and password, if specified
-            puser, ppasswd = self.__cfg.puser, self.__cfg.ppasswd
-            if puser and ppasswd: self.set_authinfo(puser, ppasswd, self.__cfg.proxyenc)
+            puser, ppasswd = self._cfg.puser, self._cfg.ppasswd
+            if puser and ppasswd: self.set_authinfo(puser, ppasswd, self._cfg.proxyenc)
 
 
-    def __configure_protocols(self):
+    def configure_protocols(self):
         """ Configure protocol handlers """
         
         # Second: Configuration of protocol handlers.
@@ -520,7 +510,7 @@ class HarvestManNetworkConnector(object):
         # and greater. 
         minor_version = sys.version_info[1]
         if minor_version>=3:
-            socket.setdefaulttimeout( self.__cfg.socktimeout )
+            socket.setdefaulttimeout( self._cfg.socktimeout )
             # For Python 2.4, use cookielib support
             # To fix HTTP cookie errors such as those
             # produced by http://www.eidsvoll.kommune.no/
@@ -531,41 +521,41 @@ class HarvestManNetworkConnector(object):
                 pass
             
         # If we are behing proxies/firewalls
-        if self.__useproxy:
-            if self.__proxyauth['http']:
+        if self._useproxy:
+            if self._proxyauth['http']:
                 httpproxystring = "".join(('http://',
-                                           self.__proxyauth['http'],
+                                           self._proxyauth['http'],
                                            '@',
-                                           self.__proxydict['http']))
+                                           self._proxydict['http']))
             else:
-                httpproxystring = "".join(('http://', self.__proxydict['http']))
+                httpproxystring = "".join(('http://', self._proxydict['http']))
 
-            if self.__proxyauth['ftp']:
+            if self._proxyauth['ftp']:
                 ftpproxystring = "".join(('http://',
-                                          self.__proxyauth['ftp'],
+                                          self._proxyauth['ftp'],
                                           '@',
-                                          self.__proxydict['ftp']))
+                                          self._proxydict['ftp']))
             else:
-                ftpproxystring = "".join(('http://', self.__proxydict['ftp']))
+                ftpproxystring = "".join(('http://', self._proxydict['ftp']))
 
-            if self.__proxyauth['https']:
+            if self._proxyauth['https']:
                 httpsproxystring = "".join(('http://',
-                                            self.__proxyauth['https'],
+                                            self._proxyauth['https'],
                                             '@',
-                                            self.__proxydict['https']))
+                                            self._proxydict['https']))
             else:
-                httpsproxystring = "".join(('http://', self.__proxydict['https']))
+                httpsproxystring = "".join(('http://', self._proxydict['https']))
 
             # Set this as the new entry in the proxy dictionary
-            self.__proxydict['http'] = httpproxystring
-            self.__proxydict['ftp'] = ftpproxystring
-            self.__proxydict['https'] = httpsproxystring
+            self._proxydict['http'] = httpproxystring
+            self._proxydict['ftp'] = ftpproxystring
+            self._proxydict['https'] = httpsproxystring
 
             
-            proxy_support = urllib2.ProxyHandler(self.__proxydict)
+            proxy_support = urllib2.ProxyHandler(self._proxydict)
             
             # build opener and install it
-            if self.__initssl:
+            if self._initssl:
                 opener = urllib2.build_opener(authhandler,
                                               MyRedirectHandler,
                                               proxy_support,
@@ -589,7 +579,7 @@ class HarvestManNetworkConnector(object):
 
         else:
             # Direct connection to internet
-            if self.__initssl:
+            if self._initssl:
                 opener = urllib2.build_opener(authhandler,
                                               MyRedirectHandler,
                                               urllib2.HTTPHandler,
@@ -618,19 +608,19 @@ class HarvestManNetworkConnector(object):
     def get_useproxy(self):
         """ Find out if we are using proxies """
 
-        return self.__useproxy
+        return self._useproxy
     
     def get_proxy_info(self):
-        return (self.__proxydict, self.__proxyauth)
+        return (self._proxydict, self._proxyauth)
 
     def increment_socket_errors(self, val=1):
-        self.__sockerrs += val
+        self._sockerrs += val
 
     def decrement_socket_errors(self, val=1):
-        self.__sockerrs -= val
+        self._sockerrs -= val
         
     def get_socket_errors(self):
-        return self.__sockerrs
+        return self._sockerrs
         
 class HarvestManUrlConnector(object):
     """ Class which helps to connect to the internet """
@@ -645,19 +635,19 @@ class HarvestManUrlConnector(object):
 
         # file like object returned by
         # urllib2.urlopen(...)
-        self.__freq = urllib2.Request('file://')
+        self._freq = urllib2.Request('file://')
         # data downloaded
-        self.__data = ''
+        self._data = ''
         # length of data downloaded
-        self.__datalen = 0
+        self._datalen = 0
         # error dictionary
-        self.__error={ 'msg' : '',
-                       'number': 0,
-                       'fatal' : False
-                       }
+        self._error={ 'msg' : '',
+                      'number': 0,
+                      'fatal' : False
+                      }
         # time to wait before reconnect
         # in case of failed connections
-        self.__sleeptime = 0.5
+        self._sleeptime = 0.5
         # global network configurator
         self.network_conn = GetObject('connector')
         # Config object
@@ -676,18 +666,18 @@ class HarvestManUrlConnector(object):
         self._tmpfname = ''
         
     def __del__(self):
-        del self.__data
-        self.__data = None
-        del self.__freq
-        self.__freq = None
-        del self.__error
-        self.__error = None
+        del self._data
+        self._data = None
+        del self._freq
+        self._freq = None
+        del self._error
+        self._error = None
         del self.network_conn
         self.network_conn = None
         del self._cfg
         self._cfg = None
         
-    def __proxy_query(self, queryauth=1, queryserver=0):
+    def _proxy_query(self, queryauth=1, queryserver=0):
         """ Query the user for proxy related information """
 
         self.network_conn.set_useproxy(True)
@@ -724,20 +714,20 @@ class HarvestManUrlConnector(object):
 
         self.connect(url, None, True, self._cfg.retryfailed )
         # return the file like object
-        if self.__error['fatal']:
+        if self._error['fatal']:
             return None
         else:
-            return self.__freq
+            return self._freq
 
     def robot_urlopen(self, url):
         """ Open a robots.txt url """
 
         self.connect(url, None, False, 0)
         # return the file like object
-        if self.__error['fatal']:
+        if self._error['fatal']:
             return None
         else:
-            return self.__freq
+            return self._freq
     
     def connect(self, urltofetch, url_obj = None, fetchdata=True, retries=1, lastmodified=-1):
         """ Connect to the Internet fetch the data of the passed url """
@@ -772,12 +762,12 @@ class HarvestManUrlConnector(object):
         # Reset the http headers
         self._headers.clear()
         
-        while numtries <= retries and not self.__error['fatal']:
+        while numtries <= retries and not self._error['fatal']:
 
             errnum = 0
             try:
                 # Reset error
-                self.__error = { 'number' : 0,
+                self._error = { 'number' : 0,
                                  'msg' : '',
                                  'fatal' : False }
 
@@ -804,7 +794,7 @@ class HarvestManUrlConnector(object):
                 if self._cfg.httpcompress:
                     request.add_header('Accept-Encoding', 'gzip')
                     
-                self.__freq = urllib2.urlopen(request)
+                self._freq = urllib2.urlopen(request)
                 # Set http headers
                 self.set_http_headers()
 
@@ -826,7 +816,7 @@ class HarvestManUrlConnector(object):
                         # by requesting half the length
                         self._headers.clear()
                         request.add_header('Range','bytes=%d-%d' % (0,clength/2))
-                        self.__freq = urllib2.urlopen(request)
+                        self._freq = urllib2.urlopen(request)
                         # Set http headers
                         self.set_http_headers()
                         range_result = self._headers.get('accept-ranges')
@@ -846,7 +836,7 @@ class HarvestManUrlConnector(object):
                 # The actual url information is used to
                 # differentiate between directory like urls
                 # and file like urls.
-                actual_url = self.__freq.geturl()
+                actual_url = self._freq.geturl()
                 
                 # Replace the urltofetch in actual_url with null
                 if actual_url:
@@ -896,13 +886,13 @@ class HarvestManUrlConnector(object):
                         encoding = self.get_content_encoding()
 
                         t1 = time.time()
-                        data = self.__freq.read()
+                        data = self._freq.read()
 
                         self._elapsed = time.time() - t1
                         
                         # Save a reference
                         data0 = data
-                        self.__freq.close()                        
+                        self._freq.close()                        
                         dmgr.update_bytes(len(data))
                         
                         if encoding.strip().find('gzip') != -1:
@@ -924,48 +914,48 @@ class HarvestManUrlConnector(object):
                 try:
                     errbasic, errdescn = (str(e)).split(':',1)
                     parts = errbasic.strip().split()
-                    self.__error['number'] = int(parts[-1])
-                    self.__error['msg'] = errdescn.strip()
+                    self._error['number'] = int(parts[-1])
+                    self._error['msg'] = errdescn.strip()
                 except:
                     pass
 
-                if self.__error['msg']:
-                    extrainfo(self.__error['msg'], '=> ',urltofetch)
+                if self._error['msg']:
+                    extrainfo(self._error['msg'], '=> ',urltofetch)
                 else:
                     extrainfo('HTTPError:',urltofetch)
 
                 try:
-                    errnum = int(self.__error['number'])
+                    errnum = int(self._error['number'])
                 except:
                     pass
 
                 if errnum==304:
                     # Page not modified
                     three_oh_four = True
-                    self.__error['fatal'] = False
+                    self._error['fatal'] = False
                     # Need to do this to ensure that the crawler
                     # proceeds further!
                     content_type = self.get_content_type()
                     hu.manage_content_type(content_type)                    
                     break
                 if errnum == 407: # Proxy authentication required
-                    self.__proxy_query(1, 1)
+                    self._proxy_query(1, 1)
                 elif errnum == 503: # Service unavailable
                     rulesmgr.add_to_filter(urltofetch)
-                    self.__error['fatal']=True                        
+                    self._error['fatal']=True                        
                 elif errnum == 504: # Gateway timeout
                     rulesmgr.add_to_filter(urltofetch)
-                    self.__error['fatal']=True                        
+                    self._error['fatal']=True                        
                 elif errnum in range(500, 505): # Server error
-                    self.__error['fatal']=True
+                    self._error['fatal']=True
                 elif errnum == 404:
                     # Link not found, this might
                     # be a file wrongly fetched as directory
                     # Add to filter
                     rulesmgr.add_to_filter(urltofetch)
-                    self.__error['fatal']=True
+                    self._error['fatal']=True
                 elif errnum == 401: # Site authentication required
-                    self.__error['fatal']=True
+                    self._error['fatal']=True
                     break
 
             except urllib2.URLError, e:
@@ -983,23 +973,23 @@ class HarvestManUrlConnector(object):
                         pass
 
                 try:
-                    self.__error['number'] = int(parts[-1])
+                    self._error['number'] = int(parts[-1])
                 except:
                     pass
                 
                 if errdescn:
-                    self.__error['msg'] = errdescn
+                    self._error['msg'] = errdescn
                 #else:
                 #    print 'errdescn is null!'
 
-                if self.__error['msg']:
-                    extrainfo(self.__error['msg'], '=> ',urltofetch)
+                if self._error['msg']:
+                    extrainfo(self._error['msg'], '=> ',urltofetch)
                 else:
                     extrainfo('URLError:',urltofetch)
 
-                errnum = self.__error['number']
+                errnum = self._error['number']
                 if errnum == 10049 or errnum == 10061: # Proxy server error
-                    self.__proxy_query(1, 1)
+                    self._proxy_query(1, 1)
                 elif errnum == 10055:
                     # no buffer space available
                     self.network_conn.increment_socket_errors()
@@ -1011,37 +1001,37 @@ class HarvestManUrlConnector(object):
                         self.network_conn.decrement_socket_errors(4)
 
             except IOError, e:
-                self.__error['number'] = 31
-                self.__error['fatal']=True
-                self.__error['msg'] = str(e)                    
+                self._error['number'] = 31
+                self._error['fatal']=True
+                self._error['msg'] = str(e)                    
                 # Generated by invalid ftp hosts and
                 # other reasons,
                 # bug(url: http://www.gnu.org/software/emacs/emacs-paper.html)
                 extrainfo(e ,'=> ',urltofetch)
 
             except BadStatusLine, e:
-                self.__error['number'] = 41
-                self.__error['msg'] = str(e)
+                self._error['number'] = 41
+                self._error['msg'] = str(e)
                 extrainfo(e, '=> ',urltofetch)
 
             except TypeError, e:
-                self.__error['number'] = 51
-                self.__error['msg'] = str(e)
+                self._error['number'] = 51
+                self._error['msg'] = str(e)
                 extrainfo(e, '=> ',urltofetch)
                 
             except ValueError, e:
-                self.__error['number'] = 61
-                self.__error['msg'] = str(e)                    
+                self._error['number'] = 61
+                self._error['msg'] = str(e)                    
                 extrainfo(e, '=> ',urltofetch)
 
             except AssertionError, e:
-                self.__error['number'] = 71
-                self.__error['msg'] = str(e)
+                self._error['number'] = 71
+                self._error['msg'] = str(e)
                 extrainfo(e ,'=> ',urltofetch)
 
             except socket.error, e:
-                self.__error['msg'] = str(e)
-                errmsg = self.__error['msg']
+                self._error['msg'] = str(e)
+                errmsg = self._error['msg']
 
                 extrainfo('Socket Error: ', errmsg,'=> ',urltofetch)
 
@@ -1056,20 +1046,20 @@ class HarvestManUrlConnector(object):
                         self._cfg.connections -= 1
                         self.network_conn.decrement_socket_errors(4)
             except Exception, e:
-                self.__error['msg'] = str(e)
-                errmsg = self.__error['msg']
+                self._error['msg'] = str(e)
+                errmsg = self._error['msg']
 
                 extrainfo('General Error: ', errmsg,'=> ',urltofetch)
                 
             # attempt reconnect after some time
-            time.sleep(self.__sleeptime)
+            time.sleep(self._sleeptime)
 
         
-        if data: self.__data = data
+        if data: self._data = data
 
         if url_obj:
-            url_obj.status = self.__error['number']
-            url_obj.fatal = self.__error['fatal']
+            url_obj.status = self._error['number']
+            url_obj.fatal = self._error['fatal']
 
         # If three_oh_four, return ok
         if three_oh_four:
@@ -1135,12 +1125,12 @@ class HarvestManUrlConnector(object):
 
         dmgr = GetObject('datamanager')
             
-        while numtries <= retries and not self.__error['fatal']:
+        while numtries <= retries and not self._error['fatal']:
 
             errnum = 0
             try:
                 # Reset error
-                self.__error = { 'number' : 0,
+                self._error = { 'number' : 0,
                                  'msg' : '',
                                  'fatal' : False }
 
@@ -1161,7 +1151,7 @@ class HarvestManUrlConnector(object):
                         
                     request.add_header('Range','bytes=%d-%d' % (range1,range2))
                 
-                self.__freq = urllib2.urlopen(request)
+                self._freq = urllib2.urlopen(request)
                 
                 # Set http headers
                 self.set_http_headers()
@@ -1218,8 +1208,8 @@ class HarvestManUrlConnector(object):
                         # by requesting half the length
                         self._headers.clear()
                         request.add_header('Range','bytes=%d-%d' % (0,clength/2))
-                        self.__freq.close()                        
-                        self.__freq = urllib2.urlopen(request)
+                        self._freq.close()                        
+                        self._freq = urllib2.urlopen(request)
 
                         # Set http headers
                         self.set_http_headers()
@@ -1279,13 +1269,13 @@ class HarvestManUrlConnector(object):
                         ct.set_tmpfname(self._tmpfname)
 
                     if self._reader==None:
-                        self._reader = DataReader(self.__freq,
+                        self._reader = DataReader(self._freq,
                                                   urltofetch,
                                                   self._tmpfname,
                                                   clength,
                                                   self._mode)
                     else:
-                        self._reader.set_request(self.__freq)
+                        self._reader.set_request(self._freq)
 
                     # Setting class-level variables
                     if self._cfg.multipart:
@@ -1343,9 +1333,9 @@ class HarvestManUrlConnector(object):
                     self._elapsed = time.time() - t1
 
                     if self._reader._mode==1:
-                        self.__data = self._reader.get_data()
+                        self._data = self._reader.get_data()
                     else:
-                        self.__datalen = self._reader.get_datalen()
+                        self._datalen = self._reader.get_datalen()
 
                 except MemoryError, e:
                     # Catch memory error for sockets
@@ -1360,33 +1350,33 @@ class HarvestManUrlConnector(object):
                 try:
                     errbasic, errdescn = (str(e)).split(':',1)
                     parts = errbasic.strip().split()
-                    self.__error['number'] = int(parts[-1])
-                    self.__error['msg'] = errdescn.strip()
+                    self._error['number'] = int(parts[-1])
+                    self._error['msg'] = errdescn.strip()
                 except:
                     pass
 
-                if self.__error['msg']:
-                    moreinfo(self.__error['msg'], '=> ',urltofetch)
+                if self._error['msg']:
+                    moreinfo(self._error['msg'], '=> ',urltofetch)
                 else:
                     moreinfo('HTTPError:',urltofetch)
 
                 try:
-                    errnum = int(self.__error['number'])
+                    errnum = int(self._error['number'])
                 except:
                     pass
 
                 if errnum == 407: # Proxy authentication required
-                    self.__proxy_query(1, 1)
+                    self._proxy_query(1, 1)
                 elif errnum == 503: # Service unavailable
-                    self.__error['fatal']=True                        
+                    self._error['fatal']=True                        
                 elif errnum == 504: # Gateway timeout
-                    self.__error['fatal']=True                        
+                    self._error['fatal']=True                        
                 elif errnum in range(500, 505): # Server error
-                    self.__error['fatal']=True
+                    self._error['fatal']=True
                 elif errnum == 404:
-                    self.__error['fatal']=True
+                    self._error['fatal']=True
                 elif errnum == 401: # Site authentication required
-                    self.__error['fatal']=True
+                    self._error['fatal']=True
                     break
 
             except urllib2.URLError, e:
@@ -1404,67 +1394,67 @@ class HarvestManUrlConnector(object):
                         pass
 
                 try:
-                    self.__error['number'] = int(parts[-1])
+                    self._error['number'] = int(parts[-1])
                 except:
                     pass
                 
                 if errdescn:
-                    self.__error['msg'] = errdescn
+                    self._error['msg'] = errdescn
 
-                if self.__error['msg']:
-                    moreinfo(self.__error['msg'], '=> ',urltofetch)
+                if self._error['msg']:
+                    moreinfo(self._error['msg'], '=> ',urltofetch)
                 else:
                     moreinfo('URLError:',urltofetch)
 
-                errnum = self.__error['number']
+                errnum = self._error['number']
                 if errnum == 10049 or errnum == 10061: # Proxy server error
-                    self.__proxy_query(1, 1)
+                    self._proxy_query(1, 1)
 
             except IOError, e:
-                self.__error['number'] = 31
-                self.__error['fatal']=True
-                self.__error['msg'] = str(e)                    
+                self._error['number'] = 31
+                self._error['fatal']=True
+                self._error['msg'] = str(e)                    
                 # Generated by invalid ftp hosts and
                 # other reasons,
                 # bug(url: http://www.gnu.org/software/emacs/emacs-paper.html)
                 moreinfo(e,'=>',urltofetch)
 
             except BadStatusLine, e:
-                self.__error['number'] = 41
-                self.__error['msg'] = str(e)
+                self._error['number'] = 41
+                self._error['msg'] = str(e)
                 extrainfo(e, '=> ',urltofetch)
 
             except TypeError, e:
-                self.__error['number'] = 51
-                self.__error['msg'] = str(e)
+                self._error['number'] = 51
+                self._error['msg'] = str(e)
                 extrainfo(e, '=> ',urltofetch)
                 
             except ValueError, e:
-                self.__error['number'] = 61
-                self.__error['msg'] = str(e)                    
+                self._error['number'] = 61
+                self._error['msg'] = str(e)                    
                 extrainfo(e, '=> ',urltofetch)
 
             except AssertionError, e:
-                self.__error['number'] = 71
-                self.__error['msg'] = str(e)
+                self._error['number'] = 71
+                self._error['msg'] = str(e)
                 extrainfo(e ,'=> ',urltofetch)
 
             except socket.error, e:
-                self.__error['msg'] = str(e)
-                errmsg = self.__error['msg']
+                self._error['msg'] = str(e)
+                errmsg = self._error['msg']
 
                 moreinfo('Socket Error: ',errmsg,'=> ',urltofetch)
 
             # attempt reconnect after some time
-            time.sleep(self.__sleeptime)
+            time.sleep(self._sleeptime)
 
-        if self.__data or self.__datalen:
+        if self._data or self._datalen:
             return 0
         else:
             return -1
         
     def get_error(self):
-        return self.__error
+        return self._error
 
     def set_content_info(self, urlobj):
         """ Set the content information on the current
@@ -1477,7 +1467,7 @@ class HarvestManUrlConnector(object):
         """ Set http header dictionary from current request """
 
         self._headers.clear()
-        for key,val in dict(self.__freq.headers).iteritems():
+        for key,val in dict(self._freq.headers).iteritems():
             self._headers[key] = val
         
     def print_http_headers(self):
@@ -1497,7 +1487,7 @@ class HarvestManUrlConnector(object):
             # separated by commas.
             return clength.split(',')[0].strip()
         else:
-            return len(self.__data)
+            return len(self._data)
 
     def check_content_length(self):
 
@@ -1532,16 +1522,16 @@ class HarvestManUrlConnector(object):
     def get_content_encoding(self):
         return self._headers.get('content-encoding', 'plain')
                                  
-    def __write_url(self, filename):
+    def _write_url(self, filename):
         """ Write downloaded data to the passed file """
 
-        if self.__data=='':
+        if self._data=='':
             return 0
 
         try:
             extrainfo('Writing file ', filename)
             f=open(filename, 'wb')
-            f.write(self.__data)
+            f.write(self._data)
             f.close()
         except IOError,e:
             debug('IO Exception' , str(e))
@@ -1588,11 +1578,11 @@ class HarvestManUrlConnector(object):
                 time.sleep(1.0)
 
             data = pool.get_url_data(url)
-            self.__data = data
+            self._data = data
 
             directory = urlobj.get_local_directory()
             if dmgr.create_local_directory(directory) == 0:
-                return self.__write_url( urlobj.get_full_filename() )
+                return self._write_url( urlobj.get_full_filename() )
             else:
                 extrainfo("Error in creating local directory for", url)
                 return 0
@@ -1600,7 +1590,7 @@ class HarvestManUrlConnector(object):
         retval=0
         # Apply word filter
         if not urlobj.starturl:
-            if urlobj.is_webpage() and not GetObject('ruleschecker').apply_word_filter(self.__data):
+            if urlobj.is_webpage() and not GetObject('ruleschecker').apply_word_filter(self._data):
                 extrainfo("Word filter prevents download of url =>", url)
                 return 5
 
@@ -1620,7 +1610,7 @@ class HarvestManUrlConnector(object):
             if res==1:
                 extrainfo("Project cache is uptodate =>", url)
                 # Set the data as cache-data
-                self.__data = cache_data
+                self._data = cache_data
                 return 3
             
             # Most of the web-servers will work with above logic. For
@@ -1638,7 +1628,7 @@ class HarvestManUrlConnector(object):
             if timestr:
                 try:
                     lmt = time.mktime( time.strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
-                    update, fileverified = dmgr.is_url_uptodate(urlobj, filename, lmt, self.__data)
+                    update, fileverified = dmgr.is_url_uptodate(urlobj, filename, lmt, self._data)
 
                     # No need to download
                     if update and fileverified:
@@ -1649,7 +1639,7 @@ class HarvestManUrlConnector(object):
 
             else:
                 datalen = self.get_content_length()
-                update, fileverified = dmgr.is_url_cache_uptodate(urlobj, filename, datalen, self.__data)
+                update, fileverified = dmgr.is_url_cache_uptodate(urlobj, filename, datalen, self._data)
                 # No need to download
                 if update and fileverified:
                     extrainfo("Project cache is uptodate =>", url)
@@ -1665,15 +1655,15 @@ class HarvestManUrlConnector(object):
             # If no cache was loaded, then create the cache.
             if timestr:
                 lmt = time.mktime( time.strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
-                dmgr.wrapper_update_cache_for_url2(urlobj, filename, lmt, self.__data)
+                dmgr.wrapper_update_cache_for_url2(urlobj, filename, lmt, self._data)
             else:
                 datalen = self.get_content_length()
-                dmgr.wrapper_update_cache_for_url(urlobj, filename, datalen, self.__data)
+                dmgr.wrapper_update_cache_for_url(urlobj, filename, datalen, self._data)
 
 
         directory = urlobj.get_local_directory()
         if dmgr.create_local_directory(directory) == 0:
-            retval=self.__write_url( filename )
+            retval=self._write_url( filename )
         else:
             extrainfo("Error in creating local directory for", url)
             
@@ -1700,8 +1690,8 @@ class HarvestManUrlConnector(object):
         # Set it back
         self._cfg.forcesplit = fs
         
-        if self.__data:
-            return float(len(self.__data))/(self._elapsed)
+        if self._data:
+            return float(len(self._data))/(self._elapsed)
         else:
             return 0
         
@@ -1732,8 +1722,8 @@ class HarvestManUrlConnector(object):
             print 'Data download completed.'
             if self._mode==1:
                 data = pool.get_multipart_url_data(url)
-                self.__data = data
-                if self.__data: status = 1
+                self._data = data
+                if self._data: status = 1
                 
             elif self._mode==0:
                 # Get url info
@@ -1764,7 +1754,7 @@ class HarvestManUrlConnector(object):
                 except (IOError, OSError), e:
                     print e
         else:
-            if self.__data or self.__datalen:
+            if self._data or self._datalen:
                 status = 1
 
         if status==0:
@@ -1781,7 +1771,7 @@ class HarvestManUrlConnector(object):
         tgap = end - start
         timestr = str(datetime.timedelta(seconds=int(tgap)))
         if self._mode==1:
-            res=self.__write_url(filename)
+            res=self._write_url(filename)
             if res:
                 sz = os.path.getsize(filename)
                 bw = float(sz)/float(1024*tgap)
@@ -1807,12 +1797,12 @@ class HarvestManUrlConnector(object):
         return 0
 
     def get_data(self):
-        return self.__data
+        return self._data
     
-    def get__error(self):
+    def get_error(self):
         """ Return last network error code """
 
-        return self.__error
+        return self._error
 
     def get_reader(self):
         """ Return reader thread """
@@ -1848,14 +1838,14 @@ class HarvestManUrlConnectorFactory(object):
     
     def __init__(self, maxsize):
         # The requests dictionary
-        self.__requests = {}
+        self._requests = {}
         # Semaphore object to control
         # active connections
-        self.__sema = tg.BoundedSemaphore(maxsize)
+        self._sema = tg.BoundedSemaphore(maxsize)
         # tg.Condition object to control
         # number of simultaneous requests
         # to the same server.
-        self.__reqlock = tg.Condition(tg.RLock())
+        self._reqlock = tg.Condition(tg.RLock())
         self._cfg = GetObject('config')
         
     def create_connector(self, server):
@@ -1868,7 +1858,7 @@ class HarvestManUrlConnectorFactory(object):
         # so if the number of current connections
         # is exceeded, this call will block the
         # calling thread.
-        self.__sema.acquire()
+        self._sema.acquire()
         # Even if the number of connections is
         # below the maximum, the number of requests
         # to the same server can exceed the maximum
@@ -1888,7 +1878,7 @@ class HarvestManUrlConnectorFactory(object):
 
         # Release the semaphore once to increase
         # the internal count
-        self.__sema.release()
+        self._sema.release()
         # Decrease the internal request count on
         # the server
         self.remove_request(server)
@@ -1901,17 +1891,17 @@ class HarvestManUrlConnectorFactory(object):
         object to manage threads """
 
         try:
-            self.__reqlock.acquire()
-            currval = self.__requests.get(server, 0)
+            self._reqlock.acquire()
+            currval = self._requests.get(server, 0)
             if currval >= self._cfg.requests:
                 # Release lock and wait on condition
-                self.__reqlock.wait()
+                self._reqlock.wait()
 
             if currval < self._cfg.requests:
-                self.__requests[server] = currval + 1
+                self._requests[server] = currval + 1
         finally:
             # Release lock
-            self.__reqlock.release()
+            self._reqlock.release()
     
     def remove_request(self, server):
         """ Decrement internal request count by
@@ -1921,12 +1911,12 @@ class HarvestManUrlConnectorFactory(object):
         currval=0
         try:
             # Acquire lock 
-            self.__reqlock.acquire()
+            self._reqlock.acquire()
 
             try:
-                currval = self.__requests.get(server, 0)
+                currval = self._requests.get(server, 0)
                 if currval:
-                    self.__requests[server] = currval - 1
+                    self._requests[server] = currval - 1
             except KeyError, e:
                 debug(str(e))
                 return None
@@ -1934,11 +1924,11 @@ class HarvestManUrlConnectorFactory(object):
             if currval == self._cfg.requests:
                 # Wake up all threads waiting
                 # on the condition
-                self.__reqlock.notifyAll()
+                self._reqlock.notifyAll()
 
         finally:
             # Release lock          
-            self.__reqlock.release()
+            self._reqlock.release()
         
 # test code
 if __name__=="__main__":

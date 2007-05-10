@@ -1358,8 +1358,8 @@ class HarvestManController(tg.Thread):
             # Wake up every second and look
             # for exceptional conditions
             time.sleep(1.0)
-            self.__manage_time_limits()
-            self.__manage_file_limits()
+            self._manage_time_limits()
+            self._manage_file_limits()
 
     def stop(self):
         """ Stop this thread """
@@ -1375,7 +1375,7 @@ class HarvestManController(tg.Thread):
         tq = GetObject('trackerqueue')
         tq.terminate_threads()
         
-    def __manage_fetcher_connections(self):
+    def _manage_fetcher_connections(self):
         """ Manage timeouts for fetcher downloads using
         a dictionary - New in 1.4.5 final """
 
@@ -1408,7 +1408,7 @@ class HarvestManController(tg.Thread):
                     count += 1
                     self._conn[tracker] = count, time.time()
 
-    def __manage_time_limits(self):
+    def _manage_time_limits(self):
         """ Manage limits on time for the project """
 
         # If time limit is not set, return
@@ -1429,7 +1429,7 @@ class HarvestManController(tg.Thread):
 
         return 0
 
-    def __manage_file_limits(self):
+    def _manage_file_limits(self):
         """ Manage limits on maximum file count """
 
         ddict = self._dmgr._downloaddict

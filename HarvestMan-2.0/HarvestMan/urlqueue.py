@@ -397,7 +397,7 @@ class HarvestManCrawlerQueue(object):
         self._requests += 1
         return obj
 
-    def __get_num_blocked_threads(self):
+    def _get_num_blocked_threads(self):
 
         blocked = 0
         for t in self._trackers:
@@ -413,7 +413,7 @@ class HarvestManCrawlerQueue(object):
 
         return live
         
-    def __get_num_locked_crawler_threads(self):
+    def _get_num_locked_crawler_threads(self):
 
         locked = 0
         for t in self._trackers:
@@ -422,7 +422,7 @@ class HarvestManCrawlerQueue(object):
 
         return locked
 
-    def __get_num_locked_fetcher_threads(self):
+    def _get_num_locked_fetcher_threads(self):
         
         locked = 0
         for t in self._trackers:
@@ -459,11 +459,11 @@ class HarvestManCrawlerQueue(object):
          locked = 0
          
          if role == 'fetcher':
-             locked = self.__get_num_locked_fetcher_threads()
+             locked = self._get_num_locked_fetcher_threads()
              if locked == self._numfetchers - 1:
                  return True
          elif role == 'crawler':
-             locked = self.__get_num_locked_crawler_threads()
+             locked = self._get_num_locked_crawler_threads()
              if locked == self._numcrawlers - 1:
                  return True             
 
@@ -522,7 +522,7 @@ class HarvestManCrawlerQueue(object):
         """ The queue is considered blocked if all threads
         are waiting for data, and no data is coming """
 
-        blocked = self.__get_num_blocked_threads()
+        blocked = self._get_num_blocked_threads()
 
         if blocked == len(self._trackers):
             return True
@@ -532,7 +532,7 @@ class HarvestManCrawlerQueue(object):
     def is_fetcher_queue_full(self):
         """ Check whether the fetcher queue is full """
 
-        if self.__get_num_locked_fetcher_threads() == self._numfetchers - 1:
+        if self._get_num_locked_fetcher_threads() == self._numfetchers - 1:
             return True
         
         return False
@@ -540,7 +540,7 @@ class HarvestManCrawlerQueue(object):
     def is_crawler_queue_full(self):
         """ Check whether the crawler queue is full """
 
-        if self.__get_num_locked_crawler_threads() == self._numcrawlers - 1:
+        if self._get_num_locked_crawler_threads() == self._numcrawlers - 1:
             return True
         
         return False        
@@ -667,9 +667,9 @@ class HarvestManCrawlerQueue(object):
         self._controller.stop()
  
         # Kill tracker threads
-        self.__kill_tracker_threads()
+        self._kill_tracker_threads()
     
-    def __kill_tracker_threads(self):
+    def _kill_tracker_threads(self):
         """ This function kills running tracker threads """
 
         moreinfo('Terminating project ',self._configobj.project,'...')
