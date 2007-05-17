@@ -859,7 +859,6 @@ class HarvestManStateObject(dict):
                 if not enabled:
                     self.plugins.remove(plugin)
 
-            print self.plugins
             if 'swish-e' in self.plugins:
                 # Disable any message output for swish-e
                 from common.common import SetLogSeverity
