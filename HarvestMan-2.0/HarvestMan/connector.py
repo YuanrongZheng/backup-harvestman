@@ -657,13 +657,19 @@ class HarvestManUrlConnector(object):
         # Data reader object - used by hget
         self._reader = None
         # Elasped time for reading data
-        self._elasped = 0.0
+        self._elapsed = 0.0
         # Mode for data download
         # 1 => Keep data in memory
         # 0 => Flush data (default is 1)
         self._mode = 1
         # Temporary filename if any
         self._tmpfname = ''
+        # Status of connection
+        # 0 => no connection
+        # 1 => connected, download in progress
+        self._status = 0
+        # Number of tries
+        self._numtries = 0
         
     def __del__(self):
         del self._data
@@ -756,14 +762,17 @@ class HarvestManUrlConnector(object):
                 debug(str(e))
 
         
-        numtries = 0
+        self._numtries = 0
         three_oh_four = False
 
         # Reset the http headers
         self._headers.clear()
         
-        while numtries <= retries and not self._error['fatal']:
+        while self._numtries <= retries and not self._error['fatal']:
 
+            # Reset status
+            self._status = 0
+            
             errnum = 0
             try:
                 # Reset error
@@ -771,7 +780,7 @@ class HarvestManUrlConnector(object):
                                  'msg' : '',
                                  'fatal' : False }
 
-                numtries += 1
+                self._numtries += 1
 
                 # create a request object
                 request = urllib2.Request(urltofetch)
@@ -795,14 +804,16 @@ class HarvestManUrlConnector(object):
                     request.add_header('Accept-Encoding', 'gzip')
                     
                 self._freq = urllib2.urlopen(request)
-                if acturl != urltofetch:
-                    logconsole('Redirected to %s...' % acturl)
-                    
+
+                # Set status to 1
+                self._status = 1
+                
                 # Set http headers
                 self.set_http_headers()
 
                 clength = int(self.get_content_length())
-
+                url_obj.clength = clength
+                
                 trynormal = False
                 # Check constraint on file size, dont do this on
                 # objects which are already downloading pieces of
@@ -877,7 +888,7 @@ class HarvestManUrlConnector(object):
                         
                 # update byte count
                 # if this is the not the first attempt, print a success msg
-                if numtries>1:
+                if self._numtries>1:
                     moreinfo("Reconnect succeeded => ", urltofetch)
 
                 # Update content info on urlobject
@@ -1121,14 +1132,18 @@ class HarvestManUrlConnector(object):
         # Reset the http headers
         self._headers.clear()
         retries = 1
-        numtries = 0
+        self._numtries = 0
 
         urltofetch = urlobj.get_full_url()
         filename = urlobj.get_filename()
 
         dmgr = GetObject('datamanager')
-            
-        while numtries <= retries and not self._error['fatal']:
+
+        print self, urltofetch
+        while self._numtries <= retries and not self._error['fatal']:
+
+            # Reset status
+            self._status = 0
 
             errnum = 0
             try:
@@ -1137,7 +1152,7 @@ class HarvestManUrlConnector(object):
                                  'msg' : '',
                                  'fatal' : False }
 
-                numtries += 1
+                self._numtries += 1
 
                 # create a request object
                 request = urllib2.Request(urltofetch)
@@ -1148,13 +1163,23 @@ class HarvestManUrlConnector(object):
                     range2 = byterange[-1]
                     # For a repeat connection, don't redownload already
                     # downloaded data.
-                    if numtries>1 and self._reader:
+                    if self._reader:
                         datasofar = self._reader.get_datalen()
                         if datasofar: range1 += datasofar
+                        print 'Datasofar, new-range => ',datasofar,range1
+                    else:
+                        print 'Reader is Null!',self
                         
                     request.add_header('Range','bytes=%d-%d' % (range1,range2))
                 
                 self._freq = urllib2.urlopen(request)
+
+                # Set status to 1
+                self._status = 1
+
+                acturl = self._freq.geturl()
+                if acturl != urltofetch:
+                    logconsole('Redirected to %s...' % acturl)
                 
                 # Set http headers
                 self.set_http_headers()
@@ -1248,7 +1273,7 @@ class HarvestManUrlConnector(object):
                             return 2
                     
                 # if this is the not the first attempt, print a success msg
-                if numtries>1:
+                if self._numtries>1:
                     moreinfo("Reconnect succeeded => ", urltofetch)
 
                 try:
@@ -1260,14 +1285,19 @@ class HarvestManUrlConnector(object):
                     prog = self._cfg.progressobj
                     
                     mypercent = 0.0
-                    
-                    self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
-                    if not self._cfg.hgetnotemp:
-                        self._tmpfname = os.path.join(GetMyTempDir(), self._tmpfname)
-                        
+
                     # Report fname to calling thread
                     ct = threading.currentThread()
 
+                    # Only set tmpfname if this is a fresh download.
+                    if self._tmpfname=='':
+                        self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
+                        if not self._cfg.hgetnotemp:
+                            self._tmpfname = os.path.join(GetMyTempDir(), self._tmpfname)
+                        print self._tmpfname, ct
+                    else:
+                        print 'File already present=>',self._tmpfname
+                        
                     if ct.__class__.__name__ == 'HarvestManUrlThread':
                         ct.set_tmpfname(self._tmpfname)
 
@@ -1345,8 +1375,6 @@ class HarvestManUrlConnector(object):
                     pass
                     
                 break
-            except Exception, e:
-                print 'ERROR:',e
                 
             except urllib2.HTTPError, e:
 
@@ -1368,6 +1396,7 @@ class HarvestManUrlConnector(object):
                 except:
                     pass
 
+                print 'ERRNUM=>',errnum
                 if errnum == 407: # Proxy authentication required
                     self._proxy_query(1, 1)
                 elif errnum == 503: # Service unavailable
@@ -1830,7 +1859,43 @@ class HarvestManUrlConnector(object):
         """ Return temp filename if any """
 
         return self._tmpfname
-    
+
+    def get_status(self):
+        """ Return the status """
+
+        return self._status
+
+    def get_numtries(self):
+        """ Return number of attempts """
+
+        return self._numtries
+
+    def reset(self):
+        """ Reset the connector """
+
+        # file like object returned by
+        # urllib2.urlopen(...)
+        self._freq = urllib2.Request('file://')
+        # data downloaded
+        self._data = ''
+        # length of data downloaded
+        self._datalen = 0
+        # error dictionary
+        self._error={ 'msg' : '',
+                      'number': 0,
+                      'fatal' : False
+                      }
+        # Http header for current connection
+        self._headers = CaselessDict()
+        # Elasped time for reading data
+        self._elapsed = 0.0
+        # Status of connection
+        # 0 => no connection
+        # 1 => connected, download in progress
+        self._status = 0
+        # Number of tries
+        self._numtries = 0
+        
 class HarvestManUrlConnectorFactory(object):
     """ This class acts as a factory for HarvestManUrlConnector
     objects. It also has methods to control the number of
@@ -1850,12 +1915,20 @@ class HarvestManUrlConnectorFactory(object):
         # to the same server.
         self._reqlock = tg.Condition(tg.RLock())
         self._cfg = GetObject('config')
+        self._connstack = []
+
+    def push(self, connector):
+        """ Push a connector to the stack. This will
+        be reused in the next call instead of creating
+        a fresh one """
+
+        self._connstack.append(connector)
         
     def create_connector(self, server):
         """ Create a harvestman connector to
         the given server which can be used to download
         a url """
-        
+
         # Acquire the semaphore. This will
         # reduce the semaphore internal count
         # so if the number of current connections
@@ -1871,6 +1944,9 @@ class HarvestManUrlConnectorFactory(object):
         # this call will also block the calling
         # thread
         self.add_request(server)
+
+        if len(self._connstack):
+            return self._connstack.pop()
         
         # Make a connector 
         connector = self.__class__.klass()

@@ -20,32 +20,44 @@ __version__ = '2.0 b1'
 __author__ = 'Anand B Pillai'
 
 import sys, os
-import hooks
+import hookswrapper
 import time
 
 from common.common import *
 from types import StringTypes
 
-def process_url_further(self, data):
+def process_url1(self, data):
     """ Post process url callback for swish-e """
 
-    time.sleep(1.0)
-               
     if (type(data) in StringTypes) and len(data):
+        try:
+            data = unicode(data.encode('ascii'))
+            return data
+        except UnicodeDecodeError, e:
+            # print e,self._urlobject.get_full_url()
+            return ''
+    else:
+        return ''
+
+def process_url2(self, data):
+    
+    # time.sleep(5.0)
+
+    if data:
         if self.wp.can_index:
-            #try:
-            #    data = data.encode('utf-8')
-            #except UnicodeDecodeError, e:
-            #    # Dont index this
-            #    return data
-            #    pass
-            sys.stdout.write('Path-Name: ' + self._urlobject.get_full_url() + '\n')
-            sys.stdout.write('Content-Length: ' + str(len(data)) + '\n')
-            sys.stdout.write('\n')
+            s="Path-Name: %s\nContent-Length: %d\n\n%s" % (self._urlobject.get_full_url(),
+                                                           len(data),
+                                                           data.strip())
+            #print 'Path-Name:',self._urlobject.get_full_url()
+            #print 'Content-Length:',self._urlobject.clength
+            #print 
             # Swish-e seems to be very sensitive to any additional
             # blank lines between content and headers. So stripping
             # the data of trailing and preceding newlines is important.
-            sys.stdout.write(data.strip() + '\n')
+            #print data.strip()
+            print s
+
+            # print '0'*len(data)
             
     return data
 
@@ -64,8 +76,10 @@ def apply_plugin():
 
     # Makes sense to activate the callback only if swish-integration
     # is enabled.
-    hooks.register_post_callback_method('crawler:fetcher_process_url_callback',
-                                        process_url_further)
+    hookswrapper.register_post_callback_method('crawler:fetcher_process_url_callback',
+                                               process_url1)
+    hookswrapper.register_post_callback_method('crawler:fetcher_process_url_callback',
+                                               process_url2)    
     # Turn off caching, since no files are saved
     cfg.pagecache = 0
     # Turn off console-logging

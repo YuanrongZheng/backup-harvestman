@@ -542,6 +542,7 @@ class HarvestManStateObject(dict):
 
                 elif option=='basedir':
                     if self.check_value(option,value): self.set_option_xml('basedir', self.process_value(value))
+                    print self.basedir, self.basedirs
                 elif option=='project':
                     if self.check_value(option,value): self.set_option_xml('name', self.process_value(value))
                 elif option=='retries':
@@ -599,6 +600,9 @@ class HarvestManStateObject(dict):
                     # Remove any duplicate occurence of same plugin
                     self.plugins = list(set([plugin.strip() for plugin in plugins]))
                     self.pluginenabled = [1]*len(self.plugins)
+                    # Don't allow reading plugin from config file now
+                    self.items_to_skip.append('plugin_name')
+                    self.items_to_skip.append('plugin_enabled')                    
 
         elif self.appname == 'Hget':
             # Hget options
@@ -621,8 +625,8 @@ class HarvestManStateObject(dict):
                     if self.numparts == 0:
                         print 'Error: Invalid value for number of parts, value should be non-zero!'
                         sys.exit(1)
-                    if self.numparts > 20:
-                        print 'Error: Exceeding the maximum limit (20) of parts, please use a lower setting.'
+                    if self.numparts > 10:
+                        print 'Error: Exceeding the maximum limit (10) of parts, please use a lower setting.'
                         sys.exit(1)
                     if self.numparts>1:
                         self.forcesplit = True
@@ -656,7 +660,7 @@ class HarvestManStateObject(dict):
             # Any option without an argument is assumed to be a URL
             self.set_option_xml('url',self.process_value(args[0]))
             # Since we set a URL from outside, we dont want to read
-            # URLs from the config file.
+            # URLs from the config file - same for plugins
             self.items_to_skip = ['url','name','basedir','verbosity_value']
 
         # If urlfile option set, read all URLs from a file
@@ -842,16 +846,20 @@ class HarvestManStateObject(dict):
 
             # Fix plugins
             # Remove duplicates if any
+            # print '2',self.plugins
             self.plugins = list(set(self.plugins))
             # For every plugin find if it is enabled,
             # if not, remove from list.
             plugins = self.plugins[:]
+            # print plugins
+
             for x in range(len(plugins)):
                 plugin = plugins[x]
                 enabled = self.pluginenabled[x]
                 if not enabled:
                     self.plugins.remove(plugin)
 
+            print self.plugins
             if 'swish-e' in self.plugins:
                 # Disable any message output for swish-e
                 from common.common import SetLogSeverity
@@ -889,11 +897,17 @@ class HarvestManStateObject(dict):
         # check in config file
         res = self.parse_arguments()
         if res==-1:
+            self.reset_list_params()
             self.parse_config_file()
 
         # fix errors in config variables
         self._fix()
 
+    def reset_list_params(self):
+
+        pass
+        
+        
     def __getattr__(self, name):
         try:
             return self[intern(name)]

@@ -30,7 +30,7 @@ class HarvestManHooksException(Exception):
 class HarvestManHooks(Singleton):
     """ Class which manages pluggable hooks and callbacks for HarvestMan """
     
-    supported_modules = ('crawler','harvestman', 'urlqueue', 'datamgr', 'connector', 'rules')
+    supported_modules = ('crawler','harvestmanklass', 'urlqueue', 'datamgr', 'connector', 'rules')
     module_plugins = {}
     module_callbacks = {}
     

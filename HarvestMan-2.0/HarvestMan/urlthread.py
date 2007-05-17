@@ -30,6 +30,7 @@ import math
 import time
 import threading
 import copy
+import random
 
 from collections import deque
 from Queue import Queue, Full, Empty
@@ -63,6 +64,8 @@ class HarvestManUrlThread(threading.Thread):
         self._timeout = timeout
         # start time of thread
         self._starttime = 0
+        # start time of a download
+        self._dstartime = 0
         # sleep time
         self._sleepTime = 1.0
         # error dictionary
@@ -151,6 +154,7 @@ class HarvestManUrlThread(threading.Thread):
 
         # Set download status
         self._downloadstatus = 0
+        self._dstartime = time.time()
         
         url = url_obj.get_full_url()
         server = url_obj.get_domain()
@@ -162,8 +166,8 @@ class HarvestManUrlThread(threading.Thread):
                 moreinfo('Downloading url ...', url)
         else:
             startrange = url_obj.range[0]
-            endrange = url_obj.range[-1]            
-            moreinfo('Downloading url %s, byte range(%d - %d)' % (url,startrange,endrange))
+            endrange = url_obj.range[-1]
+            moreinfo('%s: Downloading url %s, byte range(%d - %d)' % (str(self),url,startrange,endrange))
             
         server = url_obj.get_domain()
 
@@ -178,6 +182,7 @@ class HarvestManUrlThread(threading.Thread):
             res = self._conn.save_url(url_obj)
         else:
             res = self._conn.wrapper_connect(url_obj)
+            print 'Connector returned',self,url_obj.get_full_url()
             # This has a different return value.
             # 0 indicates data was downloaded fine.
             if res==0: res=1
@@ -245,9 +250,10 @@ class HarvestManUrlThread(threading.Thread):
                 # between start of loop and now!
                 if not self._endflag: self.download(url_obj)
                 # reset busyflag
+                # print 'Setting busyflag to False',self
                 self._busyflag = False
             except Exception, e:
-                print 'Exception',e
+                # print 'Exception',e
                 # Now I am dead - so I need to tell the pool
                 # object to migrate my data and produce a new thread.
                 
@@ -282,6 +288,11 @@ class HarvestManUrlThread(threading.Thread):
 
         return self._urlobject
 
+    def get_connector(self):
+        """ Return the connector object """
+
+        return self._conn
+    
     def set_urlobject(self, urlobject):
             
         self._urlobject = urlobject
@@ -309,6 +320,12 @@ class HarvestManUrlThread(threading.Thread):
         fetchtime=float(math.ceil((now-self._starttime)*100)/100)
         return fetchtime
 
+    def get_elapsed_download_time(self):
+        """ Return elapsed download time for this thread """
+
+        fetchtime=float(math.ceil((time.time()-self._dstartime)*100)/100)
+        return fetchtime
+        
     def long_running(self):
         """ Find out if this thread is running for a long time
         (more than given timeout) """
@@ -340,7 +357,6 @@ class HarvestManUrlThreadPool(Queue):
         self._threads = []
         # list of url tasks
         self._tasks = []
-
         self._cfg = GetObject('config')
         # Maximum number of threads spawned
         self._numthreads = self._cfg.threadpoolsize
@@ -480,12 +496,20 @@ class HarvestManUrlThreadPool(Queue):
         
     def get_next_urltask(self):
 
+        # Insert a random sleep in range
+        # of 0 - 0.5 seconds
+        # time.sleep(random.random()*0.5)
+
+        caller = threading.currentThread()
         try:
             if len(self.buffer):
                 # Get last item from buffer
-                return buffer.pop()
+                item = buffer.pop()
+                return item
             else:
-                return self.get()
+                item = self.get()
+                return item
+            
         except Empty:
             return None
 
@@ -504,48 +528,50 @@ class HarvestManUrlThreadPool(Queue):
             # See if this was a multi-part download
             if urlObj.trymultipart:
                 # print 'Thread %s reported with data range (%d-%d)!' % (thread, urlObj.range[0], urlObj.range[-1])
-                # For flush mode, get the filename
-                # for memory mode, get the data
-                flushmode = self._cfg.flushdata
+                if thread.get_status()==1:
+                    print 'Thread %s reported %s' % (thread, urlObj.get_full_url())
+                    # For flush mode, get the filename
+                    # for memory mode, get the data
+                    flushmode = self._cfg.flushdata
 
-                fname, data = '',''
-                if flushmode:
-                    fname = thread.get_tmpfname()
-                else:
-                    data = thread.get_data()
-
-                index = urlObj.index
-
-                if index in self._multipartdata:
-                    infolist = self._multipartdata[index]
-                    if data:
-                        infolist.append((urlObj.range[0],data))
-                    elif fname:
-                        infolist.append((urlObj.range[0],fname))                        
-                else:
-                    infolist = []
-                    if data:
-                        infolist.append((urlObj.range[0],data))
-                    elif fname:
-                        infolist.append((urlObj.range[0],fname))
-                    #else:
-                    #    self._parts -= 1 # AD-HOC
-                        
-                    self._multipartdata[index] = infolist
-                    
-                # print 'Length of data list is',len(infolist)
-                if len(infolist)==self._parts:
-                    # Sort the data list  according to byte-range
-                    infolist.sort()
-                    # Download of this URL is complete...
-                    logconsole('Download of %s is complete...' % urlObj.get_full_url())
-                    if not flushmode:
-                        data = ''.join([item[1] for item in infolist])
-                        self._multipartdata['data:' + str(index)] = data
+                    fname, data = '',''
+                    if flushmode:
+                        fname = thread.get_tmpfname()
                     else:
-                        pass
-                    
-                    self._multipartstatus[index] = True
+                        data = thread.get_data()
+
+                    index = urlObj.index
+
+                    if index in self._multipartdata:
+                        infolist = self._multipartdata[index]
+                        if data:
+                            infolist.append((urlObj.range[0],data))
+                        elif fname:
+                            infolist.append((urlObj.range[0],fname))                        
+                    else:
+                        infolist = []
+                        if data:
+                            infolist.append((urlObj.range[0],data))
+                        elif fname:
+                            infolist.append((urlObj.range[0],fname))
+                        #else:
+                        #    self._parts -= 1 # AD-HOC
+
+                        self._multipartdata[index] = infolist
+
+                    # print 'Length of data list is',len(infolist)
+                    if len(infolist)==self._parts:
+                        # Sort the data list  according to byte-range
+                        infolist.sort()
+                        # Download of this URL is complete...
+                        logconsole('Download of %s is complete...' % urlObj.get_full_url())
+                        if not flushmode:
+                            data = ''.join([item[1] for item in infolist])
+                            self._multipartdata['data:' + str(index)] = data
+                        else:
+                            pass
+
+                        self._multipartstatus[index] = True
 
             # if the thread failed, update failure stats on the data manager
             dmgr = GetObject('datamanager')
@@ -693,7 +719,26 @@ class HarvestManUrlThreadPool(Queue):
         """ Return the data mode """
 
         return self._datamode
-    
+
+    def regenerate_thread(self, thread):
+        """ Kill the given thread and regenerate one with
+        the same name """
+
+        name = thread.getName()
+        
+        try:
+            thread.terminate()
+        except HarvestManUrlThreadInterrupt:
+            pass
+
+        self._threads.remove(thread)
+
+        fetcher = HarvestManUrlThread(name, self._timeout, self)
+        fetcher.setDaemon(True)
+        # Append this thread to the list of threads
+        self._threads.append(fetcher)
+        fetcher.start()
+        
     def dead_thread_callback(self, t):
         """ Call back function called by a thread if it
         dies with an exception. This class then creates
@@ -721,3 +766,16 @@ class HarvestManUrlThreadPool(Queue):
         """ Return the list of thread objects """
 
         return self._threads
+
+    def get_thread_urls(self):
+        """ Return a list of current URLs being downloaded """
+
+        # This returns a list of URL objects, not URL strings
+        urlobjs = []
+
+        for t in self._threads:
+            if t.is_busy():
+                urlobj = t.get_urlobject()
+                if urlobj: urlobjs.append(urlobj)
+
+        return urlobjs

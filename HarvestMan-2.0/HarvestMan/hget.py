@@ -42,9 +42,10 @@ import re
 import connector
 import urlparser
 import config
+import datamgr
 
 from common.common import *
-from harvestman import HarvestMan
+from harvestmanklass import HarvestMan
 
 VERSION='1.0'
 MATURITY='beta 1'
@@ -63,14 +64,19 @@ class Hget(HarvestMan):
         except IndexError, e:
             print 'Error: No URL given. Run with -h or no arguments to see usage.\n'
             return -1
+
+        # monitor = datamgr.HarvestManUrlThreadPoolMonitor()
+        # monitor.start()
         
         try:
-            pool = GetObject('datamanager').get_url_threadpool()
+            dmgr = GetObject('datamanager')
+            pool = dmgr.get_url_threadpool()
             # print self._cfg.requests, self._cfg.connections
             conn = connector.HarvestManUrlConnector()
             # Set mode to flush/inmem
             conn.set_data_mode(pool.get_data_mode())
-            try:
+            
+            try: 
                 urlobj = urlparser.HarvestManUrlParser(url)
                 ret = conn.url_to_file(urlobj)
             except urlparser.HarvestManUrlParserError, e:
@@ -108,6 +114,8 @@ class Hget(HarvestMan):
                 
             print ''
 
+        # monitor.stop()
+        
     def create_initial_directories(self):
         """ Create the initial directories for Hget """
 
@@ -145,10 +153,10 @@ class Hget(HarvestMan):
 
         self._cfg.flushdata = not self._cfg.inmem
         # Set number of connections to two plus numparts
-        self._cfg.connections = self._cfg.numparts + 2
-        self._cfg.requests = self._cfg.numparts + 2
+        self._cfg.connections = 2*self._cfg.numparts
+        self._cfg.requests = 2*self._cfg.numparts
         # Thread pool size need to be only equal to numparts
-        self._cfg.threadpoolsize = self._cfg.numparts
+        # self._cfg.threadpoolsize = self._cfg.numparts
         # Set verbosity
         # print self._cfg.hgetverbose
         if self._cfg.hgetverbose:
@@ -163,11 +171,11 @@ class Hget(HarvestMan):
         self.create_initial_directories()
         
         # Calculate bandwidth and set max file size
-        bw = self.calculate_bandwidth()
+        # bw = self.calculate_bandwidth()
         # Max file size is calculated on basis of
         # maximum 15 minutes of continous download.
-        if bw: self._cfg.maxfilesize = bw*900
-        else: self._cfg.maxfilesize = 10485760
+        # if bw: self._cfg.maxfilesize = bw*900
+        self._cfg.maxfilesize = 10485760
 
     def main(self):
         """ Main routine """

@@ -94,6 +94,9 @@ class HarvestManDataManager(object):
         else:
             self._urlThreadPool = None
 
+        # Cached list of failed sf mirrors
+        self._failedsfmirrors = []
+
     def get_state(self):
         """ Return a snapshot of the current state of this
         object and its containing threads for serializing """
@@ -689,7 +692,36 @@ class HarvestManDataManager(object):
            'http://puzzle.dl.sourceforge.net','http://internap.dl.sourceforge.net']
 
         return l
-    
+
+    def get_mirror_url(self, urlobj):
+        """ Return a mirror URL for the given URL """
+
+        domain = urlobj.get_full_domain()
+        
+        # Works only for sourceforge.net URLs
+        sfmirrors = self.get_sourceforge_servers()
+        if domain in sfmirrors:
+            # Failed mirror
+            self._failedsfmirrors.append(domain)
+            
+            # Get current domains being used by running threads
+            curr_domains = [obj.get_full_domain() for obj in self._urlThreadPool.get_thread_urls()]
+            l = set(sfmirrors).difference(set(curr_domains))
+            l2 = list(l.difference(set(self._failedsfmirrors)))
+
+            if l2:
+                relpath = urlobj.get_relative_url()
+                
+                urlobj2 = urlparser.HarvestManUrlParser(relpath,baseurl=l2[0])
+                urlobj2.trymultipart = True
+                urlobj2.clength = urlobj.clength
+                urlobj2.range = urlobj.range
+                urlobj2.mindex = urlobj.mindex
+                
+                return urlobj2
+            
+        pass
+        
     def download_multipart_url_sf(self, urlobj, clength):
         """ Download URL multipart from sourceforge.net servers """
 
@@ -713,8 +745,11 @@ class HarvestManDataManager(object):
         relpath = 'sourceforge' + relpath
         
         # Get a random list of servers
-        sf = random.sample(self.get_sourceforge_servers(), parts)
-
+        # sf = random.sample(self.get_sourceforge_servers(), parts)
+        sf = ['http://umn.dl.sourceforge.net','http://jaist.dl.sourceforge.net',
+              'http://mesh.dl.sourceforge.net','http://superb-west.dl.sourceforge.net',
+              'http://keihanna.dl.sourceforge.net']
+        
         for x in range(parts):
             # urlobjects.append(copy.deepcopy(urlobj))
             newurlobj = urlparser.HarvestManUrlParser(relpath,baseurl=sf[x])
@@ -748,7 +783,7 @@ class HarvestManDataManager(object):
         except KeyError:
             self._serversdict[domain] = {'accept-ranges': True}
 
-        if domain.endswith('sourceforge.net'):
+        if urlobj.domain in ('downloads.sourceforge.net', 'prdownloads.sourceforge.net'):
             return self.download_multipart_url_sf(urlobj, clength)
         
         parts = self._cfg.numparts
@@ -775,7 +810,7 @@ class HarvestManDataManager(object):
             urlobject.mindex = x
             prev = next
             self._urlThreadPool.push(urlobject)
-
+            
         # Push this URL objects to the pool
         return 0
 
@@ -1249,7 +1284,7 @@ class HarvestManDataManager(object):
             # Write stats to a stats file
             statsfile = self._cfg.project + '.hst'
             statsfile = os.path.abspath(os.path.join(self._cfg.projdir, statsfile))
-            logconsole('\nWriting stats file ', statsfile , '...')
+            logconsole('Writing stats file ', statsfile , '...')
             # Append to files contents
             sf=open(statsfile, 'a')
 
@@ -1547,3 +1582,65 @@ class HarvestManController(tg.Thread):
         self._conn[thread_conn] = (0, time.time())
 
 
+class HarvestManUrlThreadPoolMonitor(tg.Thread):
+    """ A monitoring thread for the URL thread pool """
+
+    # NOTE: This class's object does not get registered
+    def __init__(self):
+        self._dmgr = GetObject('datamanager')
+        self._fact = GetObject('connectorfactory')
+        self._pool = self._dmgr.get_url_threadpool()
+        self._cfg = GetObject('config')
+        self._exitflag = False
+        # Number of currently active downloads
+        self._count = 0
+        tg.Thread.__init__(self, None, None, 'HarvestMan Urlthreadpool Monitor')
+
+    def run(self):
+        """ Overloaded run method """
+
+        while not self._exitflag:
+            self._monitor_url_threadpool()
+
+    def stop(self):
+        """ Stop this thread """
+
+        self._exitflag = True
+
+    def _monitor_url_threadpool(self):
+
+        tlist = self._pool.get_threads()
+        for thread in tlist:
+            if thread.is_busy():
+                urlobj = thread.get_urlobject()
+                
+                # Check if the connection is active
+                conn = thread.get_connector()
+                if conn:
+                    stat = conn.get_status()
+                    if stat==0:
+                        # print 'Stat zero for ',urlobj.get_full_url(),conn._numtries
+                        # Check if this was a failure - check for fatal error
+                        err = conn.get_error()
+                        if err['fatal'] or thread.get_elapsed_download_time()>30.0:
+                            print 'Reader=>',conn._reader                            
+                            # Failure: try to restart the download
+                            print 'URL %s was a failure, restarting it...' % urlobj.get_full_url()
+                            print err['fatal']
+                            thread.set_busy_flag(False)
+                            # Kill this thread and create a new one
+                            # Push a different URL
+                            urlobj2 = self._dmgr.get_mirror_url(urlobj)
+                            
+                            if urlobj2:
+                                # Reset connection
+                                conn.reset()
+                                self._fact.push(conn)
+                                # Push the same connector to the stack, so it is reused
+                                print 'Got stuff: %s' % urlobj2.get_full_url()
+                                self._pool.push(urlobj2)
+
+    def get_count(self):
+        """ Return the count """
+
+        return self._count

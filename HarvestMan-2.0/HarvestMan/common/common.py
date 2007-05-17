@@ -53,29 +53,10 @@ class Registry(object):
 
     class __registrySingleton(object):
 
-        __slots__ = ('ini',
-                     'writeflag',
-                     'USER_AGENT',
-                     'userdebug',
-                     'modfilename',
-                     'oldnewmappings',
-                     'mappings',
-                     'config',
-                     'connector',
-                     'datamanager',
-                     'ruleschecker',
-                     'connectorfactory',
-                     'trackerqueue',
-                     'crawler',
-                     'urlserver',
-                     'simpleurlserver',
-                     'asyncorethread',
-                     'logger')
-
         def __init__(self):
             self.ini = 0
             self.writeflag = 1
-            self.USER_AGENT = 'HarvestMan 1.5'
+            self.USER_AGENT = 'HarvestMan 2.0'
             self.userdebug = []
             self.modfilename = ''
             self.oldnewmappings = {}
@@ -86,9 +67,6 @@ class Registry(object):
                               'HarvestManRulesChecker' : 'ruleschecker',
                               'HarvestManCrawlerQueue' : 'trackerqueue',
                               'HarvestMan' : 'crawler',
-                              'HarvestManUrlServer' : 'urlserver',
-                              'HarvestManSimpleUrlServer' : 'simpleurlserver',                              
-                              'AsyncoreThread'      : 'asyncorethread',
                               'HarvestManLogger'    : 'logger',
                               }
             pass
@@ -179,6 +157,11 @@ else:
 # Single instance of the global lookup object
 RegisterObj = Registry()
 
+def SetMappings(mappings):
+
+    global RegisterObj
+    RegisterObj.mappings = mappings
+    
 def SysExceptHook(typ, val, tracebak):
     """ Dummy function to replace sys.excepthook """
 
@@ -222,13 +205,6 @@ def SetObject(obj):
         s="".join(('RegisterObj', '.', str(objkey),'=', 'obj'))
         exec(compile(s,'','exec'))
 
-def SetConfig(configobject):
-    """ Set the config object  """
-
-    global RegisterObj
-    if RegisterObj.ini==0: InitConfig()
-    RegisterObj.config = configobject
-
 def SetLogFile():
 
     global RegisterObj
@@ -259,22 +235,17 @@ def SetUserDebug(message):
         except:
             RegisterObj.userdebug.append(message)
 
-def InitConfig():
+def InitConfig(configklass):
     """ Initialize the config object """
 
-    from config import HarvestManStateObject
+    global RegisterObj
+    RegisterObj.config = configklass()
+
+
+def InitLogger(loggerklass):
 
     global RegisterObj
-    cfg = HarvestManStateObject()
-    RegisterObj.config = cfg
-
-
-def InitLogger():
-
-    from logger import HarvestManLogger
-
-    global RegisterObj
-    RegisterObj.logger = HarvestManLogger()
+    RegisterObj.logger = loggerklass()
 
 def SetLogSeverity():
     global RegisterObj

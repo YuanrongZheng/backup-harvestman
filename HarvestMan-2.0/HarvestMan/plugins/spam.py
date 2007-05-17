@@ -12,21 +12,12 @@ Copyright (C) 2007 Anand B Pillai
 __version__ = '2.0 b1'
 __author__ = 'Anand B Pillai'
 
-from common.common import *
 import hookswrapper
+from common.common import *
 
-def save_url(self, urlobj):
 
-    # For simulation, we need to modify the behaviour
-    # of save_url function in HarvestManUrlConnector class.
-    # This is achieved by injecting this function as a plugin
-    # Note that the signatures of both functions have to
-    # be the same.
-
-    url = urlobj.get_full_url()
-    self.connect(url, urlobj, True, self._cfg.retryfailed)
-
-    return 6
+def func(self):
+    print 'Before running projects...'
 
 def apply_plugin():
     """ All plugin modules need to define this method """
@@ -39,10 +30,5 @@ def apply_plugin():
     # The first step is required, the last two are of course optional
     # depending upon the required application of the plugin.
     
-    cfg = GetObject('config')
-    cfg.simulate = True
-    cfg.localise = 0
-    hookswrapper.register_plugin_function('connector:save_url_plugin', save_url)
-    # Turn off caching, since no files are saved
-    cfg.pagecache = 0
-    logconsole('Simulation mode turned on. Crawl will be simulated and no files will be saved.')
+    hookswrapper.register_pre_callback_method('harvestmanklass:run_projects_callback', func)
+
