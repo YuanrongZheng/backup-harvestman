@@ -479,7 +479,11 @@ class HarvestManDataManager(object):
                 moreinfo('Redownloading failed links...',)
                 self._redownload=True
 
-                for urlobj in self._downloaddict['_failedurls']:
+                # FIXME: Since a copy of urlobject is made, we need to
+                # modify the logic in update_file_stats function for failedurls.
+                failedurls = copy.deepcopy(self._downloaddict['_failedurls'])
+                # print id(failedurls), id(self._downloaddict['_failedurls'])
+                for urlobj in failedurls:
                     if not urlobj.fatal:
                         # Get calling thread
                         t = tg.currentThread()
@@ -605,8 +609,8 @@ class HarvestManDataManager(object):
             # extrainfo('Filename=>',filename,self._downloaddict['_reposfiles'])
         elif status == 4:
             self._downloaddict['_cachefiles'] += 1            
-        else:
-            return -1
+        #else:
+        #    return -1
         
         # If this was present in failed urls list, remove it
         try:
@@ -623,7 +627,7 @@ class HarvestManDataManager(object):
         linkscoll = self._downloaddict.get('_linkscoll')
         sourceurl = collection.getSourceURL()
         # Append the collection
-        linkscoll.append((sourceurl, collection.getURLs()))
+        linkscoll.append((sourceurl, collection.getAllURLs()))
 
     def thread_download(self, urlObj):
         """ Download this url object in a separate thread """

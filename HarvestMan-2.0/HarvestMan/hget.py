@@ -42,6 +42,7 @@ import re
 import connector
 import urlparser
 import config
+import logger
 import datamgr
 
 from common.common import *
@@ -136,9 +137,9 @@ class Hget(HarvestMan):
         """ Do the basic things and get ready """
 
         # Init Config Object
-        InitConfig()
+        InitConfig(config.HarvestManStateObject)
         # Initialize logger object
-        InitLogger()
+        InitLogger(logger.HarvestManLogger)
         
         SetUserAgent(self.USER_AGENT)
 

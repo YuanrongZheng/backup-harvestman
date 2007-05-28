@@ -812,7 +812,7 @@ class HarvestManUrlConnector(object):
                 self.set_http_headers()
 
                 clength = int(self.get_content_length())
-                url_obj.clength = clength
+                if url_obj: url_obj.clength = clength
                 
                 trynormal = False
                 # Check constraint on file size, dont do this on
@@ -1059,11 +1059,11 @@ class HarvestManUrlConnector(object):
                     if sockerrs>=4:
                         self._cfg.connections -= 1
                         self.network_conn.decrement_socket_errors(4)
-            except Exception, e:
-                self._error['msg'] = str(e)
-                errmsg = self._error['msg']
-
-                extrainfo('General Error: ', errmsg,'=> ',urltofetch)
+            #except Exception, e:
+            #    self._error['msg'] = str(e)
+            #    errmsg = self._error['msg']
+            #
+            #    extrainfo('General Error: ', errmsg,'=> ',urltofetch)
                 
             # attempt reconnect after some time
             time.sleep(self._sleeptime)

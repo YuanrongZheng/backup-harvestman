@@ -27,7 +27,13 @@ Author Anand B Pillai <abpillai at gmail dot com>
 Created Anand B Pillai April 17 2007 Based on inputs from
                                      the EIAO project.
 
-
+Mod     Anand B Pillai May 26 2007   Added HarvestManAutoUrlCollection
+                                     class which automatically categorizes
+                                     URLs to contexts. Also, modified
+                                     HarvestManUrlCollection class so that
+                                     a collection class can be associated
+                                     to multiple contexts.
+                                     
 Copyright (C) 2007, Anand B Pillai.
 
 """
@@ -51,7 +57,7 @@ class HarvestManUrlContext(object):
     # Description for the context
     description = 'Base type for URL contexts'
     # Source URL type for the context
-    sourcetype = urltypes.TYPE_ANY
+    sourceurltype = urltypes.TYPE_ANY
     # Bag URL types for the context
     bagurltype = urltypes.TYPE_ANY
     
@@ -64,7 +70,7 @@ class HarvestManPageContext(HarvestManUrlContext):
     # Description for the context
     description = 'Context type associating a page to its children'
     # Source URL type for the context
-    sourcetype = urltypes.TYPE_WEBPAGE
+    sourceurltype = urltypes.TYPE_WEBPAGE
     # Bag URL types for the context
     bagurltype = urltypes.TYPE_ANY
     
@@ -77,7 +83,7 @@ class HarvestManFrameContext(HarvestManPageContext):
     # Description of the context
     description = 'Context for tying a frameset URL to its frame URLs'
     # Source URL type for the context
-    sourcetype = urltypes.TYPE_FRAMESET
+    sourceurltype = urltypes.TYPE_FRAMESET
     # Bag URL types for the context
     bagurltype = urltypes.TYPE_FRAME
 
@@ -90,7 +96,7 @@ class HarvestManStyleContext(HarvestManPageContext):
     # Description of the context
     description = 'Context for tying a webpage to its stylesheets'
     # Source URL type for the context
-    sourcetype = urltypes.TYPE_WEBPAGE
+    sourceurltype = urltypes.TYPE_WEBPAGE
     # Bag URL types for the context
     bagurltype = urltypes.TYPE_STYLESHEET
 
@@ -104,7 +110,7 @@ class HarvestManCSSContext(HarvestManPageContext):
     # Description of the context
     description = 'Context for tying a stylesheet to its child URLs'
     # Source URL type for the context
-    sourcetype = urltypes.TYPE_STYLESHEET
+    sourceurltype = urltypes.TYPE_STYLESHEET
     # Bag URL types for the context
     bagurltype = urltypes.TYPE_ANY
 
@@ -117,7 +123,7 @@ class HarvestManCSS2Context(HarvestManCSSContext):
     # Description of the context
     description = 'Context for tying a stylesheet to any stylesheets imported in it'
     # Source URL type for the context
-    sourcetype = urltypes.TYPE_STYLESHEET
+    sourceurltype = urltypes.TYPE_STYLESHEET
     # Bag URL types for the context
     bagurltype = urltypes.TYPE_STYLESHEET     
     
@@ -130,17 +136,25 @@ class HarvestManUrlCollection(object):
     # object from which the context originates (the 'source'
     # URL object) and a corresponding context.
 
-    def __init__(self, source = None, context = HarvestManUrlContext):
+    def __init__(self, source = None):
         # For efficiency purposes, we do not
         # keep reference to urlobjects, only their indices.
         if source:
             self._source = source.index
+            self._sourcetyp = source.typ
         else:
             self._source = None
+            self._sourcetyp = urltypes.TYPE_NONE
             
-        self._context = context
-        self._urls = []
+        self._collections = {}
 
+    def _getContext(self, urlobj):
+        """ Return the context at which the URL urlobj is to
+        be inserted """
+
+        # This class always returns HarvestManPageContext
+        return HarvestManPageContext
+        
     def addURL(self, urlobj):
         """ Add a url object to the collection """
 
@@ -157,35 +171,71 @@ class HarvestManUrlCollection(object):
         # url objects to the list, only their indices.
         # Url objects can be mapped out later using their
         # index from the datamgr object.
-        
-        if urlobj.typ.isA(self._context.bagurltype):
-            self._urls.append(urlobj.index)
+
+        # Context is always HarvestManPageContext
+        context = self._getContext(urlobj)
+        # print 'CONTEXT for URL %s=>%s' % (urlobj.get_full_url(), context)
+        if urlobj.typ.isA(context.bagurltype):
+            # Check if this context exists as key in the collections dictionary
+            try:
+                listofurls = self._collections[context]
+                listofurls.append(urlobj.index)
+            except KeyError:
+                self._collections[context] = [urlobj.index]
         else:
             raise HarvestManUrlCollectionException, 'Error: mismatch in context and bag URL types!'
-
-    def removeURL(self, urlobj):
-        """ Remove a url object from the collection """
-        
-        try:
-            self._urls.remove(urlobj.index)
-        except ValueError, e:
-            pass
-
 
     def getSourceURL(self):
         """ Return the source URL object """
 
         return self._source
-        
-    def getURLs(self):
-        """ Get list of URL objects """
 
-        return self._urls
+    def getSourceURLType(self):
+        """ Return the type of the source URL object """
 
-    def getURLContext(self):
-        """ Get the URL context """
+        return self._sourcetyp
+    
+    def getURLs(self, context):
+        """ Get list of URL objects for the given context """
 
-        return self._context
+        return self._collections.get(context)
 
+    def getAllURLs(self):
+        """ Get list of all URL objects for this collection """
 
-            
+        allurls = []
+        for urls in self._collections.values():
+            allurls.extend(urls)
+
+        return allurls
+
+class HarvestManAutoUrlCollection(HarvestManUrlCollection):
+    """ A sub-class of HarvestManUrlCollection which
+    automatically assigns contexts to URLs """
+
+    def _getContext(self, urlobj):
+        """ Return the context at which the URL urlobj is to be inserted """
+
+        # For frames, return HarvestManFrameContext
+        # For CSS files
+        # 1. Source => webpage, return HarvestManStyleContext
+        # 2. Source => stylesheet, return HarvestManCSS2Context
+        # For other URLs
+        # 1. Source => webpage, return HarvestManPageContext
+        # 2. Source => stylesheet, return HarvestManCSSContext
+
+        if urlobj.typ == urltypes.TYPE_FRAME:
+            return HarvestManFrameContext
+
+        if urlobj.typ == urltypes.TYPE_STYLESHEET:
+            # If source is web-page
+            if self._sourcetyp.isA(urltypes.TYPE_WEBPAGE):
+                return HarvestManStyleContext
+            elif self._sourcetyp.isA(urltypes.TYPE_STYLESHEET):
+                return HarvestManCSS2Context
+        else:
+            # For all other url types
+            if self._sourcetyp.isA(urltypes.TYPE_STYLESHEET):
+                return HarvestManCSSContext
+            else:
+                return HarvestManPageContext

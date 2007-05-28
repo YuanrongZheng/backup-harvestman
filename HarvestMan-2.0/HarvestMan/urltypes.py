@@ -41,7 +41,7 @@ class TYPE_META(type):
         """ Check whether the passed class is a subclass of my class """
         
         return issubclass(cls, baseklass)
-    
+
 class TYPE_ANY(str):
     """ Class representing a URL which belongs to any type.
     This is the base class for all other URL types """
@@ -50,6 +50,13 @@ class TYPE_ANY(str):
     
     typ = 'generic'
 
+class TYPE_NONE(TYPE_ANY):
+    """ Class representing the None type for URLs """
+
+    __metaclass__ = TYPE_META
+
+    typ = 'none'
+    
 class TYPE_WEBPAGE(TYPE_ANY):
     """ Class representing a webpage URL. A webpage URL will
     consist of some (X)HTML markup which can be parsed by an

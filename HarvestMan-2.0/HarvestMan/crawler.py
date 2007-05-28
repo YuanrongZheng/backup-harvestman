@@ -45,7 +45,6 @@ __author__ = 'Anand B Pillai'
 import os, sys
 import socket
 import time
-import math
 import threading
 import random
 import exceptions
@@ -350,7 +349,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         if not url_obj:
             return False
         
-        self.links = [dmgr.get_url(index) for index in coll.getURLs()]
+        self.links = [dmgr.get_url(index) for index in coll.getAllURLs()]
         
         return HarvestManBaseUrlCrawler.set_url_object(self, url_obj)
 
@@ -789,7 +788,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 links += self.wp.images
 
             # Create collection object
-            coll = HarvestManUrlCollection(url_obj, HarvestManPageContext)
+            coll = HarvestManAutoUrlCollection(url_obj)
             
             for typ, url in links:
                 is_cgi, is_php = False, False
@@ -833,7 +832,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             contained_urls = sp.links
             
             # Create collection object
-            coll = HarvestManUrlCollection(self._urlobject, HarvestManCSSContext)
+            coll = HarvestManAutoUrlCollection(self._urlobject)
             
             # Add these links to the queue
             for url in contained_urls:
