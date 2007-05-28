@@ -23,6 +23,8 @@ def setUp():
     setUpPaths()
     
     from common.common import *
-
-    InitConfig()
-    InitLogger()
+    import config
+    import logger
+    
+    InitConfig(config.HarvestManStateObject)
+    InitLogger(logger.HarvestManLogger)

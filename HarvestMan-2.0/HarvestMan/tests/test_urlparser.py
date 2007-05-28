@@ -48,7 +48,8 @@ class TestHarvestManUrlParser(unittest.TestCase):
           HarvestManUrlParser('fileadmin/dz.gov.si/templates/../../../index.php',
                               'generic',0,'http://www.dz-rs.si'),
           HarvestManUrlParser('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70','form',True,'http://www.evvs.dk'),
-          HarvestManUrlParser('http://arstechnica.com/reviews/os/macosx-10.4.ars')]
+          HarvestManUrlParser('http://arstechnica.com/reviews/os/macosx-10.4.ars'),
+          HarvestManUrlParser('http://www.fylkesmannen.no/../fmt_hoved.asp',baseurl='http://www.fylkesmannen.no/osloogakershu')]
     
     def test_filename(self):
         d = os.path.abspath(os.curdir)
@@ -73,6 +74,7 @@ class TestHarvestManUrlParser(unittest.TestCase):
         assert(self.l[17].get_full_filename()==os.path.join(d, 'www.dz-rs.si/index.php'))
         assert(self.l[18].get_full_filename()==os.path.join(d, 'www.evvs.dk/index.phpcPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70'))
         assert(self.l[19].get_full_filename()==os.path.join(d, 'arstechnica.com/reviews/os/macosx-10.4.ars/index.html'))
+        assert(self.l[20].get_full_filename()==os.path.join(d, 'www.fylkesmannen.no/fmt_hoved.asp'))
         
     def test_valid_filename(self):
 
@@ -96,6 +98,7 @@ class TestHarvestManUrlParser(unittest.TestCase):
         assert(self.l[17].validfilename=='index.php')
         assert(self.l[18].validfilename=='index.phpcPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70')
         assert(self.l[19].validfilename=='index.html')
+        assert(self.l[20].validfilename=='fmt_hoved.asp')        
 
     def test_is_relative_path(self):
 
@@ -119,6 +122,7 @@ class TestHarvestManUrlParser(unittest.TestCase):
         assert(self.l[17].is_relative_path()==True)
         assert(self.l[18].is_relative_path()==False)
         assert(self.l[19].is_relative_path()==False)
+        assert(self.l[20].is_relative_path()==False)        
         
     def test_absolute_url(self):
 
@@ -142,6 +146,7 @@ class TestHarvestManUrlParser(unittest.TestCase):
         assert(self.l[17].get_full_url()=='http://www.dz-rs.si/index.php')
         assert(self.l[18].get_full_url()=='http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70')
         assert(self.l[19].get_full_url()=='http://arstechnica.com/reviews/os/macosx-10.4.ars/')
+        assert(self.l[20].get_full_url()=='http://www.fylkesmannen.no/fmt_hoved.asp')
 
     
     def test_is_file_like(self):
@@ -165,7 +170,8 @@ class TestHarvestManUrlParser(unittest.TestCase):
         assert(self.l[16].filelike==True)
         assert(self.l[17].filelike==True)
         assert(self.l[18].filelike==True)
-        assert(self.l[19].filelike==False)        
+        assert(self.l[19].filelike==False)
+        assert(self.l[20].filelike==True)                
         
     def test_anchor_tag(self):
 
@@ -188,7 +194,8 @@ class TestHarvestManUrlParser(unittest.TestCase):
         assert(self.l[16].get_anchor()=='')
         assert(self.l[17].get_anchor()=='')
         assert(self.l[18].get_anchor()=='')
-        assert(self.l[19].get_anchor()=='')        
+        assert(self.l[19].get_anchor()=='')
+        assert(self.l[20].get_anchor()=='')                
         
 if __name__=="__main__":
     s = unittest.makeSuite(TestHarvestManUrlParser)
