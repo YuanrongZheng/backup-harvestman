@@ -68,7 +68,7 @@ class HarvestManDataManager(object):
                                '_deletedfiles': MyDeque(),
                                '_failedurls' : MyDeque(),
                                '_doneurls': MyDeque(),
-                               '_linkscoll': MyDeque(),
+                               '_collections': MyDeque(),
                                '_reposfiles' : 0,
                                '_cachefiles': 0
                              }
@@ -467,9 +467,74 @@ class HarvestManDataManager(object):
 
         return needsupdate
 
+    def write_scen_info2(self):
+        """Write the scenario information about each URL to the URL repository
+        """
+
+        import urlcollections
+        
+        allscenarios = []
+        collections = self._downloaddict.get('_collections')
+        
+        for collection in collections:
+            contextdict = collection.getContextDict()
+
+            # Scenario URL ID
+            scenariourlid = collection.getSourceURL()
+            scenariourl = self.get_url(scenariourlid).get_full_url()
+            domain = urlparse.urlparse(self.get_url(scenariourlid).get_full_domain())[1]
+
+            contextfound = False
+            
+            for context, childurlindices in contextdict.iteritems():
+                # Keys are context classes
+
+                # Create unique scenario ID - this is done by adding
+                # the id of the context dictionary and the id of the key
+                # i.e, the context class.
+                scenarioid = abs(id(context) + id(contextdict))
+
+                # Now append child URL information for supported scenarios
+                # These are HTML-CSS context (HarvestManStyleContext) and
+                # Frameset-Frame context (HarvestManFrameContext) 
+                if context in (urlcollections.HarvestManStyleContext,
+                               urlcollections.HarvestManFrameContext):
+
+                    contextfound = True
+                    
+                    allscenarios.append({'domain':domain,
+                                         'url':scenariourl,
+                                         'scenarioid':scenarioid,
+                                         'pageindex':scenariourlid})
+
+
+                    for childurlidx in childurlindices:
+                        childurl = self.get_url(childurlidx).get_full_url()
+                        
+                        # Append child URL information 
+                        allscenarios.append({'domain':domain,
+                                             'url':childurl,
+                                             'scenarioid':scenarioid,
+                                             'pageindex':childurlidx})                        
+
+            if not contextfound:
+                # No context found for this URL i.e it may not
+                # have any child CSS or frame URLs - So append
+                # it to the scenarios list with its own ID as the
+                # scenario id
+                allscenarios.append({'domain':domain,
+                                     'url':scenariourl,
+                                     'scenarioid':scenariourlid,
+                                     'pageindex':scenariourlid})
+
+
+        return allscenarios
+    
     def post_download_setup(self):
         """ Actions to perform after project is complete """
 
+        # open('sceninfo.txt','w').write(str(self.write_scen_info2()))
+        
         if self._cfg.retryfailed:
             self._numfailed = len(self._downloaddict['_failedurls'])
             moreinfo(' ')
@@ -497,15 +562,15 @@ class HarvestManDataManager(object):
 
         self._cfg.endtime = t2
 
-        # If url header dump is enabled,
-        # dump it
-        if self._cfg.urlheaders:
-            self.add_headers_to_cache()
-
         # Write cache file
         if self._cfg.pagecache and self.does_cache_need_update():
             cachewriter = utils.HarvestManCacheManager( self.get_proj_cache_directory() )
             cachewriter.write_project_cache(self._projectcache, self._cfg.cachefileformat)
+
+        # If url header dump is enabled, dump it
+        if self._cfg.urlheaders:
+            # self.add_headers_to_cache()
+            self.dump_headers()
 
         # localise downloaded file's links, dont do if jit localisation
         # is enabled.
@@ -624,10 +689,8 @@ class HarvestManDataManager(object):
     def update_links(self, collection):
         """ Update the links dictionary for this collection """
 
-        linkscoll = self._downloaddict.get('_linkscoll')
-        sourceurl = collection.getSourceURL()
-        # Append the collection
-        linkscoll.append((sourceurl, collection.getAllURLs()))
+        linkscoll = self._downloaddict.get('_collections')
+        linkscoll.append(collection)
 
     def thread_download(self, urlObj):
         """ Download this url object in a separate thread """
@@ -749,10 +812,10 @@ class HarvestManDataManager(object):
         relpath = 'sourceforge' + relpath
         
         # Get a random list of servers
-        # sf = random.sample(self.get_sourceforge_servers(), parts)
-        sf = ['http://umn.dl.sourceforge.net','http://jaist.dl.sourceforge.net',
-              'http://mesh.dl.sourceforge.net','http://superb-west.dl.sourceforge.net',
-              'http://keihanna.dl.sourceforge.net']
+        sf = random.sample(self.get_sourceforge_servers(), parts)
+        # sf = ['http://umn.dl.sourceforge.net','http://jaist.dl.sourceforge.net',
+        #       'http://mesh.dl.sourceforge.net','http://superb-west.dl.sourceforge.net',
+        #       'http://keihanna.dl.sourceforge.net']
         
         for x in range(parts):
             # urlobjects.append(copy.deepcopy(urlobj))
@@ -761,6 +824,7 @@ class HarvestManDataManager(object):
             urlobjects.append(newurlobj)
 
         prev = 0
+
         for x in range(parts):
             curr = pcsizes[x]
             next = curr + prev
@@ -787,7 +851,9 @@ class HarvestManDataManager(object):
         except KeyError:
             self._serversdict[domain] = {'accept-ranges': True}
 
-        if urlobj.domain in ('downloads.sourceforge.net', 'prdownloads.sourceforge.net'):
+        print 'URL OBJECT DOMAIN=>',urlobj.domain
+        if urlobj.domain in ('downloads.sourceforge.net', 'prdownloads.sourceforge.net') or \
+               urlobj.get_full_domain() in self.get_sourceforge_servers():
             return self.download_multipart_url_sf(urlobj, clength)
         
         parts = self._cfg.numparts
@@ -974,22 +1040,9 @@ class HarvestManDataManager(object):
         """ Add original URL headers of urls downloaded
         as an entry to the cache file """
 
- ##        links_dict = self.get_links_dictionary()
-##         for links in links_dict.values():
-##             for urlobj in links:
-##                 if urlobj:
-##                     url = urlobj.get_full_url()
-##                     # Get headers
-##                     headers = urlobj.get_url_content_info()
-##                     if headers:
-##                         dom = urlobj.get_full_domain()
-##                         if self._projectcache.has_key(dom):
-##                             urldict = self._projectcache[dom]
-##                             d = urldict[url]
-##                             d['headers'] = headers
 
-        linkscoll = self._downloaddict['_linkscoll']
-        listoflinks = [item[1] for item in linkscoll]
+        linkscoll = self._downloaddict['_collections']
+        listoflinks = [coll.getAllURLs() for coll in linkscoll]
 
         for links in listoflinks:
             for urlobjidx in links:
@@ -1003,46 +1056,36 @@ class HarvestManDataManager(object):
                         dom = urlobj.get_full_domain()
                         if self._projectcache.has_key(dom):
                             urldict = self._projectcache[dom]
-                            d = urldict[url]
-                            d['headers'] = headers
-            
-        
+                            try:
+                                d = urldict[url]
+                                d['headers'] = headers
+                            except KeyError, e:
+                                pass
+
     def dump_headers(self):
         """ Dump the headers of the web pages
-        downloaded into a DBM file. New in 1.4.5 """
-
-        if self._cfg.urlheadersformat == 'dbm':
-            import shelve
-            
-            # File is created in projectdir as
-            # <project>-headers.dbm .
-            dbmfile = os.path.join(self._cfg.projdir, "".join((self._cfg.project,'-headers.dbm')))
-            extrainfo("Writing url headers database",dbmfile,"...")        
-            shelf = shelve.open(dbmfile)
-            
-            linkscoll = self._downloaddict['_linkscoll']
-            listoflinks = [item[1] for item in linkscoll]
+        downloaded, into a DBM file """
         
-            for linksidx in listoflinks:
-                urlobj = self.get_url(linksidx)
+        # print dbmfile
+        extrainfo("Writing url headers database")        
+        
+        linkscoll = self._downloaddict['_collections']
+        listoflinks = [coll.getAllURLs() for coll in linkscoll]
+        
+        headersdict = {}
+        for linksidx in listoflinks:
+            for urlobjidx in linksidx:
+                urlobj = self.get_url(urlobjidx)
                 
-                for urlobj in links:
-                    if urlobj:
-                        url = urlobj.get_full_url()
-                        # Get headers
-                        headers = urlobj.get_url_content_info()
-                        if headers:
-                            shelf[url] = headers
+                if urlobj:
+                    url = urlobj.get_full_url()
+                    # Get headers
+                    headers = urlobj.get_url_content_info()
+                    if headers:
+                        headersdict[url] = str(headers)
                         
-            shelf.close()
-            if os.path.isfile(dbmfile):
-                extrainfo("Wrote url headers database",dbmfile)
-                return 0
-            
-            return -1
-        else:
-            extrainfo("Error: Unrecognized format",self._cfg.urlheadersformat,"for dumping url headers")
-            return -1
+        cache = utils.HarvestManCacheManager(self.get_proj_cache_directory())
+        return cache.write_url_headers(headersdict)
     
     def localise_links(self):
         """ Localise all links (urls) of the downloaded html pages """
@@ -1053,12 +1096,12 @@ class HarvestManDataManager(object):
         
         info('Localising links of downloaded web pages...',)
 
-        linkscoll = self._downloaddict['_linkscoll']
+        linkscoll = copy.copy(self._downloaddict['_collections'])
         
         count = 0
-        for item in linkscoll:
-            sourceurl = self.get_url(item[0])
-            childurls = [self.get_url(index) for index in item[1]]
+        for collection in linkscoll:
+            sourceurl = self.get_url(collection.getSourceURL())
+            childurls = [self.get_url(index) for index in collection.getAllURLs()]
             filename = sourceurl.get_full_filename()
 
             if os.path.exists(filename):
@@ -1351,11 +1394,11 @@ class HarvestManDataManager(object):
     def dump_urltree_textmode(self, stream):
         """ Dump urls in text mode """
 
-        linkscoll = self._downloaddict['_linkscoll']
+        linkscoll = self._downloaddict['_collections']
         
-        for item in linkscoll:
+        for collection in linkscoll:
             idx = 0
-            links = [self.get_url(index) for index in item[1]]
+            links = [self.get_url(index) for index in collection.getAllURLs()]
 
             children = []
             for link in links:
@@ -1380,7 +1423,7 @@ class HarvestManDataManager(object):
     def dump_urltree_htmlmode(self, stream):
         """ Dump urls in html mode """
 
-        linkscoll = self._downloaddict['_linkscoll']
+        linkscoll = self._downloaddict['_collections']
 
         # Write html header
         stream.write('<html>\n')
@@ -1394,9 +1437,9 @@ class HarvestManDataManager(object):
         stream.write('<p>\n')
         stream.write('<ol>\n')
         
-        for item in linkscoll:
+        for collection in linkscoll:
             idx = 0
-            links = [self.get_url(index) for index in item[1]]            
+            links = [self.get_url(index) for index in collection.getAllURLs()]            
 
             children = []
             for link in links:

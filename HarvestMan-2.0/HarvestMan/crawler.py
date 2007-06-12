@@ -716,9 +716,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         data = ''
         if not mgr.is_downloaded(self._url):
-            moreinfo('Downloading file for url', self._url)
+            moreinfo('Downloading file for url from URL', self._urlobject.get_full_url(), self._urlobject.get_base_urlobject().get_full_url())
             data = mgr.download_url(self, self._urlobject)
-        
+            
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')
 
@@ -783,10 +783,18 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     return data
                 
             links = self.wp.links
+            # Some times image links are provided in webpages as regular <a href=".."> links.
+            # So in order to filer images fully, we need to check the wp.links list also.
+            # Sample site: http://www.sheppeyseacadets.co.uk/gallery_2.htm
+            
             # Put images first!
             if self._configobj.images:
                 links += self.wp.images
-
+            else:
+                # Filter any links with image extensions out from links
+                links = [(type, link) for type, link in links if link[link.rfind('.'):].lower() not in \
+                         urlparser.HarvestManUrlParser.image_extns] 
+                
             # Create collection object
             coll = HarvestManAutoUrlCollection(url_obj)
             
@@ -810,10 +818,15 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     child_urlobj.set_index()
                     mgr.add_url(child_urlobj)
                     coll.addURL(child_urlobj)
+
+                    # extrainfo('URL: %s FROMURL: %s' % (url, self._urlobject.get_full_url()))
+                    # extrainfo('CONSTRUCTED URL: %s' % child_urlobj.get_full_url())
                     
                 except urlparser.HarvestManUrlParserError:
                     continue
 
+
+                
             if not self._crawlerqueue.push((url_obj.priority, coll), 'fetcher'):
                 if self._pushflag: self.buffer.append(coll)
                 

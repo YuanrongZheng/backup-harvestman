@@ -202,7 +202,15 @@ class HarvestManUrlParser(object):
         # content.
         self.clength = 0
         self.dirpath = []
-        
+        # Archive for self.dirpath
+        self.dirpathold = []
+        # Archive for self.filename
+        self.filenameold = 'index.html'
+        self.validfilenameold = 'index.html'
+        # Archive for self.rpath
+        self.rpathold = []
+        # Re-computation flag
+        self.reresolved = False
         self.baseurl = {}
         # Base Url Dictionary
         if baseurl:
@@ -224,8 +232,17 @@ class HarvestManUrlParser(object):
         self.resolveurl()
 
     def wrapper_resolveurl(self):
+        """ Called forcefully to re-resolve a URL """
+
+        # Make archives of everything
+        self.dirpathold = self.dirpath[:]
+        self.rpathold = self.rpath[:]
+        self.filenameold = self.filename[:]
+        self.validfilenameold = self.validfilename[:]
+        
         self.anchorcheck()
         self.resolveurl()
+        self.reresolved = True
         
     def anchorcheck(self):
         """ Checking for anchor tags and processing accordingly """
@@ -333,13 +350,13 @@ class HarvestManUrlParser(object):
                 idx = relpaths.index(self.DOTDOT)
             except ValueError:
                 idx = -1
-                
+
             # Only reduce if the URL itself does not start with
             # .. - if it does our rpath algorithm takes
             # care of it.
             if idx > 0:
                 relpaths = self.reduce_url(relpaths)
-
+            
             # Build relative path by checking for "." and ".." strings
             self.rindex = 0
             for ritem in relpaths:
@@ -377,16 +394,23 @@ class HarvestManUrlParser(object):
             
             # If there are nonsense .. and . chars in the paths, remove
             # them to construct a sane path.
-            try:
-                idx = items.index(self.DOTDOT)
-            except ValueError:
-                idx = -1            
-
-            if idx > 0:
+            #try:
+            #    idx = items.index(self.DOTDOT)
+            #except ValueError:
+            #    idx = -1            
+            flag = (self.DOT in items) or (self.DOTDOT in items)
+            
+            if flag:
+                # Bugfix: Do not allow a URL like http://www.foo.com/../bar
+                # to become http://bar. Basically if the index of .. is
+                # 1, then remove the '..' entirely. This bug was encountered
+                # in EIAO testing of http://www.fylkesmannen.no/ for the URL
+                # http://www.fylkesmannen.no/osloogakershu
+                
                 items = self.reduce_url(items)
                 # Re-construct URL
                 paths = self.URLSEP.join(items)
-            
+                
         # Now compute local directory/file paths
 
         # For cgi paths, add a url separator at the end 
@@ -401,9 +425,9 @@ class HarvestManUrlParser(object):
             extn = ((os.path.splitext(self.validfilename))[1]).lower()
             if extn in self.default_directory_extns:
                 self.set_directory_url()
-            
+
     def reduce_url(self, paths):
-        """ Remove nonsense .. chars from URL paths """
+        """ Remove nonsense .. and . chars from URL paths """
         
         for x in range(len(paths)):
             path = paths[x]
@@ -411,8 +435,21 @@ class HarvestManUrlParser(object):
                 nextpath = paths[x+1]
                 if nextpath == '..':
                     paths.pop(x+1)
-                    paths.remove(path)
-                    return self.reduce_url(paths)                
+                    # Do not allow to remove the domain for
+                    # stupid URLs like 'http://www.foo.com/../bar' or
+                    # 'http://www.foo.com/camp/../../bar'. If allowed
+                    # they become nonsense URLs like http://bar.
+
+                    # This bug was encountered in EIAO testing of
+                    # http://www.fylkesmannen.no/ for the URL
+                    # http://www.fylkesmannen.no/osloogakershu
+                    
+                    if self.isrel or x>0:
+                        paths.remove(path)
+                    return self.reduce_url(paths)
+                elif nextpath=='.':
+                    paths.pop(x+1)
+                    return self.reduce_url(paths)                    
             except IndexError:
                 return paths
         
@@ -420,6 +457,7 @@ class HarvestManUrlParser(object):
     def compute_file_and_dir_paths(self):
         """ Compute file and directory paths """
 
+        
         if self.lastpath:
             dotindex = self.lastpath.find(self.DOT)
             if dotindex != -1:
@@ -434,7 +472,6 @@ class HarvestManUrlParser(object):
                 # Bug fix - Strip leading spaces & newlines
                 self.validfilename =  self.make_valid_filename(self.lastpath.strip())
                 self.filename = self.lastpath.strip()
-                
                 self.dirpath  = self.dirpath [:-1]
         else:
             if not self.isrel:
@@ -469,7 +506,7 @@ class HarvestManUrlParser(object):
                     self.dirpath = self.baseurl.dirpath + self.dirpath
             else:
                 pathstack = self.baseurl.dirpath[0:]
-
+                
                 for ritem in self.rpath:
                     if ritem == self.DOT:
                         pathstack = self.baseurl.dirpath[0:]
@@ -478,7 +515,7 @@ class HarvestManUrlParser(object):
                             pathstack.pop()
             
                 self.dirpath  = pathstack + self.dirpath 
-        
+                
             # Support for NONSENSE relative paths such as
             # g/../foo and g/./foo 
             # consider base = http:\\bar.com\bar1
@@ -726,9 +763,23 @@ class HarvestManUrlParser(object):
         
         return self.baseurl
 
-    def get_url_directory(self):
+    def get_original_url_directory(self):
         """ Return the directory path (url minus its filename if any) of the
-        url """
+        original URL """
+
+        # Return only if this was recomputer
+        # get the directory path of the url
+        fulldom = self.get_full_domain()
+        urldir = fulldom
+
+        if self.dirpathold:
+            newpath = "".join((self.URLSEP, "".join([ x+'/' for x in self.dirpathold])))
+            urldir = "".join((fulldom, newpath))
+
+        return urldir
+    
+    def get_url_directory(self):
+        """ Return the directory path (url minus its filename if any) of the url """
         
         # get the directory path of the url
         fulldom = self.get_full_domain()
@@ -1176,8 +1227,11 @@ class HarvestManUrlParser(object):
 
 
 if __name__=="__main__":
-    InitConfig()
-    InitLogger()
+    import config
+    import logger
+    
+    InitConfig(config.HarvestManStateObject)
+    InitLogger(logger.HarvestManLogger)
     
     # Test code
 
@@ -1209,7 +1263,7 @@ if __name__=="__main__":
                                    'http://www.foo.com/bar/index.html',
                                    'd:/websites'),
                HarvestManUrlParser('nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html#__init__#index-after', 'anchor', 0, 'http://nltk.sourceforge.net/lite/doc/api/term-index.html', 'd:/websites'),               
-               HarvestManUrlParser('../icons/up.png', 'image', 0,
+               HarvestManUrlParser('../../icons/up.png', 'image', 0,
                                    'http://www.python.org/doc/current/tut/node2.html',
                                    ''),
                HarvestManUrlParser('../eway/library/getmessage.asp?objectid=27015&moduleid=160',
@@ -1251,7 +1305,8 @@ if __name__=="__main__":
           HarvestManUrlParser('fileadmin/dz.gov.si/templates/../../../index.php',
                               'generic',0,'http://www.dz-rs.si'),
           HarvestManUrlParser('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70','form',True,'http://www.evvs.dk'),
-          HarvestManUrlParser('http://arstechnica.com/reviews/os/macosx-10.4.ars')]
+          HarvestManUrlParser('http://arstechnica.com/reviews/os/macosx-10.4.ars'),
+          HarvestManUrlParser('http://www.fylkesmannen.no/../fmt_hoved.asp',baseurl='http://www.fylkesmannen.no/osloogakershu')]          
     
 
     for hu in l:

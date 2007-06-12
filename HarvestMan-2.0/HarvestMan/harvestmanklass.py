@@ -84,10 +84,6 @@ class HarvestMan(object):
 
         global RegisterObj
         
-
-        RegisterObj.ini = 0
-        RegisterObj.logger.shutdown()
-
         # If this was started from a runfile,
         # remove it.
         if self._cfg.runfile:
@@ -104,6 +100,9 @@ class HarvestMan(object):
 
         RegisterObj.userdebug = []
         logconsole('HarvestMan session finished.')
+
+        RegisterObj.ini = 0
+        RegisterObj.logger.shutdown()
         
     def save_current_state(self):
         """ Save state of objects to disk so program
@@ -162,9 +161,6 @@ class HarvestMan(object):
         
         # Rules checker object
         ruleschecker = rules.HarvestManRulesChecker()
-        # Create rules for filters
-        ruleschecker.make_filters()
-        
         SetObject(ruleschecker)
         
         # Connector object
@@ -194,6 +190,10 @@ class HarvestMan(object):
                 projector = utils.HarvestManProjectManager()
                 projector.write_project()
 
+        # Make filters for rules object now only otherwise
+        # it interferes with project-file writing
+        GetObject('ruleschecker').make_filters()
+        
         if not self._cfg.resuming:
             info('Starting download of url',self._cfg.url,'...')
         else:
@@ -218,6 +218,10 @@ class HarvestMan(object):
         """ Clean up actions to do, say after
         an interrupt """
 
+        # Shut down logging on file
+        moreinfo('Shutting down logging...')
+        GetObject('logger').disableFileLogging()
+        
         if self._cfg.fastmode:
             tq = GetObject('trackerqueue')
             tq.terminate_threads()
@@ -438,8 +442,7 @@ class HarvestMan(object):
                GetObject('datamanager').conditional_cache_set()
                self.save_current_state()
                 
-               sys.excepthook = SysExceptHook
-               sys.tracebacklimit = 0
+               # sys.tracebacklimit = 0
                self.clean_up()
 
         self.finish_project()

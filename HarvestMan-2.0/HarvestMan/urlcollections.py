@@ -209,6 +209,11 @@ class HarvestManUrlCollection(object):
 
         return allurls
 
+    def getContextDict(self):
+        """ Returns a copy of the internal context dictionary """
+
+        return self._collections.copy()
+    
 class HarvestManAutoUrlCollection(HarvestManUrlCollection):
     """ A sub-class of HarvestManUrlCollection which
     automatically assigns contexts to URLs """

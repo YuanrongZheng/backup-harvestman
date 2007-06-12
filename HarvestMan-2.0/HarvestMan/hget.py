@@ -98,7 +98,6 @@ class Hget(HarvestMan):
                 lfiles = []
                 for t in lthreads:
                     fname = t.get_tmpfname()
-                    print 'fname=>',fname
                     if fname: lfiles.append(fname)
                     t.close_file()
                     

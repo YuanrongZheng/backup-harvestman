@@ -69,7 +69,6 @@ class HarvestManLogger(object):
         """ Initialize the logger class with severity and logflag """
         
         self._severity = severity
-        self._consolelog = True
         
         if logflag==0:
             self._severity = 0
@@ -141,8 +140,9 @@ class HarvestManLogger(object):
         """ Enable console logging - if console logging is already
         enabled, this method does not have any effect """
 
-        if not self._consolelog:
-            self._consolelog = True
+        console = 'StreamHandler' in [h.__class__.__name__ for h in self._logger.handlers]
+        
+        if not console:
             formatter = logging.Formatter('[%(asctime)s] %(message)s',
                                           '%H:%M:%S')
             handler = logging.StreamHandler()
@@ -155,14 +155,25 @@ class HarvestManLogger(object):
         """ Disable console logging - if console logging is already
         disabled, this method does not have any effect """
 
-        if self._consolelog:
-            # Find out streamhandler if any
-            for h in self._logger.handlers:
-                if h.__class__.__name__ == 'StreamHandler':
-                    # Remove the handler
-                    self._logger.removeHandler(h)
-                    self._consolelog = False
-                    break
+        # Find out streamhandler if any
+        for h in self._logger.handlers:
+            if h.__class__.__name__ == 'StreamHandler':
+                # Remove the handler
+                self._logger.removeHandler(h)
+                break
+        else:
+            pass
+
+    def disableFileLogging(self):
+        """ Disable file logging - if file logging is already
+        disabled, this method does not have any effect """
+
+        # Find out filehandler if any
+        for h in self._logger.handlers:
+            if h.__class__.__name__ == 'FileHandler':
+                # Remove the handler
+                self._logger.removeHandler(h)
+                break
         else:
             pass
 
@@ -263,8 +274,9 @@ if __name__=="__main__":
     print mylogger.getLogLevelName()
 
     mylogger.enableConsoleLogging()
-    mylogger.disableConsoleLogging()    
-
+    # mylogger.disableConsoleLogging()    
+    mylogger.disableFileLogging()
+    
     mylogger.info("Test message 1",p)
     mylogger.moreinfo("Test message 2",p)
     mylogger.extrainfo("Test message 3",p)

@@ -67,10 +67,12 @@ class HarvestManRulesChecker(object):
         self._wordstr = '[\s+<>]'
         self._robots  = {}
         self._robocache = []
+        self._invalidservers = []
         self._logger = GetObject('logger')
         # For hash sums of page data
         self._pagehash = {}
-        
+        # Flag for making filters
+        self._madefilters = False
         # Configure robotparser object if rep rule is specified
         self._configobj = GetObject('config')
         # Create junk filter if specified
@@ -89,7 +91,6 @@ class HarvestManRulesChecker(object):
         d['_filter'] = self._filter[:]
         d['_extservers'] = self._extservers[:]
         d['_extdirs'] = self._extdirs[:]
-        # d['_robots'] = self._robots.copy()
         d['_robocache'] = self._robocache[:]
         d['_pagehash'] = self._pagehash.copy()
 
@@ -217,10 +218,25 @@ class HarvestManRulesChecker(object):
             # and server2.foo.com or server1.base and server2.base
             baseserver1 = self._get_base_server(domain1)
             baseserver2 = self._get_base_server(domain2)
-            # extrainfo('Server1:%s, Server2:%s' % (baseserver1, baseserver2))
-            
+
+            # This has a bug with servers like www.myserver.co.uk
+            # and www.hiserver.co.uk. In this case, the base server
+            # for both is returned as co.uk and both are treated
+            # the same which is obviously a problem. One way to
+            # check this is to see if the returned value is an
+            # valid IP address.
             if baseserver1.lower() == baseserver2.lower():
-                return True
+                try:
+                    if baseserver1.lower() in self._invalidservers:
+                        return False
+                    else:
+                        socket.gethostbyname(baseserver1)
+                        return True                    
+                except socket.error:
+                    # Add this to list of invalid servers so we
+                    # dont need to do this check every time
+                    self._invalidservers.append(baseserver1.lower())
+                    return False
             else:
                 return False
         else:
@@ -338,7 +354,7 @@ class HarvestManRulesChecker(object):
             else:
                 return False
 
-        return True
+        return False
 
     def apply_url_filter(self, url):
         """ See if we have a filter matching the url.
@@ -528,8 +544,19 @@ class HarvestManRulesChecker(object):
         if not baseUrlObj:
             return True
 
-        bdir = baseUrlObj.get_url_directory()
-
+        # Bug: the original URL might have had been
+        # redirected, so its base URL might have got
+        # changed. We need to check with the original
+        # URL in such cases.
+        # Sample site: http://www.vegvesen.no
+        if baseUrlObj.reresolved:
+            bdir = baseUrlObj.get_original_url_directory()
+        else:
+            bdir = baseUrlObj.get_url_directory()
+            
+        print 'BASEDIR=>',bdir
+        print 'DIRECTORY=>',directory
+        
         # Look for bdir inside dir
         index = directory.find(bdir)
 
@@ -884,6 +911,8 @@ class HarvestManRulesChecker(object):
         """ This function creates the filter regexps
         for url/server filtering """
 
+        if self._madefilters: return
+        
         # url filter string
         urlfilterstr = self._configobj.urlfilter
         # print 'URL FILTER STRING=>',urlfilterstr
@@ -912,11 +941,14 @@ class HarvestManRulesChecker(object):
         self._configobj.set_option('serverprioritydict_value', server_priorities)
 
         # word filter list
-        wordfilterstr = self._configobj.wordfilter
+        wordfilterstr = self._configobj.wordfilter.strip()
+        # print 'Word filter string=>',wordfilterstr,len(wordfilterstr)
         if wordfilterstr:
             word_filter = self._make_word_filter(wordfilterstr)
             self._configobj.wordfilterre = word_filter
 
+        self._madefilters = True
+        
     def _make_priority(self, pstr):
         """ Generate a priority dictionary from the priority string """
 
@@ -1052,143 +1084,10 @@ class HarvestManRulesChecker(object):
 
         return refilter
 
-    def _parse_word_filter(self, s):
-
-        scopy = s[:]
-        oparmatch, clparmatch = False, False
-        index = scopy.rfind('(')
-
-        if index != -1:
-            oparmatch = True
-            index2 = scopy.find(')', index)
-
-            if index2 != -1:
-                clparmatch = True
-                newstr = scopy[index+1:index2]
-                # if the string is only of whitespace chars, skip it
-                wspre = re.compile('^\s*$')
-                if not wspre.match(newstr):
-                    self._rexplist.append(newstr)
-                replacestr = ''.join(('(', newstr, ')'))
-                scopy = scopy.replace(replacestr, '')
-                self._parse_word_filter(scopy)
-
-        if not clparmatch and not oparmatch:
-            if scopy: self._rexplist.append(scopy)
-
-
-    def _make_not_expr(self, s):
-        """ Make a NOT expression """
-
-        if s.find('!') == 0:
-            return ''.join(('(?!', s[1:], ')'))
-        else:
-            return s
-
-    def _is_inbetween(self, l, elem):
-        """ Find out if an element is in between in a list """
-
-        i = l.index(elem)
-        if i == -1: return False
-
-        loflist = len(l)
-
-        if i>1:
-            if i in xrange(1, loflist -1):
-                return True
-            else:
-                return False
-        elif i==1:
-            return True
-        elif i==0:
-            if loflist==1:
-                return True
-            else:
-                return False
-
     def _make_word_filter(self, s):
         """ Create a word filter rule for HarvestMan """
 
-        # Word filter strings can be simple or compound.
-        # Simple strings are strings that can stand for a
-        # word or a string.
-        # Egs: Python.
-        # Complex strings are expressions that can mean
-        # boolean logic.
-        # Egs: Python & Perl, Python || Perl, (Python || Perl) & Ruby
-
-        # If more than one paren group found, replace | with (|)
-        clparen = s.count(')')
-        oparen  = s.count('(')
-        if oparen != clparen:
-            logconsole('Error in word regular expression')
-            return None
-
-        self._parse_word_filter(s)
-        # if NOT is one of the members, reverse
-        # the list.
-        if '!' in self._rexplist:
-            self._rexplist.reverse()
-
-        rstr = self._make_word_regexp( self._rexplist )
-        r = re.compile( rstr, re.IGNORECASE )
-        return r
-
-    def _make_word_regexp(self, mylist):
-
-
-        is_list = True
-
-        if type(mylist) is str:
-            is_list = False
-            elem =  mylist
-        elif type(mylist) is list:
-            elem = mylist[0]
-
-        if type(elem) is list:
-            elem = elem[0]
-
-        eor = False
-        if not is_list or len(mylist) == 1:
-            eor = True
-
-        s=''
-
-        # Implementing NOT
-        if elem == '!':
-            return ''.join(('(?!', self._make_word_regexp(mylist[1:]), ')'))
-        # Implementing OR
-        elif elem.find(' | ') != -1:
-            listofors = elem.split(' | ')
-            for o in listofors:
-                in_bet = self._is_inbetween(listofors, o)
-
-                if o:
-                    o = self._make_not_expr(o)
-                    if in_bet:
-                        s = ''.join((s, '|', self._wordstr, o, '.*'))
-                    else:
-                        s = ''.join((s, self._wordstr, o, '.*'))
-
-        # Implementing AND
-        elif elem.find(' & ') != -1:
-            listofands = elem.split(' & ')
-
-            for a in listofands:
-                if a:
-                    a = self._make_not_expr(a)                   
-                    s = ''.join((s, self._wordstr, a, '.*'))
-
-        else:
-            if elem:
-                elem = self._make_not_expr(elem)             
-                s = ''.join((self._wordstr, elem, '.*'))
-
-        if eor:
-            return s
-        else:
-            return ''.join((s, self._make_word_regexp(mylist[1:])))
-
+        return re.compile(s, re.IGNORECASE|re.UNICODE)
 
     def clean_up(self):
         """ Purge data for a project by cleaning up

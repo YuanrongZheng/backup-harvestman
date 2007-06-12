@@ -95,8 +95,7 @@ class HarvestManStateObject(dict):
         self.urlmap = {}
         self.archive = 0
         self.archformat = 'bzip'
-        self.urlheaders = 0
-        self.urlheadersformat = 'dbm'
+        self.urlheaders = 1
         self.configfile = 'config.xml'
         self.projectfile = ''         
         self.proxy=''
@@ -288,8 +287,6 @@ class HarvestManStateObject(dict):
                          'archive_status' : ('archive', 'int'),
                          'archive_format' : ('archformat', 'str'),
                          'urlheaders_status' : ('urlheaders', 'int'),
-                         'urlheaders_format': ('urlheadersformat', 'str'),
-                         
                          'retries_value': ('retryfailed','int'),
                          'imagelinks_value' : ('getimagelinks','int'),
                          'stylesheetlinks_value' : ('getstylesheets','int'),
@@ -590,6 +587,8 @@ class HarvestManStateObject(dict):
                         self.set_option_xml('requests_value', val)
                 elif option=='verbosity':
                     if self.check_value(option,value): self.set_option_xml('verbosity_value', self.process_value(value))
+                elif option=='subdomain':
+                    self.set_option_xml('subdomain_value', 0)                    
                 elif option=='savesessions':
                     if self.check_value(option,value): self.set_option_xml('savesessions_value', self.process_value(value))
                 elif option=='simulate':

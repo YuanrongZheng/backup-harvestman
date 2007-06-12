@@ -7,8 +7,8 @@
       
       <project skip="0">
 
-        <url>http://www.python.org/doc/current/tut/tut.html</url>
-        <name>pytut</name>
+        <url>http://www.vegvesen.no</url>
+        <name>nokommune</name>
 
         <basedir>~/websites</basedir>
         <verbosity value="3"/>
@@ -23,28 +23,24 @@
         <proxypasswd></proxypasswd>
         <proxyport value="80"/>
       </proxy>
-      <urlserver status="1">
-        <urlhost>localhost</urlhost>
-        <urlport value="0"/>
-      </urlserver>
     </network>
     
     <download>
       <types>
         <html value="1"/>
-        <images value="1"/>
+        <images value="0"/>
         <javascript value="1"/>
         <javaapplet value="1"/>
         <forms value="1"/>
       </types> 
       <cache status="1">
-        <datacache value="1"/>
+        <datacache value="0"/>
       </cache>
       <protocol>
         <http compress="1" type="gzip" />
       </protocol>
       <misc>
-        <retries value="1"/>
+        <retries value="0"/>
       </misc>
     </download>
     
@@ -59,7 +55,7 @@
         <extpagelinks value="1"/>
         <depth value="10"/>
         <extdepth value="0"/>
-        <subdomain value="1"/>
+        <subdomain value="0"/>
       </extent>
       <limits>
         <maxextservers value="0"/>
@@ -71,7 +67,7 @@
         <timelimit value="-1"/>
       </limits>
       <rules>
-        <robots value="0"/>
+        <robots value="1"/>
         <urlpriority></urlpriority>
         <serverpriority></serverpriority>
       </rules>
@@ -104,7 +100,7 @@
     </files>
     
     <indexer>
-      <localise value="1"/>
+      <localise value="0"/>
     </indexer>
     
     <display>

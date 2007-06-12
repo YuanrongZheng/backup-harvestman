@@ -182,7 +182,7 @@ class HarvestManUrlThread(threading.Thread):
             res = self._conn.save_url(url_obj)
         else:
             res = self._conn.wrapper_connect(url_obj)
-            print 'Connector returned',self,url_obj.get_full_url()
+            # print 'Connector returned',self,url_obj.get_full_url()
             # This has a different return value.
             # 0 indicates data was downloaded fine.
             if res==0: res=1
@@ -529,7 +529,7 @@ class HarvestManUrlThreadPool(Queue):
             if urlObj.trymultipart:
                 # print 'Thread %s reported with data range (%d-%d)!' % (thread, urlObj.range[0], urlObj.range[-1])
                 if thread.get_status()==1:
-                    print 'Thread %s reported %s' % (thread, urlObj.get_full_url())
+                    # print 'Thread %s reported %s' % (thread, urlObj.get_full_url())
                     # For flush mode, get the filename
                     # for memory mode, get the data
                     flushmode = self._cfg.flushdata

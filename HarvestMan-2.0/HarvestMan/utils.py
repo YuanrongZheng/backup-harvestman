@@ -314,6 +314,17 @@ class HarvestManCacheManager(object):
 
         return cache_obj
 
+    def write_url_headers(self, headerdict):
+
+        try:
+            pickler = HarvestManSerializer()
+            pickler.dump(headerdict, os.path.join(self._cachedir, 'urlheaders.db'))
+        except HarvestManSerializerError, e:
+            logconsole(str(e))
+            return -1
+
+        return 0
+    
     def write_project_cache(self, cache_obj, format):
 
         try:

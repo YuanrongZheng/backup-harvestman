@@ -857,7 +857,6 @@ class HarvestManUrlConnector(object):
                     no_change = (actual_url == urltofetch)
                     
                     if not no_change:
-                        
                         replacedurl = actual_url.replace(urltofetch, '')
                         # If the difference is only as a directory url
                         if replacedurl=='/':
@@ -879,7 +878,6 @@ class HarvestManUrlConnector(object):
                             
                             hu.url = actual_url
                             hu.wrapper_resolveurl()
-                            
                     
                 # Find the actual type... if type was assumed
                 # as wrong, correct it.
@@ -1139,7 +1137,7 @@ class HarvestManUrlConnector(object):
 
         dmgr = GetObject('datamanager')
 
-        print self, urltofetch
+        # print self, urltofetch
         while self._numtries <= retries and not self._error['fatal']:
 
             # Reset status
@@ -1166,9 +1164,9 @@ class HarvestManUrlConnector(object):
                     if self._reader:
                         datasofar = self._reader.get_datalen()
                         if datasofar: range1 += datasofar
-                        print 'Datasofar, new-range => ',datasofar,range1
-                    else:
-                        print 'Reader is Null!',self
+                        # print 'Datasofar, new-range => ',datasofar,range1
+                    #else:
+                    #    print 'Reader is Null!',self
                         
                     request.add_header('Range','bytes=%d-%d' % (range1,range2))
                 
@@ -1493,7 +1491,8 @@ class HarvestManUrlConnector(object):
         url object """
 
         # set this on the url object
-        urlobj.set_url_content_info(self._headers)
+        if self._headers:
+            urlobj.set_url_content_info(self._headers)
 
     def set_http_headers(self):
         """ Set http header dictionary from current request """
@@ -1501,7 +1500,9 @@ class HarvestManUrlConnector(object):
         self._headers.clear()
         for key,val in dict(self._freq.headers).iteritems():
             self._headers[key] = val
-        
+
+        # print self._headers
+
     def print_http_headers(self):
         """ Print the HTTP headers for this connection """
 
@@ -1622,7 +1623,7 @@ class HarvestManUrlConnector(object):
         retval=0
         # Apply word filter
         if not urlobj.starturl:
-            if urlobj.is_webpage() and not GetObject('ruleschecker').apply_word_filter(self._data):
+            if urlobj.is_webpage() and GetObject('ruleschecker').apply_word_filter(self._data):
                 extrainfo("Word filter prevents download of url =>", url)
                 return 5
 
