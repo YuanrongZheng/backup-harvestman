@@ -250,70 +250,67 @@ class HarvestManSerializer(object):
 
         return obj
 
-class HarvestManCacheManager(object):
-    """ Utility class to read/write project cache files """
+class HarvestManCacheReaderWriter(object):
+    """ Utility class to read/write different cache files for HarvestMan """
 
     def __init__(self, directory):
         self._cachedir = directory
-        self._datacachedir = os.path.join(directory, '.cache-data')
+        self._cachefilename = os.path.join(self._cachedir, 'cache.hmc')
         
     def read_project_cache(self):
         """ Try to read the project cache file """
 
+        found = False
+
         # Get cache filename
         if not os.path.exists(self._cachedir):
             moreinfo("Project cache not found")
-            return None
-
-        return self._read_pickled_cache()
-
-    def _read_pickled_cache(self):
 
         cfg = GetObject('config')
 
-        cache_obj = {}
+        cachefilename = self._cachefilename
+        cache_obj = None
+        
+        if os.path.isfile(cachefilename):
+            try:
+                cache_obj = shelve.open(cachefilename)
+                found = True
+            except Exception, e:
+                logconsole(e)
+
+        # Create a new shelf with the same values
         try:
-            pickler = HarvestManSerializer()
-            for f in os.listdir(self._cachedir):
-                if f.endswith('.hmc'):
-                    fullpath = os.path.join(self._cachedir, f)
-                    # This is the cache dictionary for a domain
-                    # The domain name is the bin_decrypted form
-                    # of the filename with .hmc removed.
-                    domain_cache = pickler.load(fullpath)
+            if not os.path.isdir(self._cachedir):
+                os.makedirs(self._cachedir)
+                extrainfo('Created cache directory => ', self._cachedir)
+                # Copy a readme.txt file to the cache directory
+                readmefile = os.path.join(self._cachedir, "Readme.txt")
+                if not os.path.isfile(readmefile):
+                    try:
+                        fs=open(readmefile, 'w')
+                        fs.write(HARVESTMAN_CACHE_README)
+                        fs.close()
+                    except Exception, e:
+                        debug(str(e))
 
-                    if cfg.datacache:
-                        if os.path.isdir(self._datacachedir):
-                            # Get list of .data files
-                            datafiles = glob.glob(os.path.join(self._datacachedir, '*.data'))
-                            for url, cachekey in domain_cache.iteritems():
-                                # Check if there is a datafile with name=hash(url)
-                                fname = os.path.join(self._datacachedir, str(abs(hash(url))) + '.data')
-                                if fname in datafiles:
-                                    try:
-                                        cachekey['data'] = zlib.decompress(open(fname).read())
-                                    except zlib.error, e:
-                                        pass
-                                    except Exception, e:
-                                        logconsole(str(e))
-                        else:
-                            for d in domain_cache.values():
-                                if 'data' in d and d['data']:
-                                    try:
-                                        d['data']=zlib.decompress(d['data'])
-                                    except zlib.error, e:
-                                        pass
+        except OSError, e:
+            debug('OS Exception ', e)
 
-                    # Add this to cache obj
-                    domain = bin_decrypt(f.replace('.hmc',''))
-                    cache_obj[domain] = domain_cache
-            
-        except HarvestManSerializerError, e:
-            logconsole(e)
-            return None
+        cache_obj2 = shelve.open(cachefilename, 'n')
+        # Copy from cache_obj to cache_obj2
+        if cache_obj:
+            for key, value in cache_obj.iteritems():
+                cache_obj2[key] = value.copy()
 
-        return cache_obj
+        return (cache_obj2, found)
 
+    def write_project_cache(self, cacheobj):
+        """ Commit the project cache to the disk """
+
+        cacheobj.update()
+        cacheobj.sync()
+        cacheobj.close()
+        
     def write_url_headers(self, headerdict):
 
         try:
@@ -325,76 +322,6 @@ class HarvestManCacheManager(object):
 
         return 0
     
-    def write_project_cache(self, cache_obj, format):
-
-        try:
-            if not os.path.isdir(self._cachedir):
-                if not os.path.exists(self._cachedir):
-                    os.makedirs(self._cachedir)
-                    extrainfo('Created cache directory => ', self._cachedir)
-                if not os.path.isdir(self._datacachedir):
-                    # Create data-cache directory
-                    os.makedirs(self._datacachedir)
-                    extrainfo('Created data cache directory => ', self._datacachedir)
-        except OSError, e:
-            debug('OS Exception ', e)
-            return -1
-
-        # Copy a readme.txt file to the cache directory
-        readmefile = os.path.join(self._cachedir, "Readme.txt")
-        try:
-            fs=open(readmefile, 'w')
-            fs.write(HARVESTMAN_CACHE_README)
-            fs.close()
-        except Exception, e:
-            debug(str(e))
-
-        if format == 'pickled':
-            return self._write_pickled_cache(cache_obj)
-
-        return -1
-
-    def _write_pickled_cache(self, cache_obj):
-
-        # Cache object is a dictionary of domain
-        # names as keys and url dictionaries as
-        # values. From 2.0 version onwards, we are
-        # writing a separate cache file for every
-        # domain.
-
-        try:
-            pickler = HarvestManSerializer()            
-            for domain, urldict in cache_obj.items():
-                for url in urldict.keys():
-                    cachekey = urldict[url]
-                    if 'data' in cachekey and cachekey['data']:
-                        # Write out the data in another file
-                        # Filename is hash of the URL
-                        if os.path.isdir(self._datacachedir):
-                            filename = os.path.join(self._datacachedir, str(abs(hash(url))) + '.data')
-                            data = cachekey['data']
-
-                            try:
-                                open(filename, 'wb').write(zlib.compress(data))
-                            except zlib.error, e:
-                                pass
-                            except Exception, e:
-                                logconsole(str(e))
-                                
-                            del cachekey['data']
-                        else:
-                            cachekey['data']=zlib.compress(cachekey['data'])
-
-                # Filename is encrypted form of domain name + .hmc
-                cachefilename = os.path.join(self._cachedir, bin_crypt(domain) + '.hmc')
-                pickler.dump( urldict, cachefilename)
-                
-        except HarvestManSerializerError, e:
-            logconsole(str(e))
-            return -1
-
-        return 0
-
 class HarvestManProjectManager(object):
     """ Utility class to read/write project files """
 

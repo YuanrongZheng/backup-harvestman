@@ -34,6 +34,8 @@ import re
 import sha
 import copy
 import random
+import shelve
+import weakref
 
 import threading as tg
 # Utils
@@ -87,16 +89,21 @@ class HarvestManDataManager(object):
         self._bytes = 0L
         # Redownload flag
         self._redownload = False
+        # Cached list of failed sf mirrors
+        self._failedsfmirrors = []
+
+    def initialize(self):
+        """ Do initializations per project """
+
         # Url thread group class for multithreaded downloads
         if self._cfg.usethreads and self._cfg.fastmode:
             self._urlThreadPool = HarvestManUrlThreadPool()
             self._urlThreadPool.spawn_threads()
         else:
             self._urlThreadPool = None
-
-        # Cached list of failed sf mirrors
-        self._failedsfmirrors = []
-
+        
+        # self._urldict = shelve.open(self.get_url_db_file(), 'n')
+        
     def get_state(self):
         """ Return a snapshot of the current state of this
         object and its containing threads for serializing """
@@ -118,15 +125,23 @@ class HarvestManDataManager(object):
         self._urldict = state.get('_urldict', self._urldict)
         self._serversdict = state.get('_serversdict', self._serversdict)        
         self._bytes = state.get('_bytes', 0L)
+
         
     def add_url(self, urlobj):
         """ Add urlobject urlobj to the local dictionary """
         
-        self._urldict[urlobj.index] = urlobj
-
+        # self._urldict[str(urlobj.index)] = weakref.ref(urlobj)
+        self._urldict[str(urlobj.index)] = urlobj
+        
     def get_url(self, index):
 
-        return self._urldict[index]
+        # return self._urldict[str(index)]()
+        return self._urldict[str(index)]    
+
+    def get_url_db_file(self):
+        """ Return the URL database file """
+
+        return os.path.join(self._cfg.projdir,'urls.db')
     
     def get_proj_cache_filename(self):
         """ Return the cache filename for the current project """
@@ -178,14 +193,10 @@ class HarvestManDataManager(object):
 
         # Get cache filename
         moreinfo('Reading Project Cache...')
-        cachereader = utils.HarvestManCacheManager(self.get_proj_cache_directory())
-        obj = cachereader.read_project_cache()
-
-        if obj:
-            self._projectcache = obj
-            self._cfg.cachefound = 1
-        else:
-            self._cfg.cachefound = 0
+        cachereader = utils.HarvestManCacheReaderWriter(self.get_proj_cache_directory())
+        obj, found = cachereader.read_project_cache()
+        self._cfg.cachefound = found
+        self._projectcache = obj
 
     def write_file_from_cache(self, urlobj):
         """ Write file from url cache. This
@@ -193,8 +204,8 @@ class HarvestManDataManager(object):
         url has a key named 'data' """
 
         ret = False
-        
-        d = self._projectcache.get(urlobj.get_full_domain(), {})
+
+        d = self._projectcache.get(urlobj.get_domain_hash(), {})
 
         url = urlobj.get_full_url()
         
@@ -206,13 +217,13 @@ class HarvestManDataManager(object):
                 if not content.has_key('data'):
                     return ret
                 else:
-                    url_data = content['data']
-                    if url_data:
+                    urladta = content['data']
+                    if urldata:
                         # Write file
                         extrainfo("Updating file from cache=>", fileloc)
                         try:
                             f=open(fileloc, 'wb')
-                            f.write(url_data)
+                            f.write(data)
                             f.close()
                             ret = True
                         except IOError, e:
@@ -243,7 +254,7 @@ class HarvestManDataManager(object):
         associated to file 'filename' on the disk """
 
         url = urlobj.get_full_url()
-        domain = urlobj.get_full_domain()
+        domkey = urlobj.get_domain_hash()
         
         # Jan 10 06 - Anand, Created by moving code from is_url_cache_uptodate
         # Update all cache keys
@@ -256,17 +267,18 @@ class HarvestManDataManager(object):
         if self._cfg.datacache:
             cachekey['data'] = urldata
 
-        d = self._projectcache.get(domain, {})
+        d = self._projectcache.get(domkey, {})
         d[url] = cachekey
         
-        self._projectcache[domain] = d
-
+        self._projectcache[domkey] = d
+        self._projectcache.update()
+        
     def update_cache_for_url2(self, urlobj, filename, lmt, urldata):
         """ Second method to update the cache information for the URL 'url'
         associated to file 'filename' on the disk """
 
         url = urlobj.get_full_url()
-        domain = urlobj.get_full_domain()
+        domkey = urlobj.get_domain_hash()
         
         # Jan 10 06 - Anand, Created by moving code from is_url_uptodate.
         # Update all cache keys
@@ -276,13 +288,14 @@ class HarvestManDataManager(object):
         cachekey['last-modified'] = lmt
         cachekey['updated'] = True
         if self._cfg.datacache:
-            cachekey['data'] = urldata            
+            cachekey['data'] = urldata
 
-        d = self._projectcache.get(domain, {})
+        d = self._projectcache.get(domkey, {})
         d[url] = cachekey
         
-        self._projectcache[domain] = d                
-
+        self._projectcache[domkey] = d                
+        self._projectcache.update()
+        
     def get_last_modified_time_and_data(self, urlobj, check_file_exists=True):
         """ Return last-modified-time and data of the given URL if it
         was found in the cache """
@@ -359,10 +372,10 @@ class HarvestManDataManager(object):
         fileverified=False
 
         # Reference to dictionary in the cache list
-        domain = urlobj.get_full_domain()        
+        domkey = urlobj.get_domain_hash()
         cachekey = {}
         
-        d = self._projectcache.get(domain, {})
+        d = self._projectcache.get(domkey, {})
 
         url = urlobj.get_full_url()
         
@@ -384,6 +397,8 @@ class HarvestManDataManager(object):
                 if binascii.hexlify(cachesha) == binascii.hexlify(digest1) and fileverified:
                     uptodate=True
 
+        self._projectcache.update()
+        
         if not uptodate:
             # Modified this logic - Anand Jan 10 06            
             self.update_cache_for_url(urlobj, filename, contentlen, urldata, digest1)
@@ -404,10 +419,10 @@ class HarvestManDataManager(object):
         fileverified=False
 
         # Reference to dictionary in the cache list
-        domain = urlobj.get_full_domain()                
         cachekey = {}
-
-        d = self._projectcache.get(domain, {})
+        domkey = urlobj.get_domain_hash()
+        
+        d = self._projectcache.get(domkey, {})
         # Cache dictionary is indexed by domain names
         url = urlobj.get_full_url()
         
@@ -428,6 +443,9 @@ class HarvestManDataManager(object):
                 if lmt<=cmt:
                     uptodate=True
 
+
+        self._projectcache.update()
+        
         # If cache is not updated, update all cache keys
         if not uptodate:
             # Modified this logic - Anand Jan 10 06                        
@@ -447,25 +465,6 @@ class HarvestManDataManager(object):
             self._cfg.pagecache = False
         else:
             self._cfg.pagecache = True
-
-    def does_cache_need_update(self):
-        """ Find out if project cache needs update """
-
-        # Fix: if no cache found, always return True
-        if not self._cfg.cachefound: return True
-        
-        # If any of the dictionary entries has the key
-        # value for 'updated' set to True, the cache needs
-        # update, else not.
-        needsupdate=False
-        for urldict in self._projectcache.values():
-            for cachekey in urldict.values():
-                if cachekey.has_key('updated'):
-                    if cachekey['updated']:
-                        needsupdate=cachekey['updated']
-                        return needsupdate
-
-        return needsupdate
 
     def write_scen_info2(self):
         """Write the scenario information about each URL to the URL repository
@@ -563,9 +562,9 @@ class HarvestManDataManager(object):
         self._cfg.endtime = t2
 
         # Write cache file
-        if self._cfg.pagecache and self.does_cache_need_update():
-            cachewriter = utils.HarvestManCacheManager( self.get_proj_cache_directory() )
-            cachewriter.write_project_cache(self._projectcache, self._cfg.cachefileformat)
+        if self._cfg.pagecache:
+            cachewriter = utils.HarvestManCacheReaderWriter(self.get_proj_cache_directory())
+            cachewriter.write_project_cache(self._projectcache)
 
         # If url header dump is enabled, dump it
         if self._cfg.urlheaders:
@@ -583,10 +582,7 @@ class HarvestManDataManager(object):
             
         #  Get handle to rules checker object
         ruleschecker = GetObject('ruleschecker')
-        # dump downloaded urls to a text file
-        if self._cfg.urllistfile:
-            # Get urls list file
-            ruleschecker.dump_urls(self._cfg.urllistfile)
+
         # dump url tree (dependency tree) to a file
         if self._cfg.urltreefile:
             self.dump_urltree(self._cfg.urltreefile)
@@ -594,7 +590,6 @@ class HarvestManDataManager(object):
         if not self._cfg.project: return
 
         # print stats of the project
-
         nlinks, nservers, ndirs = ruleschecker.get_stats()
         nfailed = self._numfailed
 
@@ -911,10 +906,13 @@ class HarvestManDataManager(object):
             conn_factory = GetObject('connectorfactory')
 
             # This call will block if we exceed the number of connections
-            conn = conn_factory.create_connector( server )
+            # print 'WAITING FOR CONNECTION...',caller
+            conn = conn_factory.create_connector(urlobj)
+            # print 'GOT CONNECTION...',caller
+            
             res = conn.save_url( urlobj )
-
-            conn_factory.remove_connector(server)
+            
+            conn_factory.remove_connector(conn)
 
             # Return values for res
             # 0 => error, file not downloaded
@@ -974,9 +972,6 @@ class HarvestManDataManager(object):
         """ Purge data for a project by cleaning up
         lists, dictionaries and resetting other member items"""
 
-        # Clean up project cache
-        self._projectcache.clear()
-        self._projectcache = {}
         self._downloaddict = {}
         # Reset byte count
         self._bytes = 0L
@@ -1084,7 +1079,7 @@ class HarvestManDataManager(object):
                     if headers:
                         headersdict[url] = str(headers)
                         
-        cache = utils.HarvestManCacheManager(self.get_proj_cache_directory())
+        cache = utils.HarvestManCacheReaderWriter(self.get_proj_cache_directory())
         return cache.write_url_headers(headersdict)
     
     def localise_links(self):

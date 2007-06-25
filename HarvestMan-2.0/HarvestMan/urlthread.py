@@ -157,7 +157,6 @@ class HarvestManUrlThread(threading.Thread):
         self._dstartime = time.time()
         
         url = url_obj.get_full_url()
-        server = url_obj.get_domain()
 
         if not url_obj.trymultipart:
             if url_obj.is_image():
@@ -168,13 +167,11 @@ class HarvestManUrlThread(threading.Thread):
             startrange = url_obj.range[0]
             endrange = url_obj.range[-1]
             moreinfo('%s: Downloading url %s, byte range(%d - %d)' % (str(self),url,startrange,endrange))
-            
-        server = url_obj.get_domain()
 
         conn_factory = GetObject('connectorfactory')
         # This call will block if we exceed the number of connections
         # moreinfo("Creating connector for url ", urlobj.get_full_url())
-        self._conn = conn_factory.create_connector( server )
+        self._conn = conn_factory.create_connector( url_obj )
         self._conn.set_data_mode(self._pool.get_data_mode())
         mode = self._conn.get_data_mode()
         
@@ -193,8 +190,8 @@ class HarvestManUrlThread(threading.Thread):
                 self._data = self._conn.get_data()
 
         # Remove the connector from the factory
-        conn_factory.remove_connector(server)
-
+        conn_factory.remove_connector(self._conn)
+        
         # Set this as download status
         self._downloadstatus = res
         
@@ -253,6 +250,7 @@ class HarvestManUrlThread(threading.Thread):
                 # print 'Setting busyflag to False',self
                 self._busyflag = False
             except Exception, e:
+                # raise
                 # print 'Exception',e
                 # Now I am dead - so I need to tell the pool
                 # object to migrate my data and produce a new thread.
@@ -261,12 +259,22 @@ class HarvestManUrlThread(threading.Thread):
                 # this error, don't do anything since this could
                 # be a programming error and will send us into
                 # a loop...
+
+                # Set busyflag to False
+                self._busyflag = False
+                # Remove the connector from the factory
+                
+                if self._conn and (not self._conn.is_released()):
+                    conn_factory = GetObject('connectorfactory')
+                    conn_factory.remove_connector(self._conn)
+                
                 if str(self.__class__._lasterror) == str(e):
                     debug('Looks like a repeating error, not trying to restart worker thread %s' % (str(self)))
                 else:
                     self.__class__._lasterror = e
-                    self._pool.dead_thread_callback(self)
-                    extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))
+                    # self._pool.dead_thread_callback(self)
+                    # extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))
+                    extrainfo('Worker thread was downloading URL %s' % url_obj.get_full_url())
 
 
     def get_url(self):
@@ -679,13 +687,19 @@ class HarvestManUrlThreadPool(Queue):
     def end_all_threads(self):
         """ Kill all running threads """
 
-        for t in self._threads:
-            try:
-                t.terminate()
-                del t
-            except HarvestManUrlThreadInterrupt, e:
-                extrainfo(str(e))
-                pass
+        try:
+            self._cond.acquire()
+            for t in self._threads:
+                try:
+                    t.terminate()
+                    del t
+                except HarvestManUrlThreadInterrupt, e:
+                    extrainfo(str(e))
+                    pass
+
+            self._threads = []
+        finally:
+            self._cond.release()
 
     def remove_finished_threads(self):
         """ Clean up all threads that have completed """
@@ -720,25 +734,6 @@ class HarvestManUrlThreadPool(Queue):
 
         return self._datamode
 
-    def regenerate_thread(self, thread):
-        """ Kill the given thread and regenerate one with
-        the same name """
-
-        name = thread.getName()
-        
-        try:
-            thread.terminate()
-        except HarvestManUrlThreadInterrupt:
-            pass
-
-        self._threads.remove(thread)
-
-        fetcher = HarvestManUrlThread(name, self._timeout, self)
-        fetcher.setDaemon(True)
-        # Append this thread to the list of threads
-        self._threads.append(fetcher)
-        fetcher.start()
-        
     def dead_thread_callback(self, t):
         """ Call back function called by a thread if it
         dies with an exception. This class then creates

@@ -670,6 +670,10 @@ class HarvestManUrlConnector(object):
         self._status = 0
         # Number of tries
         self._numtries = 0
+        # Acquired flag
+        self._acquired = True
+        # Url object
+        self._urlobj = None
         
     def __del__(self):
         del self._data
@@ -715,6 +719,16 @@ class HarvestManUrlConnector(object):
         
         moreinfo('Done.')
 
+    def release(self):
+        """ Release the connector """
+
+        self._acquired = False
+
+    def is_released(self):
+        """ Return whether the connector was released or not """
+
+        return (not self._acquired)
+    
     def urlopen(self, url):
         """ Open the url and return the url file stream """
 
@@ -1057,11 +1071,11 @@ class HarvestManUrlConnector(object):
                     if sockerrs>=4:
                         self._cfg.connections -= 1
                         self.network_conn.decrement_socket_errors(4)
-            #except Exception, e:
-            #    self._error['msg'] = str(e)
-            #    errmsg = self._error['msg']
-            #
-            #    extrainfo('General Error: ', errmsg,'=> ',urltofetch)
+            except Exception, e:
+                self._error['msg'] = str(e)
+                errmsg = self._error['msg']
+            
+                extrainfo('General Error: ', errmsg,'=> ',urltofetch)
                 
             # attempt reconnect after some time
             time.sleep(self._sleeptime)
@@ -1591,6 +1605,8 @@ class HarvestManUrlConnector(object):
         """ Download data from the url <url> and write to
         the file <filename> """
 
+        self._urlobj = urlobj
+        
         # Rearranged this to take care of http 304
         url = urlobj.get_full_url()
 
@@ -1598,6 +1614,7 @@ class HarvestManUrlConnector(object):
         dmgr=GetObject('datamanager')
         lmt,cache_data = dmgr.get_last_modified_time_and_data(urlobj)
         res = self.connect(url, urlobj, True, self._cfg.retryfailed, lmt)
+        print 'RES=>',res
         
         # If it was a rules violation, skip it
         if res==2: return res
@@ -1686,9 +1703,12 @@ class HarvestManUrlConnector(object):
                     return 4
         else:
             # If no cache was loaded, then create the cache.
-            if timestr:
-                lmt = time.mktime( time.strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
-                dmgr.wrapper_update_cache_for_url2(urlobj, filename, lmt, self._data)
+            if timestr: 
+                try:
+                    lmt = time.mktime( time.strptime(timestr, "%a, %d %b %Y %H:%M:%S GMT"))
+                    dmgr.wrapper_update_cache_for_url2(urlobj, filename, lmt, self._data)
+                except ValueError, e:
+                    pass
             else:
                 datalen = self.get_content_length()
                 dmgr.wrapper_update_cache_for_url(urlobj, filename, datalen, self._data)
@@ -1829,6 +1849,11 @@ class HarvestManUrlConnector(object):
 
         return 0
 
+    def get_urlobject(self):
+        """ Return the URL object """
+
+        return self._urlobj
+        
     def get_data(self):
         return self._data
     
@@ -1842,13 +1867,6 @@ class HarvestManUrlConnector(object):
 
         return self._reader
 
-    def set_data_mode(self, mode):
-        """ Set the data mode """
-
-        # 0 => Data is flushed
-        # 1 => Data in memory (default)
-        self._mode = mode
-        
     def get_data_mode(self):
         """ Return the data mode """
 
@@ -1871,6 +1889,13 @@ class HarvestManUrlConnector(object):
 
         return self._numtries
 
+    def set_data_mode(self, mode):
+        """ Set the data mode """
+
+        # 0 => Data is flushed
+        # 1 => Data in memory (default)
+        self._mode = mode
+        
     def reset(self):
         """ Reset the connector """
 
@@ -1896,6 +1921,9 @@ class HarvestManUrlConnector(object):
         self._status = 0
         # Number of tries
         self._numtries = 0
+        # Urlobject
+        self._urlobj = None
+
         
 class HarvestManUrlConnectorFactory(object):
     """ This class acts as a factory for HarvestManUrlConnector
@@ -1908,15 +1936,16 @@ class HarvestManUrlConnectorFactory(object):
     def __init__(self, maxsize):
         # The requests dictionary
         self._requests = {}
-        # Semaphore object to control
-        # active connections
-        self._sema = tg.BoundedSemaphore(maxsize)
+        self._sema = threading.BoundedSemaphore(maxsize)
         # tg.Condition object to control
         # number of simultaneous requests
         # to the same server.
         self._reqlock = tg.Condition(tg.RLock())
         self._cfg = GetObject('config')
         self._connstack = []
+        # Count of connections
+        self._count = 0
+        self._size = maxsize
 
     def push(self, connector):
         """ Push a connector to the stack. This will
@@ -1925,17 +1954,11 @@ class HarvestManUrlConnectorFactory(object):
 
         self._connstack.append(connector)
         
-    def create_connector(self, server):
+    def create_connector(self, urlobj):
         """ Create a harvestman connector to
         the given server which can be used to download
         a url """
 
-        # Acquire the semaphore. This will
-        # reduce the semaphore internal count
-        # so if the number of current connections
-        # is exceeded, this call will block the
-        # calling thread.
-        self._sema.acquire()
         # Even if the number of connections is
         # below the maximum, the number of requests
         # to the same server can exceed the maximum
@@ -1944,24 +1967,30 @@ class HarvestManUrlConnectorFactory(object):
         # the server is equal to the maximum allowd
         # this call will also block the calling
         # thread
-        self.add_request(server)
+        self._sema.acquire()
 
         if len(self._connstack):
             return self._connstack.pop()
         
         # Make a connector 
         connector = self.__class__.klass()
+        self._count += 1
+        # print 'Connector returned, count is',self._count
+            
         return connector
         
-    def remove_connector(self, server):
+    def remove_connector(self, conn):
         """ Remove a connector after use """
 
         # Release the semaphore once to increase
         # the internal count
-        self._sema.release()
         # Decrease the internal request count on
         # the server
-        self.remove_request(server)
+        # self.remove_request(conn.get_urlobject().get_domain())
+        self._count -= 1
+        # print 'Connector removed, count is',self._count
+        conn.release()
+        self._sema.release()
         
     def add_request(self, server):
         """ Increment internal request count

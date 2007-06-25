@@ -58,7 +58,7 @@ class HarvestManRulesChecker(object):
     
     def __init__(self):
 
-        self._links = []
+        self._links = {}
         self._sourceurls = []
         self._filter = []
         self._extservers = []
@@ -86,7 +86,7 @@ class HarvestManRulesChecker(object):
         object and its containing threads for serializing """
         
         d = {}
-        d['_links'] = self._links[:]
+        d['_links'] = self._links
         d['_sourceurls'] = self._sourceurls[:]
         d['_filter'] = self._filter[:]
         d['_extservers'] = self._extservers[:]
@@ -99,7 +99,7 @@ class HarvestManRulesChecker(object):
     def set_state(self, state):
         """ Set state to a previous saved state """
 
-        self._links = state.get('_links',[])
+        self._links = state.get('_links', {})
         self._sourceurls = state.get('_sourceurls', [])
         self._filter = state.get('_filter', [])
         self._extservers = state.get('_extservers', [])
@@ -157,6 +157,24 @@ class HarvestManRulesChecker(object):
 
         return False
 
+    def is_duplicate_link(self, urlobj):
+        """ Check whether the passed URL is a duplicate URL """
+
+        try:
+            self._links[urlobj.get_url_hash()]
+            return True
+        except KeyError, e:
+            self.add_link(urlobj)
+            return False
+            
+    def add_link(self, urlobj):
+        """ Add URL to links """
+
+        # Since links take too much of memory,
+        # use a hashtable.
+        self._links[urlobj.get_url_hash()] = 1
+
+        
     def add_to_filter(self, link):
         """ Add the link to the filter list """
 
@@ -218,7 +236,7 @@ class HarvestManRulesChecker(object):
             # and server2.foo.com or server1.base and server2.base
             baseserver1 = self._get_base_server(domain1)
             baseserver2 = self._get_base_server(domain2)
-
+            
             # This has a bug with servers like www.myserver.co.uk
             # and www.hiserver.co.uk. In this case, the base server
             # for both is returned as co.uk and both are treated
@@ -226,6 +244,7 @@ class HarvestManRulesChecker(object):
             # check this is to see if the returned value is an
             # valid IP address.
             if baseserver1.lower() == baseserver2.lower():
+                print 'BASESERVER=>',baseserver1.lower()
                 try:
                     if baseserver1.lower() in self._invalidservers:
                         return False
@@ -554,8 +573,8 @@ class HarvestManRulesChecker(object):
         else:
             bdir = baseUrlObj.get_url_directory()
             
-        print 'BASEDIR=>',bdir
-        print 'DIRECTORY=>',directory
+        # print 'BASEDIR=>',bdir
+        # print 'DIRECTORY=>',directory
         
         # Look for bdir inside dir
         index = directory.find(bdir)
@@ -830,24 +849,6 @@ class HarvestManRulesChecker(object):
 
         return index
 
-    def is_duplicate_link(self, link):
-        """ Duplicate url check """
-
-        return self.add_link(link)
-
-    def add_link(self, url):
-        """ Add the passed url to the links list after checking
-        for duplicates """
-
-        # Return True if the url is present in
-        # the list, False otherwise.
-        try:
-            self._links.index(url)
-            return True
-        except:
-            self._links.append(url)
-            return False
-
     def add_source_link(self, surl):
         """ Add a source url """
 
@@ -877,35 +878,11 @@ class HarvestManRulesChecker(object):
         number of directories in the base server parsed by
         url trackers """
 
-        numlinks=len(self._links)
+        numlinks = len(self._links)
         numservers=len(self._extservers)
         numdirs=len(self._extdirs)
 
         return (numlinks, numservers, numdirs)
-
-    def dump_urls(self, urlfile):
-        """ Write all parsed urls to a file """
-
-        if os.path.exists(urlfile):
-            try:
-                os.remove(urlfile)
-            except OSError, e:
-                logconsole(e)
-                return
-
-        moreinfo('Dumping url list to file', urlfile)
-
-        try:
-            f=open(urlfile, 'w')
-
-            for link in self._links:
-                f.write(link + '\n')
-
-            f.close()
-        except Exception, e:
-            logconsole(e)
-            
-        debug('Done.') 
 
     def make_filters(self):
         """ This function creates the filter regexps
@@ -1093,8 +1070,6 @@ class HarvestManRulesChecker(object):
         """ Purge data for a project by cleaning up
         lists, dictionaries and resetting other member items"""
 
-        # Reset lists
-        self._links = []
         self._sourceurls = []
         self._filter = []
         self._extservers = []

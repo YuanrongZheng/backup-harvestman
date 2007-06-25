@@ -145,6 +145,7 @@ def modify_url(url):
     for ampersand_string, ucode_name in zip(ampersand_strings, char_names):
         if url.find(ampersand_string) != -1:
             ucode_char = unicodedata.lookup(ucode_name)
+            url = url.encode('utf-8')
             url = url.replace(ampersand_string, ucode_char)
 
     return url

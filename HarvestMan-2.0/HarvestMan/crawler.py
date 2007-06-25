@@ -199,6 +199,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         try:
             self.action()
         except Exception, e:
+            self._status = 0
             raise
             # Don't try to regenerate threads if this is a local
             # exception.
@@ -219,6 +220,9 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
                     self.__class__._lasterror = e
                     self._crawlerqueue.dead_thread_callback(self)
                     extrainfo('Tracker thread %s has died due to error: %s' % (str(self), str(e)))
+
+                self._status = 0
+                self.buffer = []
 
     def terminate(self):
         """ Kill this crawler thread """
@@ -256,6 +260,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         # Fix: Check length of local buffer also
         # before returning.
         if self._status != 0 or len(self.buffer):
+            # print 'My status is=>',self._status,self
             return True
 
         return False
@@ -292,12 +297,14 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
     def push_buffer(self):
         """ Try to push items in local buffer to queue """
 
+        # print 'Pushing buffer',threading.currentThread()
         self._status = 1
 
         # Try to push the last item
         stuff = self.buffer[-1]
 
         if self._crawlerqueue.push(stuff, self._role):
+            # print 'Pushed buffer',threading.currentThread()
             # Remove item
             self.buffer.remove(stuff)
 
@@ -421,19 +428,23 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                         self.push_buffer()
 
                     obj = self._crawlerqueue.get_url_data( "crawler" )
-
+                    # print 'Popped stuff out of buffer',self, obj
+                    
                     if not obj:
                         if self._endflag: break
 
                         if self.buffer and self._pushflag:
+                            print 'Trying to push buffer...'
                             self.push_buffer()
 
+                        # print 'OBJECT IS NONE,CONTINUING...'
                         continue
 
                     self.set_url_object(obj)
                     if not self._urlobject:
-                            continue
-                    
+                        # print 'NULL URLOBJECT',self
+                        continue
+                        
                     # Set status to one to denote busy state
                     self._status = 1
 
@@ -522,15 +533,17 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         #    moreinfo('Not a webpage =>',self._urlobject.get_full_url())
         #    return None
 
-        if not self._download: return None
+        if not self._download:
+            print 'DOWNLOAD FLAG UNSET!',self
+            return None
         
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')
         # Data manager object
         mgr = GetObject('datamanager')
-        
-        ruleschecker.add_link(self._url)
 
+        ruleschecker.add_link(self._urlobject)
+        
         # Configuration object
         moreinfo('Fetching links for url', self._url)
  
@@ -544,11 +557,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
             if self._endflag: break
             if not url_obj: continue
             
-            if ruleschecker.is_duplicate_link( url_obj.get_full_url()):
-                continue
-            #else:
-            #    debug('Not duplicate link->',url_obj.get_full_url())
-            #    pass
+            if ruleschecker.is_duplicate_link(url_obj): continue
 
             url_obj.generation = self._urlobject.generation + 1
             typ = url_obj.get_type()
@@ -665,18 +674,22 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     
                 if not self._resuming:
                     if self.buffer and self._pushflag:
+                        # print 'Trying to push buffer...'                        
                         self.push_buffer()
 
                     # If url server is disabled, get data
                     # from Queue, else query url server for
                     # new urls.
                     obj = self._crawlerqueue.get_url_data("fetcher" )
-
+                    # print 'Popped stuff out of buffer',self
+                    
                     if not obj:
                         if self._endflag: break
 
                         if self.buffer and self._pushflag:
+                            print 'Trying to push buffer...'                            
                             self.push_buffer()
+                            
                         continue
 
                     if not self.set_url_object(obj):
@@ -691,7 +704,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 
                 # Process to generate new objects
                 # only after trying to push buffer
-                # objects.                    
+                # objects.
                 self.process_url()
                 self._loops += 1
 
@@ -716,8 +729,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         data = ''
         if not mgr.is_downloaded(self._url):
-            moreinfo('Downloading file for url from URL', self._urlobject.get_full_url(), self._urlobject.get_base_urlobject().get_full_url())
+            moreinfo('Downloading file for url from URL', self._urlobject.get_full_url(), self._urlobject.get_base_urlobject().get_full_url(), self)
             data = mgr.download_url(self, self._urlobject)
+            # print 'AFTER DOWNLOAD_URL',self
             
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')
@@ -819,8 +833,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     mgr.add_url(child_urlobj)
                     coll.addURL(child_urlobj)
 
-                    # extrainfo('URL: %s FROMURL: %s' % (url, self._urlobject.get_full_url()))
-                    # extrainfo('CONSTRUCTED URL: %s' % child_urlobj.get_full_url())
+                    #extrainfo('URL: %s FROMURL: %s' % (url, self._urlobject.get_full_url()))
+                    #extrainfo('CONSTRUCTED URL: %s' % child_urlobj.get_full_url())
                     
                 except urlparser.HarvestManUrlParserError:
                     continue

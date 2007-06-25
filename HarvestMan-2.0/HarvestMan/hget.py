@@ -71,6 +71,8 @@ class Hget(HarvestMan):
         
         try:
             dmgr = GetObject('datamanager')
+            dmgr.initialize()
+            
             pool = dmgr.get_url_threadpool()
             # print self._cfg.requests, self._cfg.connections
             conn = connector.HarvestManUrlConnector()

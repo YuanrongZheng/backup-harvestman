@@ -199,10 +199,13 @@ class HarvestMan(object):
         else:
             pass
             
-
+        # Initialize datamgr
+        dmgr = GetObject('datamanager')
+        dmgr.initialize()
+        
         # Read the project cache file, if any
         if self._cfg.pagecache:
-            GetObject('datamanager').read_project_cache()
+            dmgr.read_project_cache()
 
         tracker_queue = GetObject('trackerqueue')
 
@@ -434,7 +437,7 @@ class HarvestMan(object):
         try:
             if not self._cfg.testnocrawl:
                 self.start_project()
-        except (KeyboardInterrupt, EOFError, Exception), e:
+        except (KeyboardInterrupt, ), e:
            if not self._cfg.ignoreinterrupts:
                logconsole('Exception received=>',str(e))
                # dont allow to write cache, since it

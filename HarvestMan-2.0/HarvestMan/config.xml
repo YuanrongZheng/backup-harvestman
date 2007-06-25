@@ -7,7 +7,8 @@
       
       <project skip="0">
 
-        <url>http://www.vegvesen.no</url>
+        <!--- <url>http://www.frogn.kommune.no/</url> -->
+        <url>www.kultunaut.se</url>
         <name>nokommune</name>
 
         <basedir>~/websites</basedir>
@@ -89,7 +90,7 @@
       <locale>C</locale>
       <fastmode value="1"/>
       <savesessions value="0"/>
-      <timegap value="0.5" random="1" />
+      <timegap value="2.0" random="1" />
     </system>
     
     <files>

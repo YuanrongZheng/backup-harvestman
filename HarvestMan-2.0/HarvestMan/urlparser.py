@@ -42,6 +42,7 @@ import re
 import mimetypes
 import copy
 import urlproc
+import md5
 
 from common.common import *
 from urltypes import *
@@ -903,7 +904,21 @@ class HarvestManUrlParser(object):
             return self.get_base_domain() + ':' + str(self.port)
         else:
             return self.get_base_domain()
-        
+
+    def get_url_hash(self):
+        """ Return a hash value for the URL """
+
+        m = md5.new()
+        m.update(self.get_full_url())
+        return str(m.hexdigest())
+    
+    def get_domain_hash(self):
+        """ Return the hask value for the domain """
+
+        m = md5.new()
+        m.update(self.get_full_domain())
+        return str(m.hexdigest())
+                 
     def get_domain(self):
         """ Return the domain (server) for this url object """
         
