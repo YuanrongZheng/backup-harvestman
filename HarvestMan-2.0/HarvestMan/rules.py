@@ -37,6 +37,7 @@ import copy
 import robotparser
 
 from common.common import *
+from common.lrucache import LRU
 from common.methodwrapper import MethodWrapperMetaClass
 
 import urlparser
@@ -58,8 +59,7 @@ class HarvestManRulesChecker(object):
     
     def __init__(self):
 
-        self._links = {}
-        self._sourceurls = []
+        self._links = LRU(1000)
         self._filter = []
         self._extservers = []
         self._extdirs = []
@@ -70,7 +70,7 @@ class HarvestManRulesChecker(object):
         self._invalidservers = []
         self._logger = GetObject('logger')
         # For hash sums of page data
-        self._pagehash = {}
+        self._pagehash = LRU(1000)
         # Flag for making filters
         self._madefilters = False
         # Configure robotparser object if rep rule is specified
@@ -87,12 +87,11 @@ class HarvestManRulesChecker(object):
         
         d = {}
         d['_links'] = self._links
-        d['_sourceurls'] = self._sourceurls[:]
         d['_filter'] = self._filter[:]
         d['_extservers'] = self._extservers[:]
         d['_extdirs'] = self._extdirs[:]
         d['_robocache'] = self._robocache[:]
-        d['_pagehash'] = self._pagehash.copy()
+        d['_pagehash'] = self._pagehash
 
         return copy.deepcopy(d)
 
@@ -100,7 +99,6 @@ class HarvestManRulesChecker(object):
         """ Set state to a previous saved state """
 
         self._links = state.get('_links', {})
-        self._sourceurls = state.get('_sourceurls', [])
         self._filter = state.get('_filter', [])
         self._extservers = state.get('_extservers', [])
         self._extdirs = state.get('_extdirs', [])
@@ -161,7 +159,7 @@ class HarvestManRulesChecker(object):
         """ Check whether the passed URL is a duplicate URL """
 
         try:
-            self._links[urlobj.get_url_hash()]
+            x = self._links[urlobj.get_url_hash()]
             return True
         except KeyError, e:
             self.add_link(urlobj)
@@ -170,10 +168,8 @@ class HarvestManRulesChecker(object):
     def add_link(self, urlobj):
         """ Add URL to links """
 
-        # Since links take too much of memory,
-        # use a hashtable.
+        # This is an LRU cache
         self._links[urlobj.get_url_hash()] = 1
-
         
     def add_to_filter(self, link):
         """ Add the link to the filter list """
@@ -849,21 +845,11 @@ class HarvestManRulesChecker(object):
 
         return index
 
-    def add_source_link(self, surl):
-        """ Add a source url """
-
-        try:
-            self._sourceurls.index(surl)
-            return True
-        except:
-            self._sourceurls.append(surl)
-            return False
-
     def check_duplicate_content(self, urlobj, datahash):
         """ Check if content for this URL is already there """
 
+        # self._pagehash is an LRU cache.
         # Note - we allow same content from different domains
-        
         if datahash in self._pagehash:
             # Check if earlier page was from this domain
             dom = self._pagehash[datahash]
@@ -1070,13 +1056,14 @@ class HarvestManRulesChecker(object):
         """ Purge data for a project by cleaning up
         lists, dictionaries and resetting other member items"""
 
-        self._sourceurls = []
         self._filter = []
         self._extservers = []
         self._extdirs = []
         self._robocache = []
         # Reset dicts
         self._robots.clear()
+        self._links.clear()
+        self._pagehash.clear()
         
 class JunkFilter(object):
     """ Junk filter class. Filter out junk urls such

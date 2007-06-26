@@ -8,7 +8,7 @@
       <project skip="0">
 
         <!--- <url>http://www.frogn.kommune.no/</url> -->
-        <url>www.kultunaut.se</url>
+        <url>http://www.bundeskanzlerin.de/</url>
         <name>nokommune</name>
 
         <basedir>~/websites</basedir>
@@ -68,7 +68,7 @@
         <timelimit value="-1"/>
       </limits>
       <rules>
-        <robots value="1"/>
+        <robots value="0"/>
         <urlpriority></urlpriority>
         <serverpriority></serverpriority>
       </rules>
@@ -90,7 +90,7 @@
       <locale>C</locale>
       <fastmode value="1"/>
       <savesessions value="0"/>
-      <timegap value="2.0" random="1" />
+      <timegap value="3.0" random="1" />
     </system>
     
     <files>

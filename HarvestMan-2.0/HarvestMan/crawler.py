@@ -288,11 +288,6 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         manage its data """
 
         pass
-
-    def append_to_buffer(self, url_obj):
-        """ Add an item to the buffer """
-
-        self.buffer.append(url_obj)
         
     def push_buffer(self):
         """ Try to push items in local buffer to queue """
@@ -428,7 +423,6 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                         self.push_buffer()
 
                     obj = self._crawlerqueue.get_url_data( "crawler" )
-                    # print 'Popped stuff out of buffer',self, obj
                     
                     if not obj:
                         if self._endflag: break
@@ -842,7 +836,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
                 
             if not self._crawlerqueue.push((url_obj.priority, coll), 'fetcher'):
-                if self._pushflag: self.buffer.append(coll)
+                if self._pushflag: self.buffer.append((url_obj.priority, coll))
                 
             # Update links called here
             mgr.update_links(coll)
@@ -888,7 +882,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     continue
 
             if not self._crawlerqueue.push((self._urlobject.priority, coll), 'fetcher'):
-                if self._pushflag: self.buffer.append(coll)                
+                if self._pushflag: self.buffer.append((self._urlobject.priority, coll))
 
             # Update links called here
             mgr.update_links(coll)
