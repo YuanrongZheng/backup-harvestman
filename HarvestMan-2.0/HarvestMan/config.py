@@ -108,7 +108,7 @@ class HarvestManStateObject(dict):
         self.errorfile='errors.log'
         self.localise=2
         self.jitlocalise=0
-        self.images=1
+        self.images=0
         self.depth=10
         self.html=1
         self.robots=1
@@ -199,7 +199,7 @@ class HarvestManStateObject(dict):
         self.resuming = False
         self.runfile = None
         # Control var for session-saver feature.
-        self.savesessions = True
+        self.savesessions = False
         # List of enabled plugins
         self.plugins = []
         # Attribute value of plugin enabled
@@ -207,7 +207,7 @@ class HarvestManStateObject(dict):
         # Control var for simulation feature
         self.simulate = False
         # Time to sleep between requests
-        self.sleeptime = 0.3
+        self.sleeptime = 2.0
         self.randomsleep = True
         # Internal flag for asyncore
         self.useasyncore = True

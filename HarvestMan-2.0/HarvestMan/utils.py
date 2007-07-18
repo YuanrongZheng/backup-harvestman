@@ -296,20 +296,26 @@ class HarvestManCacheReaderWriter(object):
         except OSError, e:
             debug('OS Exception ', e)
 
-        cache_obj2 = shelve.open(cachefilename, 'n')
+        # cache_obj2 = MyShelf(cachefilename, 'n', pickle.HIGHEST_PROTOCOL)
+        cache_obj2 = {}
+        # shelve.open(cachefilename, 'n')
         # Copy from cache_obj to cache_obj2
         if cache_obj:
             for key, value in cache_obj.iteritems():
                 cache_obj2[key] = value.copy()
+
+            cache_obj.close()
 
         return (cache_obj2, found)
 
     def write_project_cache(self, cacheobj):
         """ Commit the project cache to the disk """
 
-        cacheobj.update()
-        cacheobj.sync()
-        cacheobj.close()
+        s = shelve.open(self._cachefilename, 'n')
+        for key, value in cacheobj.iteritems():
+            s[key] = value.copy()
+
+        s.close()
         
     def write_url_headers(self, headerdict):
 

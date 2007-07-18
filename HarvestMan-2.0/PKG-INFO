@@ -6,5 +6,6 @@ Home-page: http://harvestmanontheweb.com
 Author: Anand B Pillai
 Author-email: abpillai_at_gmail_dot_com 
 License: GNU General Public License 
-Description: web-crawler, web-bot, robot, 
+Keywords: webcrawler, webbot, robot, crawler, offline browser, harvester
+Description: A very flexible webcrawler application and framework for developing web harvesting applications.
 Platform: All

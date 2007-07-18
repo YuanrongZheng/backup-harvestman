@@ -102,8 +102,6 @@ class HarvestManDataManager(object):
         else:
             self._urlThreadPool = None
         
-        # self._urldict = shelve.open(self.get_url_db_file(), 'n')
-        
     def get_state(self):
         """ Return a snapshot of the current state of this
         object and its containing threads for serializing """
@@ -267,11 +265,11 @@ class HarvestManDataManager(object):
         if self._cfg.datacache:
             cachekey['data'] = urldata
 
+        
         d = self._projectcache.get(domkey, {})
         d[url] = cachekey
         
         self._projectcache[domkey] = d
-        self._projectcache.update()
         
     def update_cache_for_url2(self, urlobj, filename, lmt, urldata):
         """ Second method to update the cache information for the URL 'url'
@@ -294,7 +292,6 @@ class HarvestManDataManager(object):
         d[url] = cachekey
         
         self._projectcache[domkey] = d                
-        self._projectcache.update()
         
     def get_last_modified_time_and_data(self, urlobj, check_file_exists=True):
         """ Return last-modified-time and data of the given URL if it
@@ -397,7 +394,6 @@ class HarvestManDataManager(object):
                 if binascii.hexlify(cachesha) == binascii.hexlify(digest1) and fileverified:
                     uptodate=True
 
-        self._projectcache.update()
         
         if not uptodate:
             # Modified this logic - Anand Jan 10 06            
@@ -444,7 +440,6 @@ class HarvestManDataManager(object):
                     uptodate=True
 
 
-        self._projectcache.update()
         
         # If cache is not updated, update all cache keys
         if not uptodate:
@@ -906,9 +901,9 @@ class HarvestManDataManager(object):
             conn_factory = GetObject('connectorfactory')
 
             # This call will block if we exceed the number of connections
-            # print 'WAITING FOR CONNECTION...',caller
+            print 'WAITING FOR CONNECTION...',caller
             conn = conn_factory.create_connector(urlobj)
-            # print 'GOT CONNECTION...',caller
+            print 'GOT CONNECTION...',caller
             
             res = conn.save_url( urlobj )
             
@@ -944,7 +939,10 @@ class HarvestManDataManager(object):
 
             del conn
         else:
+            extrainfo("Scheduling %s for thread download: %s..." % (urlobj.get_full_url(), caller))
             self.thread_download( urlobj )
+            extrainfo("Scheduled %s for thread download: %s" % (urlobj.get_full_url(), caller))
+            
 
         return data
 

@@ -86,14 +86,14 @@ class HarvestManRulesChecker(object):
         object and its containing threads for serializing """
         
         d = {}
-        d['_links'] = self._links
+        d['_links'] = copy.copy(self._links)
         d['_filter'] = self._filter[:]
         d['_extservers'] = self._extservers[:]
         d['_extdirs'] = self._extdirs[:]
         d['_robocache'] = self._robocache[:]
-        d['_pagehash'] = self._pagehash
+        d['_pagehash'] = copy.copy(self._pagehash)
 
-        return copy.deepcopy(d)
+        return d
 
     def set_state(self, state):
         """ Set state to a previous saved state """

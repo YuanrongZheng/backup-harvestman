@@ -10,7 +10,7 @@ Original code courtesy Josiah Carlson.
 
 Copyright (C) 2007, Anand B Pillai.
 """
-
+import copy
 
 class Node(object):
     __slots__ = ['prev', 'next', 'me']
@@ -19,6 +19,12 @@ class Node(object):
         self.me = me
         self.next = None
 
+    def __copy__(self):
+        n = Node(self.prev, self.me)
+        n.next = self.next
+
+        return n
+    
 class LRU(object):
     """
     Implementation of a length-limited O(1) LRU queue.
@@ -33,6 +39,17 @@ class LRU(object):
         self.last = None
         for key, value in pairs:
             self[key] = value
+
+    def __copy__(self):
+        lrucopy = LRU(self.count)
+        lrucopy.first = copy.copy(self.first)
+        lrucopy.last = copy.copy(self.last)
+        lrucopy.d = self.d.copy()
+        for key,value in self.iteritems():
+            lrucopy[key] = value
+
+        return lrucopy
+        
     def __contains__(self, obj):
         return obj in self.d
     def __getitem__(self, obj):
@@ -109,4 +126,4 @@ if __name__=="__main__":
     l[13]=12
     print l.keys()
     print len(l)
-    
+    print copy.copy(l).keys()

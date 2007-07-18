@@ -29,8 +29,32 @@ import socket
 import binascii
 import copy
 import threading
+import shelve
+import threading
+
 from types import *
 
+class MyShelf(shelve.DbfilenameShelf):
+
+    def __init__(self, filename, flag='c', protocol=None, writeback=False):
+        shelve.DbfilenameShelf.__init__(self, filename, flag, protocol, writeback)
+        self.cond = threading.Condition(threading.Lock())
+            
+    def get(self, key, default = None):
+        try:
+            return shelve.DbfilenameShelf.get(self, key, default)
+        except AttributeError, e:
+            pass
+        except ValueError, e:
+            pass
+
+    def __setitem__(self, key, value):
+        try:
+            self.cond.acquire()
+            shelve.DbfilenameShelf.__setitem__(self, key, value)
+        finally:
+            self.cond.release()
+            
 class CaselessDict(dict):
     
     def __setitem__(self, name, value):

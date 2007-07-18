@@ -260,7 +260,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         # Fix: Check length of local buffer also
         # before returning.
         if self._status != 0 or len(self.buffer):
-            # print 'My status is=>',self._status,self
+            print 'My status is=>',self._status,self
             return True
 
         return False
@@ -292,35 +292,18 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
     def push_buffer(self):
         """ Try to push items in local buffer to queue """
 
-        # print 'Pushing buffer',threading.currentThread()
+        print 'Pushing buffer',self
         self._status = 1
 
         # Try to push the last item
         stuff = self.buffer[-1]
 
         if self._crawlerqueue.push(stuff, self._role):
-            # print 'Pushed buffer',threading.currentThread()
+            print 'Pushed buffer',self
             # Remove item
             self.buffer.remove(stuff)
 
         self._status = 0
-
-    def send_url_tcp(self, data, host, port):
-        """ Send url to url server """
-
-        # Return's server response if connection
-        # succeeded and null string if failed.
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((host,port))
-            sock.sendall(data)
-            response = sock.recv(8192)
-            sock.close()
-            return response
-        except socket.error, e:
-            pass
-
-        return ''
 
 class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
     """ The crawler class which crawls urls and fetches their links.
@@ -362,53 +345,6 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         else:
             time.sleep(self._configobj.sleeptime)
 
-    def receive_url(self):
-        """ Receive urls from the asynchronous url server. """
-
-        try:
-            err = False
-
-            res = 0
-            try:
-                num_tries = 0
-                while True: # and num_tries<5: (should this be enabled?)
-                    
-                    if err:
-                        # There was error in network data, so request
-                        # url data again.
-                        response = self.send_url_tcp("get last list",
-                                                     self._configobj.urlhost,
-                                                     self._configobj.urlport)
-                    else:
-                        response = self.send_url_tcp("get list",
-                                                     self._configobj.urlhost,
-                                                     self._configobj.urlport)
-                    
-                    if response=='empty':
-                        break
-                    try:
-                        # Response is a string of the form
-                        # <index0>#<index1>#<index2>#...
-                        # where <index0> is the index of the parent URL
-                        # and rest the indices of child URLs
-                        pieces = response.split('#')
-                        
-                        index1 = int(pieces[0])
-                        indices = map(lambda x: int(x), pieces[1:])
-                        
-                        self.set_url_object((0, (index1, indices)))
-                        res = 1
-                        break
-                    except Exception, e:
-                        err = True
-
-            except socket.error, e:
-                logconsole(e)
-
-            return res
-        finally:
-            pass
-            
     def action(self):
         
         if self._isThread:
@@ -431,14 +367,17 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                             print 'Trying to push buffer...'
                             self.push_buffer()
 
-                        # print 'OBJECT IS NONE,CONTINUING...'
+                        print 'OBJECT IS NONE,CONTINUING...',self
                         continue
 
                     self.set_url_object(obj)
-                    if not self._urlobject:
-                        # print 'NULL URLOBJECT',self
+                    if self._urlobject==None:
+                        print 'NULL URLOBJECT',self
                         continue
-                        
+
+                    # We needs to do violates check here also
+                    if self._urlobject.violates_rules(): continue
+                    
                     # Set status to one to denote busy state
                     self._status = 1
 
@@ -588,7 +527,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
     def __init__(self, index, url_obj = None, isThread=True):
         HarvestManBaseUrlCrawler.__init__(self, index, url_obj, isThread)
-
+        self._fetchtime = 0
+        self._fetchstatus = 0
+        
     def _initialize(self):
         HarvestManBaseUrlCrawler._initialize(self)
         self._role = "fetcher"
@@ -598,6 +539,16 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         # dereferenced!
         self._tempobj = None
 
+    def get_fetch_status(self):
+        """ Return the fetch status """
+        
+        return self._fetchstatus
+
+    def get_fetch_timestamp(self):
+        """ Return the time stamp before fetching """
+
+        return self._fetchtime
+    
     def set_url_object(self, obj):
 
         if not obj: return False
@@ -617,45 +568,6 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         else:
             time.sleep(self._configobj.sleeptime)
 
-    def receive_url(self):
-        """ Receive urls from the asynchronous url server. """
-
-        try:
-            err = False
-
-            res = 0
-            try:
-                num_tries = 0
-                while True: # and num_tries<5: (should this be enabled?)
-                    
-                    if err:
-                        # There was error in network data, so request
-                        # url data again.
-                        response = self.send_url_tcp("get last url",
-                                                     self._configobj.urlhost,
-                                                     self._configobj.urlport)
-                    else:
-                        response = self.send_url_tcp("get url",
-                                                     self._configobj.urlhost,
-                                                     self._configobj.urlport)
-
-                    if response=='empty':
-                        break
-                    try:
-                        key=int(response)
-                        obj = GetUrlObject(key)
-                        HarvestManBaseUrlCrawler.set_url_object(self, obj)
-                        res = 1
-                        break
-                    except Exception, e:
-                        err = True
-
-            except socket.error, e:
-                logconsole(e)
-
-            return res
-        finally:
-            pass
             
     def action(self):
         
@@ -668,14 +580,13 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     
                 if not self._resuming:
                     if self.buffer and self._pushflag:
-                        # print 'Trying to push buffer...'                        
+                        print 'Trying to push buffer...'                        
                         self.push_buffer()
 
                     # If url server is disabled, get data
                     # from Queue, else query url server for
                     # new urls.
                     obj = self._crawlerqueue.get_url_data("fetcher" )
-                    # print 'Popped stuff out of buffer',self
                     
                     if not obj:
                         if self._endflag: break
@@ -687,7 +598,8 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                         continue
 
                     if not self.set_url_object(obj):
-                        if self._endflag: break                            
+                        print 'NULL URLOBJECT',self
+                        if self._endflag: break
                         continue
 
                     # Set status to busy 
@@ -707,7 +619,11 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
                 # Sleep for some random time
                 self.sleep()
+                extrainfo("Setting status to zero",self)
                 self._status = 0
+                extrainfo("Set status to zero",self)                
+                self._fetchstatus = 0
+                
                 # Set resuming flag to False
                 self._resuming = False
         else:
@@ -724,8 +640,14 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
         data = ''
         if not mgr.is_downloaded(self._url):
             moreinfo('Downloading file for url from URL', self._urlobject.get_full_url(), self._urlobject.get_base_urlobject().get_full_url(), self)
+            # About to fetch
+            self._fetchstatus = 1
+            self._fetchtime = time.time()
             data = mgr.download_url(self, self._urlobject)
-            # print 'AFTER DOWNLOAD_URL',self
+            # Fetched
+            self._fetchstatus = 2
+            
+            print 'AFTER DOWNLOAD_URL',self
             
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')
@@ -972,7 +894,5 @@ class HarvestManUrlDownloader(HarvestManUrlFetcher, HarvestManUrlCrawler):
     def crawl_url(self):
         HarvestManUrlCrawler.crawl_url(self)
         
-    def receive_url(self):
-        HarvestManUrlFetcher.receive_url(self)
 
 

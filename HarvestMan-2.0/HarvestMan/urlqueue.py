@@ -72,8 +72,13 @@ class HarvestManCrawlerQueue(object):
         self._requests = 0
         self._trackerindex = 0
         self._lastblockedtime = 0
+        self._blocktimes = {'crawler': 0, 'fetcher': 0}
         self._numfetchers = 0
         self._numcrawlers = 0
+        # Blocked thread info
+        self._numblockfetchers = 0
+        self._numblockcrawlers = 0
+        self._gencount = 0
         self._baseUrlObj = None
         # Time to wait for a data operation on the queue
         # before stopping the project with a timeout.
@@ -205,7 +210,7 @@ class HarvestManCrawlerQueue(object):
         """ Return the controller thread object """
 
         return self._controller
-        
+    
     def configure(self):
         """ Configure this class with this config object """
 
@@ -397,14 +402,6 @@ class HarvestManCrawlerQueue(object):
         self._requests += 1
         return obj
 
-    def _get_num_blocked_threads(self):
-
-        blocked = 0
-        for t in self._trackers:
-            if not t.has_work(): blocked += 1
-
-        return blocked
-
     def get_num_alive_threads(self):
 
         live = 0
@@ -413,24 +410,6 @@ class HarvestManCrawlerQueue(object):
 
         return live
         
-    def _get_num_locked_crawler_threads(self):
-
-        locked = 0
-        for t in self._trackers:
-            if t.get_role() == 'crawler':
-                if t.is_locked(): locked += 1
-
-        return locked
-
-    def _get_num_locked_fetcher_threads(self):
-        
-        locked = 0
-        for t in self._trackers:
-            if t.get_role() == 'fetcher':
-                if t.is_locked(): locked += 1
-
-        return locked
-    
     def add_tracker(self, tracker):
         self._trackers.append( tracker )
         self._trackerindex += 1
@@ -446,29 +425,47 @@ class HarvestManCrawlerQueue(object):
         for t in self._trackers:
             if t.has_work():
                 print t,' =>', t.getUrl()
-            
-    def is_locked_up(self, role):
-         """ The queue is considered locked up if all threads
-         are waiting to push data, but none can since queue
-         is already full, and no thread is popping data. This
-         is a deadlock condition as the program cannot go any
-         forward without creating new threads that will pop out
-         some of the data (We need to take care of it by spawning
-         new threads which can pop data) """
 
-         locked = 0
-         
-         if role == 'fetcher':
-             locked = self._get_num_locked_fetcher_threads()
-             if locked == self._numfetchers - 1:
-                 return True
-         elif role == 'crawler':
-             locked = self._get_num_locked_crawler_threads()
-             if locked == self._numcrawlers - 1:
-                 return True             
+    def manage_blocking_fetchers(self):
 
-         return False
-     
+        # Current timestamp
+        curr = time.time()
+
+        tdiff, mtdiff, tracker = 0, 0, None
+        
+        # If fetchers are blocking at fetch, get the
+        # one that is blocking for max time
+        for t in self._trackers:
+            if t.get_role() == 'fetcher':
+                if t.get_fetch_status()==1:
+                    tdiff = curr - t.get_fetch_timestamp()
+                    if tdiff > mtdiff:
+                        mtdiff = tdiff
+                        tracker = t
+
+        extrainfo("Maximum time diff is", mtdiff)
+        # If this guy is blocking for a long time
+        # (currently set to 2 minutes), kill him
+        # and migrate its data.
+        if mtdiff>120.0 and (tracker != None):
+            if self._gencount < self._numfetchers:
+                print 'Migrating data for thread',tracker
+                ret = self.dead_thread_callback(tracker)
+                print 'Length of trackers=>',len(self._trackers)
+                if ret == 0:
+                    try:
+                        self._gencount += 1
+                        tracker.terminate()
+                    except crawler.HarvestManUrlCrawlerException, e:
+                        print e
+                        pass
+                    
+                return False
+            else:
+                # We have regenerated threads, still they are hanging
+                # so bring the program down.
+                return True
+        
     def is_exit_condition(self):
         """ Exit condition is when there are no download
         sub-threads running and all the tracker threads
@@ -494,18 +491,33 @@ class HarvestManCrawlerQueue(object):
         # If the trackers are blocked, but waiting for sub-threads
         # to finish, kill the sub-threads.
         if is_blocked and has_running_threads:
-           # Find out time difference between when trackers
-           # got blocked and curr time. If greater than 1 minute
-           # Kill hanging threads
-           timediff2 = currtime - self._lastblockedtime
-           if timediff2 > 60.0:
-               moreinfo("Killing download threads ...")
-               dmgr.kill_download_threads()
-               has_running_threads = False
-               
+            # Find out time difference between when trackers
+            # got blocked and curr time. If greater than 1 minute
+            # Kill hanging threads
+            timediff2 = currtime - self._lastblockedtime
+            if timediff2 > 60.0:
+                moreinfo("Killing download threads ...")
+                dmgr.kill_download_threads()
+                has_running_threads = False
+
         if is_blocked and not has_running_threads:
             need_to_exit = True
-        
+
+        # Another failover logic - If crawlers are idle
+        # but fetchers are busy, it could be that fetchers
+        # are stuck somewhere, perhaps on a URL which is not
+        # responding at all. So we keep the last time the
+        # fetcher responded and stop the downloads if it
+        # exceeds a certain time.
+        if not is_blocked:
+            if self.are_crawlers_blocked() and (not self.are_fetchers_blocked()):
+                extrainfo("Managing fetchers...")
+                # See if fetchers are blocked at download
+                ret = self.manage_blocking_fetchers()
+                if ret:
+                    dmgr.kill_download_threads()
+                    return True
+                
         if timediff > self._waittime:
             timed_out = True
         
@@ -516,35 +528,65 @@ class HarvestManCrawlerQueue(object):
 
 
         return need_to_exit
+
+    def are_crawlers_blocked(self):
+        """ Test if the crawler threads are blocked """
+
+        print 'Numblockcrawlers=>',self._numblockcrawlers, self._numcrawlers
+        if (self._numblockcrawlers == self._numcrawlers):
+            if self._blocktimes.get('crawler', 0) ==  0:
+                self._blocktimes['crawler'] = time.time()
+            return True
+        else:
+            self._blocktimes['crawler'] = 0
+            return False
+
+    def are_fetchers_blocked(self):
+        """ Test if the fetcher threads are blocked """
+
+        print 'Numblockfetchers=>',self._numblockfetchers, self._numfetchers
+        if (self._numblockfetchers == self._numfetchers):
+            if self._blocktimes.get('fetcher', 0) ==  0:
+                self._blocktimes['fetcher'] = time.time()
+            return True
+        else:
+            self._blocktimes['fetcher'] = 0            
+            return False
+        
+    def get_num_blocked_threads(self):
+
+        blocked = 0
+        self._numblockfetchers = 0
+        self._numblockcrawlers = 0
+        
+        for t in self._trackers:
+            role = t.get_role()
+            
+            if not t.has_work():
+                if role == 'crawler':
+                    self._numblockcrawlers += 1
+                    print 'Numblockcrawlers=>',self._numblockcrawlers
+                elif role == 'fetcher':
+                    self._numblockfetchers += 1
+                    print 'Numblockfetchers=>',self._numblockfetchers
+                blocked += 1
+
+        return blocked
         
     def is_blocked(self):
         """ The queue is considered blocked if all threads
         are waiting for data, and no data is coming """
 
-        blocked = self._get_num_blocked_threads()
-        # print 'Blocked=>',blocked
-        # print 'Trackers=>',len(self._trackers)
+        blocked = self.get_num_blocked_threads()
+        print 'Blocked=>',blocked
+        print 'Trackers=>',len(self._trackers)
         if blocked == len(self._trackers):
             if self._lastblockedtime==0: self._lastblockedtime = time.time()
             return True
         else:
+            # Reset
+            self._lastblockedtime = 0
             return False
-
-    def is_fetcher_queue_full(self):
-        """ Check whether the fetcher queue is full """
-
-        if self._get_num_locked_fetcher_threads() == self._numfetchers - 1:
-            return True
-        
-        return False
-
-    def is_crawler_queue_full(self):
-        """ Check whether the crawler queue is full """
-
-        if self._get_num_locked_crawler_threads() == self._numcrawlers - 1:
-            return True
-        
-        return False        
 
     def dead_thread_callback(self, t):
         """ Call back function called by a thread if it
@@ -565,28 +607,33 @@ class HarvestManCrawlerQueue(object):
 
             # Migrate data and start thread
             if new_t:
-                new_t._status = t._status
                 new_t._url = t._url
                 new_t._urlobject = t._urlobject
-                new_t._loops = t._loops
                 new_t.buffer = copy.deepcopy(t.buffer)
                 # If this is a crawler get links also
                 if role == 'crawler':
                     new_t.links = t.links[:]
-
+                    
                 # Replace dead thread in the list
                 idx = self._trackers.index(t)
                 self._trackers[idx] = new_t
                 new_t._resuming = True
                 new_t.start()
                 time.sleep(2.0)
+
+                return 0
             else:
                 # Could not make new thread, so decrement
                 # count of threads.
+                # Remove from tracker list
+                self._trackers.remove(t)
+                
                 if role == 'fetcher':
                     self._numfetchers -= 1
                 elif role == 'crawler':
                     self._numcrawlers -= 1
+
+                return -1
         finally:
             self._cond.release()
                 
@@ -599,25 +646,25 @@ class HarvestManCrawlerQueue(object):
         ntries, status = 0, 0
 
         if role == 'crawler' or role=='tracker' or role =='downloader':
-            # print 'Pushing stuff to buffer',threading.currentThread()
+            print 'Pushing stuff to buffer',threading.currentThread()
             while ntries < 5:
                 try:
                     ntries += 1
                     self.url_q.put_nowait((obj.priority, obj))
-                    # print 'Pushed stuff to buffer',threading.currentThread()                    
+                    print 'Pushed stuff to buffer',threading.currentThread()                    
                     status = 1
                     break
                 except Full:
                     time.sleep(0.5)
                     
         elif role == 'fetcher':
-            # print 'Pushing stuff to buffer',threading.currentThread()            
+            print 'Pushing stuff to buffer',threading.currentThread()            
             # stuff = (obj[0].priority, (obj[0].index, obj[1]))
             while ntries < 5:
                 try:
                     ntries += 1
                     self.data_q.put_nowait(obj)
-                    # print 'Pushed stuff to buffer',threading.currentThread()
+                    print 'Pushed stuff to buffer',threading.currentThread()
                     status = 1
                     break
                 except Full:

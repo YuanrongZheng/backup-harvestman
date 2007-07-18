@@ -816,9 +816,11 @@ class HarvestManUrlConnector(object):
                 # If we accept http-compression, add the required header.
                 if self._cfg.httpcompress:
                     request.add_header('Accept-Encoding', 'gzip')
-                    
-                self._freq = urllib2.urlopen(request)
 
+                extrainfo("Making connection to",urltofetch,"...")
+                self._freq = urllib2.urlopen(request)
+                extrainfo("Made connection to",urltofetch,"...")
+                
                 # Set status to 1
                 self._status = 1
                 
@@ -875,21 +877,22 @@ class HarvestManUrlConnector(object):
                         # If the difference is only as a directory url
                         if replacedurl=='/':
                             no_change = True
+                        else:
+                            no_change = False
                             
                         # Sometimes, there could be HTTP re-directions which
                         # means the actual url may not be same as original one.
-
-                        if actual_url[-1] == '/' and urltofetch[-1] != '/':
-                            extrainfo('Setting directory url=>',urltofetch)
-                            hu.set_directory_url()
-
-                        if not no_change:
+                        if no_change:
+                            if (actual_url[-1] == '/' and urltofetch[-1] != '/'):
+                                extrainfo('Setting directory url=>',urltofetch)
+                                hu.set_directory_url()
+                                
+                        else:
                             # There is considerable change in the URL.
                             # So we need to re-resolve it, since otherwise
                             # some child URLs which derive from this could
                             # be otherwise invalid and will result in 404
                             # errors.
-                            
                             hu.url = actual_url
                             hu.wrapper_resolveurl()
                     
@@ -912,7 +915,9 @@ class HarvestManUrlConnector(object):
                         encoding = self.get_content_encoding()
 
                         t1 = time.time()
+                        extrainfo("Reading data for",urltofetch,"...")
                         data = self._freq.read()
+                        extrainfo("Read data for",urltofetch,".")                        
 
                         self._elapsed = time.time() - t1
                         
@@ -1967,7 +1972,7 @@ class HarvestManUrlConnectorFactory(object):
         # the server is equal to the maximum allowd
         # this call will also block the calling
         # thread
-        self._sema.acquire()
+        # self._sema.acquire()
 
         if len(self._connstack):
             return self._connstack.pop()
@@ -1990,7 +1995,7 @@ class HarvestManUrlConnectorFactory(object):
         self._count -= 1
         # print 'Connector removed, count is',self._count
         conn.release()
-        self._sema.release()
+        # self._sema.release()
         
     def add_request(self, server):
         """ Increment internal request count

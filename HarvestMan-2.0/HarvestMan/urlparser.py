@@ -212,7 +212,7 @@ class HarvestManUrlParser(object):
         self.rpathold = []
         # Re-computation flag
         self.reresolved = False
-        self.baseurl = {}
+        self.baseurl = None
         # Base Url Dictionary
         if baseurl:
             if isinstance(baseurl, HarvestManUrlParser):
@@ -232,18 +232,47 @@ class HarvestManUrlParser(object):
         self.anchorcheck()
         self.resolveurl()
 
+    def re_init(self):
+        """ Reinitialize some of the attributes """
+
+        # Used by wrapper_resolveurl
+        if self.url[-1] == self.URLSEP:
+            self.url = self.url[:-1]
+        else:
+            self.url = self.url
+        # Process URL
+        self.url = urlproc.modify_url(self.url)
+        self.lastpath = ''
+        self.protocol = ''
+        self.defproto = False
+        self.hasextn = False
+        self.isrel = False
+        self.isrels = False
+        self.port = 80
+        self.domain = ''
+        self.rpath = []
+        # Recursion depth
+        self.rdepth = 0
+        self.dirpath = []
+        self.rpath = []
+        self.filename = 'index.html'
+        self.validfilename = 'index.html'
+        
     def wrapper_resolveurl(self):
         """ Called forcefully to re-resolve a URL """
 
+        extrainfo("Re-resolving URL: Current is %s..." % self.get_full_url())
         # Make archives of everything
         self.dirpathold = self.dirpath[:]
         self.rpathold = self.rpath[:]
         self.filenameold = self.filename[:]
         self.validfilenameold = self.validfilename[:]
+        self.re_init()
         
         self.anchorcheck()
         self.resolveurl()
         self.reresolved = True
+        extrainfo("Re-resolving URL: New is %s..." % self.get_full_url())
         
     def anchorcheck(self):
         """ Checking for anchor tags and processing accordingly """

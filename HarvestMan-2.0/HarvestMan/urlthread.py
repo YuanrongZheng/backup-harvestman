@@ -224,7 +224,8 @@ class HarvestManUrlThread(threading.Thread):
                     self._starttime=time.time()
 
                 url_obj = self._pool.get_next_urltask()
-
+                extrainfo("Got url task %s to download" % (url_obj.get_full_url(),
+                                                           self))
                 if self._pool.check_duplicates(url_obj):
                     continue
 
@@ -499,7 +500,9 @@ class HarvestManUrlThreadPool(Queue):
             self.put( urlObj )
             # If this URL was multipart, mark it as such
             self._multipartstatus[url] = False
+            extrainfo("Pushed URL to queue", urlObj.get_full_url())            
         except Full:
+            extrainfo("Thread queue full, appending to buffer", urlObj.get_full_url())
             self.buffer.append(urlObj)
         
     def get_next_urltask(self):
@@ -653,7 +656,7 @@ class HarvestManUrlThreadPool(Queue):
         # First check if any thread is in the process
         # of downloading this url.
         if self.locate_thread(url):
-            debug('Another thread is downloading %s' % url)
+            extrainfo('Another thread is downloading %s' % url)
             return True
         
         # Get data manager object

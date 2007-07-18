@@ -105,7 +105,6 @@
     <xsd:sequence>
       <!--- This consists of one 'proxy' element and one 'urlserver' element, both optional -->
       <xsd:element name="proxy" type="NetworkProxyType" minOccurs="0"/>      
-      <xsd:element name="urlserver" type="NetworkUrlserverType" minOccurs="0"/>            
     </xsd:sequence>
   </xsd:complexType>
   
@@ -123,19 +122,6 @@
     </xsd:sequence>
   </xsd:complexType>
 
-  <!--- Defining the 'urlserver' element -->
-  <xsd:complexType name="NetworkUrlserverType">
-    <xsd:sequence>
-      <xsd:element name="urlhost" type="validString"/>
-      <xsd:element name="urlport">
-        <xsd:complexType>
-          <xsd:attribute name="value" type="xsd:integer" default="0"/>
-        </xsd:complexType>
-      </xsd:element>
-    </xsd:sequence>
-    <xsd:attribute name="status" type="xsd:boolean" default="0" use="optional"/>
-  </xsd:complexType>
-  
   <!--- Defining the 'download' element -->
   <xsd:complexType name="ConfigDownloadType">
     <xsd:sequence>

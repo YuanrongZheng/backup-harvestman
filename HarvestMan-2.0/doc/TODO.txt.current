@@ -8,8 +8,8 @@ correctly.                                   |
 work in all cases.                           | (Anand)
 3. Add logic for resuming downloads after    | TBD (Anand).
 a crash.                                     |
-4. Add unit test modules                     | TBD 
-5. Create harvestman folders on Windows      | TBD
+4. Add unit test modules                     | Done
+5. Create harvestman folders on Windows      | Done
 6. Add filterting logic that filters URLs    |
 only for downloads - currently URLs are      | TBD
 filtered away totally.                       |
