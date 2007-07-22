@@ -35,7 +35,7 @@ hman_options=\
   ('maxthreads', 'short=T','long=maxthreads','help=Limit the number of tracker threads to NUMTHREADS','meta=NUMTHREADS'),
   ('maxfiles', 'short=M','long=maxfiles','help=Limit the number of files downloaded to NUMFILES','meta=NUMFILES'),
   ('timelimit', 'short=t','long=timelimit','help=Run the program for the specified time period PERIOD (in seconds)','meta=PERIOD'),
-  ('subdomain','short=s','long=subdomain','help=If set, treats subdomains in the same parent domain (like my.foo.com & his.foo.com) as the same','type=bool','meta=SUBDOMAIN'),
+  ('subdomain','short=s','long=subdomain','help=If set, treats subdomains in the same parent domain (like my.foo.com & his.foo.com) as the same','type=bool','default=False','meta=SUBDOMAIN'),
   ('savesessions', 'short=S','long=savesessions','help=Enable/disable session saver feature. If enabled(default), crashed sessions are automatically saved to disk and the program gives you the option of resuming them next time'),
   ('robots', 'short=R','long=robots','help=Enable/disable Robot Exclusion Protocol and checking of META ROBOTS tags.'),
   ('urlfilter', 'short=u','long=urlfilter','help=Use regular expression FILTER for filtering urls','meta=FILTER'),

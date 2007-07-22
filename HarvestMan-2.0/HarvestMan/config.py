@@ -504,6 +504,8 @@ class HarvestManStateObject(dict):
         except GenericOptionParserError, e:
             sys.exit('Error: ' + str(e))
 
+        print optdict
+        
         cfgfile = False
 
         if self.appname == 'HarvestMan':
@@ -588,7 +590,7 @@ class HarvestManStateObject(dict):
                 elif option=='verbosity':
                     if self.check_value(option,value): self.set_option_xml('verbosity_value', self.process_value(value))
                 elif option=='subdomain':
-                    self.set_option_xml('subdomain_value', 0)                    
+                    if value: self.set_option_xml('subdomain_value', 0)                    
                 elif option=='savesessions':
                     if self.check_value(option,value): self.set_option_xml('savesessions_value', self.process_value(value))
                 elif option=='simulate':
@@ -644,7 +646,9 @@ class HarvestManStateObject(dict):
                     self.hgetoutfile = value
                 elif option=='verbose':
                     self.hgetverbose = value
-                
+
+        print self.subdomain
+        
         if self.nocrawl:
             self.pagecache = False
             self.rawsave = True
