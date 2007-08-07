@@ -915,9 +915,9 @@ class HarvestManUrlConnector(object):
                         encoding = self.get_content_encoding()
 
                         t1 = time.time()
-                        extrainfo("Reading data for",urltofetch,"...")
+                        debug("Reading data for",urltofetch,"...")
                         data = self._freq.read()
-                        extrainfo("Read data for",urltofetch,".")                        
+                        debug("Read data for",urltofetch,".")                        
 
                         self._elapsed = time.time() - t1
                         

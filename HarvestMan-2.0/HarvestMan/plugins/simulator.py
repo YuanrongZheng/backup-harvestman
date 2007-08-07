@@ -45,4 +45,6 @@ def apply_plugin():
     hookswrapper.register_plugin_function('connector:save_url_plugin', save_url)
     # Turn off caching, since no files are saved
     cfg.pagecache = 0
+    # Turn off header dumping, since no files are saved
+    cfg.urlheaders = 0
     logconsole('Simulation mode turned on. Crawl will be simulated and no files will be saved.')

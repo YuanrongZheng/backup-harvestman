@@ -37,7 +37,9 @@ __callbacks__ = { 'run_saved_state_callback':'HarvestMan:run_saved_state',
                   'restore_state_callback':'HarvestMan:restore_state',
                   'run_projects_callback':'HarvestMan:run_projects',
                   'start_project_callback':'HarvestMan:start_project',
-                  'finish_project_callback':'HarvestMan:finish_project' }
+                  'finish_project_callback':'HarvestMan:finish_project',
+                  'finalize_callback':'HarvestMan:finalize',                  
+                  'init_callback' : 'HarvestMan:init'}
 
 # Defining pluggable functions
 __plugins__ = { 'clean_up_plugin':'HarvestMan:clean_up',
@@ -78,7 +80,7 @@ class HarvestMan(object):
         # Clean up lists inside rules module
         GetObject('ruleschecker').clean_up()
 
-    def finish(self):
+    def finalize(self):
         """ This function can be called at program exit or
         when handling signals to clean up """
 
@@ -585,4 +587,4 @@ class HarvestMan(object):
             self.run_projects()
 
         # Final cleanup
-        self.finish()
+        self.finalize()

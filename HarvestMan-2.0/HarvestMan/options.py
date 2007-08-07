@@ -15,7 +15,7 @@ Copyright (C) 2007 Anand B Pillai
 
 hman_options=\
 [ ('version', 'short=v','long=version','help=Print version information and exit', 'type=bool'),
-  ('simulate', 'short=m','long=simulate','help=Simulates crawling with the given configuration, without performing any actual downloads (same as -g simulator)','type=bool'),
+  ('simulate', 'short=m','long=simulate','help=Simulates crawling with the given configuration, without performing any actual downloads (same as "-g simulator")','type=bool'),
   ('configfile', 'short=C','long=configfile','help=Read all options from the configuration file CFGFILE','meta=CFGFILE'),
   ('projectfile', 'short=P','long=projectfile','help=Load the project file PROJFILE','meta=PROJFILE'),
   ('urllist', 'short=F','long=urlfile',"help=Read a list of start URLs from file URLFILE and crawl them","meta=URLFILE"),  
