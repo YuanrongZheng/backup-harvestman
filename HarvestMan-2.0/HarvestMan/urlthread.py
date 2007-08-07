@@ -224,8 +224,7 @@ class HarvestManUrlThread(threading.Thread):
                     self._starttime=time.time()
 
                 url_obj = self._pool.get_next_urltask()
-                extrainfo("Got url task %s to download" % (url_obj.get_full_url(),
-                                                           self))
+
                 if self._pool.check_duplicates(url_obj):
                     continue
 
@@ -457,6 +456,7 @@ class HarvestManUrlThreadPool(Queue):
             fetcher.setDaemon(True)
             # Append this thread to the list of threads
             self._threads.append(fetcher)
+            debug('Starting thread',fetcher)
             fetcher.start()
 
     def download_urls(self, listofurlobjects):

@@ -260,7 +260,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
         # Fix: Check length of local buffer also
         # before returning.
         if self._status != 0 or len(self.buffer):
-            print 'My status is=>',self._status,self
+            debug('My status is=>',self._status,self)
             return True
 
         return False
@@ -292,14 +292,14 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
     def push_buffer(self):
         """ Try to push items in local buffer to queue """
 
-        print 'Pushing buffer',self
+        debug('Pushing buffer',self)
         self._status = 1
 
         # Try to push the last item
         stuff = self.buffer[-1]
 
         if self._crawlerqueue.push(stuff, self._role):
-            print 'Pushed buffer',self
+            debug('Pushed buffer',self)
             # Remove item
             self.buffer.remove(stuff)
 
@@ -364,15 +364,15 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
                         if self._endflag: break
 
                         if self.buffer and self._pushflag:
-                            print 'Trying to push buffer...'
+                            debug('Trying to push buffer...')
                             self.push_buffer()
 
-                        print 'OBJECT IS NONE,CONTINUING...',self
+                        debug('OBJECT IS NONE,CONTINUING...',self)
                         continue
 
                     self.set_url_object(obj)
                     if self._urlobject==None:
-                        print 'NULL URLOBJECT',self
+                        debug('NULL URLOBJECT',self)
                         continue
 
                     # We needs to do violates check here also
@@ -467,7 +467,7 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         #    return None
 
         if not self._download:
-            print 'DOWNLOAD FLAG UNSET!',self
+            debug('DOWNLOAD FLAG UNSET!',self)
             return None
         
         # Rules checker object
@@ -580,7 +580,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     
                 if not self._resuming:
                     if self.buffer and self._pushflag:
-                        print 'Trying to push buffer...'                        
+                        debug('Trying to push buffer...')
                         self.push_buffer()
 
                     # If url server is disabled, get data
@@ -592,13 +592,13 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                         if self._endflag: break
 
                         if self.buffer and self._pushflag:
-                            print 'Trying to push buffer...'                            
+                            debug('Trying to push buffer...')
                             self.push_buffer()
                             
                         continue
 
                     if not self.set_url_object(obj):
-                        print 'NULL URLOBJECT',self
+                        debug('NULL URLOBJECT',self)
                         if self._endflag: break
                         continue
 
@@ -619,9 +619,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
                 # Sleep for some random time
                 self.sleep()
-                extrainfo("Setting status to zero",self)
+                debug("Setting status to zero",self)
                 self._status = 0
-                extrainfo("Set status to zero",self)                
+                debug("Set status to zero",self)                
                 self._fetchstatus = 0
                 
                 # Set resuming flag to False
@@ -639,7 +639,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         data = ''
         if not mgr.is_downloaded(self._url):
-            moreinfo('Downloading file for url from URL', self._urlobject.get_full_url(), self._urlobject.get_base_urlobject().get_full_url(), self)
+            moreinfo('Downloading file for url from URL', self._urlobject.get_full_url(), self._urlobject.get_base_urlobject().get_full_url())
             # About to fetch
             self._fetchstatus = 1
             self._fetchtime = time.time()
@@ -647,7 +647,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             # Fetched
             self._fetchstatus = 2
             
-            print 'AFTER DOWNLOAD_URL',self
+            debug('AFTER DOWNLOAD_URL',self)
             
         # Rules checker object
         ruleschecker = GetObject('ruleschecker')

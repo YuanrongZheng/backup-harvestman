@@ -841,7 +841,6 @@ class HarvestManDataManager(object):
         except KeyError:
             self._serversdict[domain] = {'accept-ranges': True}
 
-        print 'URL OBJECT DOMAIN=>',urlobj.domain
         if urlobj.domain in ('downloads.sourceforge.net', 'prdownloads.sourceforge.net') or \
                urlobj.get_full_domain() in self.get_sourceforge_servers():
             return self.download_multipart_url_sf(urlobj, clength)
@@ -901,9 +900,9 @@ class HarvestManDataManager(object):
             conn_factory = GetObject('connectorfactory')
 
             # This call will block if we exceed the number of connections
-            print 'WAITING FOR CONNECTION...',caller
+            debug('WAITING FOR CONNECTION...',caller)
             conn = conn_factory.create_connector(urlobj)
-            print 'GOT CONNECTION...',caller
+            debug('GOT CONNECTION...',caller)
             
             res = conn.save_url( urlobj )
             

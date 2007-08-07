@@ -817,9 +817,9 @@ class HarvestManUrlConnector(object):
                 if self._cfg.httpcompress:
                     request.add_header('Accept-Encoding', 'gzip')
 
-                extrainfo("Making connection to",urltofetch,"...")
+                debug("Making connection to",urltofetch,"...")
                 self._freq = urllib2.urlopen(request)
-                extrainfo("Made connection to",urltofetch,"...")
+                debug("Made connection to",urltofetch,"...")
                 
                 # Set status to 1
                 self._status = 1
@@ -1277,6 +1277,7 @@ class HarvestManUrlConnector(object):
                         urlobj.trymultipart = True
                         
                         ret = dmgr.download_multipart_url(urlobj, clength)
+                        # print 'RET=>',ret
                         if ret==1:
                             logconsole('Cannot do multipart download, piece size greater than maxfile size!')
                             return 3
@@ -1311,9 +1312,9 @@ class HarvestManUrlConnector(object):
                         self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
                         if not self._cfg.hgetnotemp:
                             self._tmpfname = os.path.join(GetMyTempDir(), self._tmpfname)
-                        print self._tmpfname, ct
+                        debug(self._tmpfname, ct)
                     else:
-                        print 'File already present=>',self._tmpfname
+                        debug('File already present=>',self._tmpfname)
                         
                     if ct.__class__.__name__ == 'HarvestManUrlThread':
                         ct.set_tmpfname(self._tmpfname)
@@ -1413,7 +1414,7 @@ class HarvestManUrlConnector(object):
                 except:
                     pass
 
-                print 'ERRNUM=>',errnum
+                debug('ERRNUM=>',errnum)
                 if errnum == 407: # Proxy authentication required
                     self._proxy_query(1, 1)
                 elif errnum == 503: # Service unavailable
@@ -1619,7 +1620,7 @@ class HarvestManUrlConnector(object):
         dmgr=GetObject('datamanager')
         lmt,cache_data = dmgr.get_last_modified_time_and_data(urlobj)
         res = self.connect(url, urlobj, True, self._cfg.retryfailed, lmt)
-        print 'RES=>',res
+        debug('RES=>',res)
         
         # If it was a rules violation, skip it
         if res==2: return res
@@ -1972,7 +1973,7 @@ class HarvestManUrlConnectorFactory(object):
         # the server is equal to the maximum allowd
         # this call will also block the calling
         # thread
-        # self._sema.acquire()
+        self._sema.acquire()
 
         if len(self._connstack):
             return self._connstack.pop()
@@ -1995,54 +1996,7 @@ class HarvestManUrlConnectorFactory(object):
         self._count -= 1
         # print 'Connector removed, count is',self._count
         conn.release()
-        # self._sema.release()
-        
-    def add_request(self, server):
-        """ Increment internal request count
-        to the server by one. Block if
-        the number of current requests matches
-        the maximum allowed. Uses a Condition
-        object to manage threads """
-
-        try:
-            self._reqlock.acquire()
-            currval = self._requests.get(server, 0)
-            if currval >= self._cfg.requests:
-                # Release lock and wait on condition
-                self._reqlock.wait()
-
-            if currval < self._cfg.requests:
-                self._requests[server] = currval + 1
-        finally:
-            # Release lock
-            self._reqlock.release()
-    
-    def remove_request(self, server):
-        """ Decrement internal request count by
-        one. Wake up all waiting threads (waiting
-        on the Condition object) """
-
-        currval=0
-        try:
-            # Acquire lock 
-            self._reqlock.acquire()
-
-            try:
-                currval = self._requests.get(server, 0)
-                if currval:
-                    self._requests[server] = currval - 1
-            except KeyError, e:
-                debug(str(e))
-                return None
-
-            if currval == self._cfg.requests:
-                # Wake up all threads waiting
-                # on the condition
-                self._reqlock.notifyAll()
-
-        finally:
-            # Release lock          
-            self._reqlock.release()
+        self._sema.release()
         
 # test code
 if __name__=="__main__":

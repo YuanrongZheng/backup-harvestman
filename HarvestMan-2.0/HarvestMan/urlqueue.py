@@ -443,15 +443,15 @@ class HarvestManCrawlerQueue(object):
                         mtdiff = tdiff
                         tracker = t
 
-        extrainfo("Maximum time diff is", mtdiff)
+        debug("Maximum time diff is", mtdiff)
         # If this guy is blocking for a long time
         # (currently set to 2 minutes), kill him
         # and migrate its data.
         if mtdiff>120.0 and (tracker != None):
             if self._gencount < self._numfetchers:
-                print 'Migrating data for thread',tracker
+                debug('Migrating data for thread',tracker)
                 ret = self.dead_thread_callback(tracker)
-                print 'Length of trackers=>',len(self._trackers)
+                debug('Length of trackers=>',len(self._trackers))
                 if ret == 0:
                     try:
                         self._gencount += 1
@@ -532,7 +532,7 @@ class HarvestManCrawlerQueue(object):
     def are_crawlers_blocked(self):
         """ Test if the crawler threads are blocked """
 
-        print 'Numblockcrawlers=>',self._numblockcrawlers, self._numcrawlers
+        debug('Numblockcrawlers=>',self._numblockcrawlers, self._numcrawlers)
         if (self._numblockcrawlers == self._numcrawlers):
             if self._blocktimes.get('crawler', 0) ==  0:
                 self._blocktimes['crawler'] = time.time()
@@ -544,7 +544,7 @@ class HarvestManCrawlerQueue(object):
     def are_fetchers_blocked(self):
         """ Test if the fetcher threads are blocked """
 
-        print 'Numblockfetchers=>',self._numblockfetchers, self._numfetchers
+        debug('Numblockfetchers=>',self._numblockfetchers, self._numfetchers)
         if (self._numblockfetchers == self._numfetchers):
             if self._blocktimes.get('fetcher', 0) ==  0:
                 self._blocktimes['fetcher'] = time.time()
@@ -565,10 +565,10 @@ class HarvestManCrawlerQueue(object):
             if not t.has_work():
                 if role == 'crawler':
                     self._numblockcrawlers += 1
-                    print 'Numblockcrawlers=>',self._numblockcrawlers
+                    debug('Numblockcrawlers=>',self._numblockcrawlers)
                 elif role == 'fetcher':
                     self._numblockfetchers += 1
-                    print 'Numblockfetchers=>',self._numblockfetchers
+                    debug('Numblockfetchers=>',self._numblockfetchers)
                 blocked += 1
 
         return blocked
@@ -578,8 +578,8 @@ class HarvestManCrawlerQueue(object):
         are waiting for data, and no data is coming """
 
         blocked = self.get_num_blocked_threads()
-        print 'Blocked=>',blocked
-        print 'Trackers=>',len(self._trackers)
+        debug('Blocked=>',blocked)
+        debug('Trackers=>',len(self._trackers))
         if blocked == len(self._trackers):
             if self._lastblockedtime==0: self._lastblockedtime = time.time()
             return True
@@ -646,25 +646,25 @@ class HarvestManCrawlerQueue(object):
         ntries, status = 0, 0
 
         if role == 'crawler' or role=='tracker' or role =='downloader':
-            print 'Pushing stuff to buffer',threading.currentThread()
+            debug('Pushing stuff to buffer',threading.currentThread())
             while ntries < 5:
                 try:
                     ntries += 1
                     self.url_q.put_nowait((obj.priority, obj))
-                    print 'Pushed stuff to buffer',threading.currentThread()                    
+                    debug('Pushed stuff to buffer',threading.currentThread())
                     status = 1
                     break
                 except Full:
                     time.sleep(0.5)
                     
         elif role == 'fetcher':
-            print 'Pushing stuff to buffer',threading.currentThread()            
+            debug('Pushing stuff to buffer',threading.currentThread())
             # stuff = (obj[0].priority, (obj[0].index, obj[1]))
             while ntries < 5:
                 try:
                     ntries += 1
                     self.data_q.put_nowait(obj)
-                    print 'Pushed stuff to buffer',threading.currentThread()
+                    debug('Pushed stuff to buffer',threading.currentThread())
                     status = 1
                     break
                 except Full:

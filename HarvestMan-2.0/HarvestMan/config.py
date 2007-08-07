@@ -178,7 +178,7 @@ class HarvestManStateObject(dict):
         self.defaultlocale = 'C'
         self.timelimit = -1
         self.terminate = False
-        self.datacache = True
+        self.datacache = False
         self.urlserver = False
         self.urlhost = '127.0.0.1'
         self.urlport = 0
@@ -504,7 +504,7 @@ class HarvestManStateObject(dict):
         except GenericOptionParserError, e:
             sys.exit('Error: ' + str(e))
 
-        print optdict
+        # print optdict
         
         cfgfile = False
 
@@ -647,8 +647,7 @@ class HarvestManStateObject(dict):
                 elif option=='verbose':
                     self.hgetverbose = value
 
-        print self.subdomain
-        
+        # print self.subdomain
         if self.nocrawl:
             self.pagecache = False
             self.rawsave = True
@@ -657,7 +656,6 @@ class HarvestManStateObject(dict):
             self.set_option_xml('name','')
             # Set basedir to dot
             self.set_option_xml('basedir','.')
-
         
         if args:
             # Any option without an argument is assumed to be a URL
