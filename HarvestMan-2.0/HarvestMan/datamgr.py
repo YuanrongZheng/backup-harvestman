@@ -750,6 +750,17 @@ class HarvestManDataManager(object):
 
         return l
 
+    def is_multipart_download_supported(self, urlobj):
+        """ Check whether this URL (server) supports multipart downloads """
+
+        return self.is_sourceforge_url(urlobj)
+    
+    def is_sourceforge_url(self, urlobj):
+        """ Is this a download from sourceforge ? """
+        
+        return (urlobj.domain in ('downloads.sourceforge.net', 'prdownloads.sourceforge.net') or \
+               urlobj.get_full_domain() in self.get_sourceforge_servers())
+        
     def get_mirror_url(self, urlobj):
         """ Return a mirror URL for the given URL """
 
@@ -782,7 +793,7 @@ class HarvestManDataManager(object):
     def download_multipart_url_sf(self, urlobj, clength):
         """ Download URL multipart from sourceforge.net servers """
 
-        logconsole('Sourceforge URL found - Splitting download to sourceforge.net mirrors...')
+        logconsole('Sourceforge URL found - Splitting download across sourceforge.net mirrors...')
         # List of servers - note that we are not doing
         # any kind of search for the nearest servers. Instead
         # a random list is created.
@@ -841,8 +852,7 @@ class HarvestManDataManager(object):
         except KeyError:
             self._serversdict[domain] = {'accept-ranges': True}
 
-        if urlobj.domain in ('downloads.sourceforge.net', 'prdownloads.sourceforge.net') or \
-               urlobj.get_full_domain() in self.get_sourceforge_servers():
+        if self.is_sourceforge_url(urlobj):
             return self.download_multipart_url_sf(urlobj, clength)
         
         parts = self._cfg.numparts

@@ -490,20 +490,20 @@ class HarvestManCrawlerQueue(object):
 
         # If the trackers are blocked, but waiting for sub-threads
         # to finish, kill the sub-threads.
-        if is_blocked and has_running_threads:
-            # Find out time difference between when trackers
-            # got blocked and curr time. If greater than 1 minute
-            # Kill hanging threads
-            timediff2 = currtime - self._lastblockedtime
-            if timediff2 > 60.0:
-                moreinfo("Killing download threads ...")
-                dmgr.kill_download_threads()
-                has_running_threads = False
+  ##       if is_blocked and has_running_threads:
+##             # Find out time difference between when trackers
+##             # got blocked and curr time. If greater than 1 minute
+##             # Kill hanging threads
+##             timediff2 = currtime - self._lastblockedtime
+##             if timediff2 > 60.0:
+##                 moreinfo("Killing download threads ...")
+##                 dmgr.kill_download_threads()
+##                 has_running_threads = False
 
         if is_blocked and not has_running_threads:
             need_to_exit = True
 
-        # Another failover logic - If crawlers are idle
+        # Failover logic - If crawlers are idle
         # but fetchers are busy, it could be that fetchers
         # are stuck somewhere, perhaps on a URL which is not
         # responding at all. So we keep the last time the
@@ -511,7 +511,7 @@ class HarvestManCrawlerQueue(object):
         # exceeds a certain time.
         if not is_blocked:
             if self.are_crawlers_blocked() and (not self.are_fetchers_blocked()):
-                debug("Managing fetchers...")
+                extrainfo("Managing fetchers...")
                 # See if fetchers are blocked at download
                 ret = self.manage_blocking_fetchers()
                 if ret:
@@ -525,7 +525,6 @@ class HarvestManCrawlerQueue(object):
             moreinfo("Project", self._configobj.project, "timed out.")
             moreinfo('(Time since last data operation was', timediff, 'seconds)')
             need_to_exit = True
-
 
         return need_to_exit
 

@@ -48,7 +48,8 @@ hget_options=\
   ('numparts','short=p','long=numparts','help=Force-split download into <NUMPARTS> parts (max 10)'),
   ('memory','short=m','long=inmem','help=Keep data in memory instead of flushing to disk', 'type=bool' ,'default=False'),
   ('notempdir','short=n','long=notemp','help=Use current directory instead of system temp directory for saving intermediate files','type=bool'),
-  ('output','short=o','long=output','meta=FILE','help=Save document to FILE')
+  ('output','short=o','long=output','meta=FILE','help=Save document to FILE'),
+  ('outputdir','short=d','long=outputdir','meta=DIRECTORY','help=Save document to directory')  
 
   ] 
 

@@ -234,6 +234,8 @@ class HarvestManStateObject(dict):
         self.inmem = False
         # Hget outfile - default empty string
         self.hgetoutfile = ''
+        # Hget output directory - default current directory
+        self.hgetoutdir = '.'
         # Hget verbosity flag - default False
         self.hgetverbose = False
         # Hget temp flag - default False
@@ -644,6 +646,8 @@ class HarvestManStateObject(dict):
                         self.hgetnotemp = True
                 elif option=='output':
                     self.hgetoutfile = value
+                elif option=='outputdir':
+                    self.hgetoutdir = value
                 elif option=='verbose':
                     self.hgetverbose = value
 

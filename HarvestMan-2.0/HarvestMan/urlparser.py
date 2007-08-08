@@ -1223,6 +1223,12 @@ class HarvestManUrlParser(object):
     def violates_rules(self):
         """ Check if this url violates existing download rules """
 
+        # If I am the base url object, violates rule checks apply
+        # only if my original URL has changed.
+        if self.index==0:
+            if not self.reresolved:
+                return False
+            
         if not self.rulescheckdone:
             self.violatesrules = GetObject('ruleschecker').violates_basic_rules(self)
             self.rulescheckdone = True

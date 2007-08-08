@@ -1,6 +1,6 @@
 """ Lucene plugin to HarvestMan. This plugin modifies the
 behaviour of HarvestMan to create an index of crawled
-files by using PyLucene
+webpages by using PyLucene.
 
 Created  Aug 7 2007     Anand B Pillai <abpillai at gmail dot com>
 
@@ -21,7 +21,25 @@ from common.common import *
 from types import StringTypes
 
 # We keep all Lucene Documents here until they are indexed at the end
+# Reason is that PyLucene does not work with normal Python threads
+# and requires its own threads (PyLucene.PyThread). Since HarvestMan
+# uses Python threads, this will cause crashes, if we add the document
+# to the writer while the program is running. For more information
+# see http://chandlerproject.org/PyLucene/ThreadingInPyLucene
+
 doclist = []
+
+class PorterStemmerAnalyzer(object):
+
+    def tokenStream(self, fieldName, reader):
+
+        result = PyLucene.StandardTokenizer(reader)
+        result = PyLucene.StandardFilter(result)
+        result = PyLucene.LowerCaseFilter(result)
+        result = PyLucene.PorterStemFilter(result)
+        result = PyLucene.StopFilter(result, PyLucene.StopAnalyzer.ENGLISH_STOP_WORDS)
+
+        return result
 
 def init_further(self, arg):
     """ Post-callback for init method """
@@ -33,11 +51,14 @@ def init_further(self, arg):
     store = PyLucene.FSDirectory.getDirectory(storeDir, True)
     
     self.lucene_writer = PyLucene.IndexWriter(store, PyLucene.StandardAnalyzer(), True)
+    # Uncomment this line to enable a PorterStemmer analyzer
+    # self.lucene_writer = PyLucene.IndexWriter(store, PorterStemmerAnalyzer(), True)    
     self.lucene_writer.setMaxFieldLength(1048576)
     
 def process_url_further(self, data):
     """ Post process url callback for pylucene """
-    
+
+    # Only HTML pages will be indexed
     doc = PyLucene.Document()
     # Let us point to the web URL of the document
     path = self._urlobject.get_full_url()
@@ -57,6 +78,7 @@ def process_url_further(self, data):
     else:
         extrainfo("warning: no content in %s" % filename)
 
+    # Don't add yet - keep in a buffer.
     global doclist
     doclist.append(doc)
 

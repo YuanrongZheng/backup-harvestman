@@ -1248,29 +1248,31 @@ class HarvestManUrlConnector(object):
                         logconsole('Forcing download into %d parts' % self._cfg.numparts)
                         
                     if not trynormal:
-                        logconsole('Checking whether server supports multipart downloads...')
-                        # See if the server supports 'Range' header
-                        # by requesting half the length
-                        self._headers.clear()
-                        request.add_header('Range','bytes=%d-%d' % (0,clength/2))
-                        self._freq.close()                        
-                        self._freq = urllib2.urlopen(request)
+                        if not dmgr.is_multipart_download_supported(urlobj):
+                            logconsole('Checking whether server supports multipart downloads...')
+                            # See if the server supports 'Range' header
+                            # by requesting half the length
+                            self._headers.clear()
+                            request.add_header('Range','bytes=%d-%d' % (0,clength/2))
+                            self._freq.close()                        
+                            self._freq = urllib2.urlopen(request)
 
-                        # Set http headers
-                        self.set_http_headers()
-                        range_result = self._headers.get('accept-ranges', '')
-                        if range_result.lower()=='bytes':
-                            logconsole('Server supports multipart downloads')
-                        else:
-                            logconsole('Server does not support multipart downloads')
-                            resp = raw_input('Do you still want to download this URL [y/n] ?')
-                            if resp.lower() !='y':
-                                logconsole('Aborting download.')
-                                return 3
+                            # Set http headers
+                            self.set_http_headers()
+                            range_result = self._headers.get('accept-ranges', '')
+                            if range_result.lower()=='bytes':
+                                logconsole('Server supports multipart downloads')
                             else:
-                                logconsole('Downloading URL %s...' % urltofetch)
-                                trynormal = True
-
+                                logconsole('Server does not support multipart downloads')
+                                resp = raw_input('Do you still want to download this URL [y/n] ?')
+                                if resp.lower() !='y':
+                                    logconsole('Aborting download.')
+                                    return 3
+                                else:
+                                    logconsole('Downloading URL %s...' % urltofetch)
+                                    trynormal = True
+                        else:
+                            logconsole('Server supports multipart downloads')
 
                     if not trynormal:
                         logconsole('Trying multipart download...')
@@ -1770,7 +1772,20 @@ class HarvestManUrlConnector(object):
             n, filename = 1, self._cfg.hgetoutfile
         else:
             n, filename = 1, urlobj.get_filename()
-        
+            
+        if self._cfg.hgetoutdir != '.':
+            outdir = self._cfg.hgetoutdir
+            if not os.path.isdir(outdir):
+                try:
+                    os.makedirs(outdir)
+                    # If an output director is specified, strip any directory
+                    # part from the filename
+                    filename = os.path.join(outdir, os.path.split(filename)[1]) 
+                except OSError, e:
+                    print 'Error in creating directory',e
+            else:
+                filename = os.path.join(outdir, os.path.split(filename)[1])                 
+                    
         if ret==2:
             # Trying multipart download...
             pool = GetObject('datamanager').get_url_threadpool()
