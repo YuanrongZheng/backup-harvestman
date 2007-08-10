@@ -1832,6 +1832,8 @@ class HarvestManUrlConnector(object):
                 status = 1
 
         if status==0:
+            if self._error.get('msg'):
+                print 'Error:',self._error.get('msg')
             print 'Download of URL',url ,'not completed.\n'
             return 0
         

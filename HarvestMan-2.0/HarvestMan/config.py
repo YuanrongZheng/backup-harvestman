@@ -686,7 +686,16 @@ class HarvestManStateObject(dict):
                     self.hgetoutdir = value
                 elif option=='verbose':
                     self.hgetverbose = value
-
+                elif option=='proxy':
+                    if self.check_value(option,value):
+                        # Set proxyencrypted flat to False
+                        self.proxyenc=False
+                        self.set_option_xml('proxyserver', self.process_value(value))
+                elif option=='proxyuser':
+                    if self.check_value(option,value): self.set_option_xml('proxyuser', self.process_value(value))
+                elif option=='proxypasswd':
+                    if self.check_value(option,value): self.set_option_xml('proxypasswd', self.process_value(value))
+                    
         # print self.subdomain
         if self.nocrawl:
             self.pagecache = False
