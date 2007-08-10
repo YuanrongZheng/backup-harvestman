@@ -3,7 +3,7 @@
     created by crawler threads. This is part of the HarvestMan
     program.
 
-    Author: Anand B Pillai <abpillai at gmail dot com>
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
     
     Modification History
 

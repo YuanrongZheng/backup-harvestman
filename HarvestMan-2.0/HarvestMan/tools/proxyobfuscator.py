@@ -4,7 +4,8 @@
 # Utility to obfuscate the network proxy settings
 # for use by HarvestMan config file
 
-# Created: Anand B Pillai, 8th Sep 2004
+# Author: Anand B Pillai <anand at harvestmanontheweb.com>
+
 # Copyright (C) 2004 - 2005: Anand B Pillai
 
 # This file is part of HarvestMan package.

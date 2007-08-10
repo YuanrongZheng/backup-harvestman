@@ -7,7 +7,7 @@
     For licensing information see the file LICENSE.txt that
     is included in this distribution.
 
-   Author: Anand B Pillai <abpillai at gmail dot com>
+   Author: Anand B Pillai <anand at harvestmanontheweb.com>
    
    Modification History
    --------------------

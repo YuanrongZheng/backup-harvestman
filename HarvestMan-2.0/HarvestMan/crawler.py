@@ -2,7 +2,7 @@
 """ crawler.py - Module which does crawling and downloading
     of urls from the web. This module is part of HarvestMan program.
 
-    Author: Anand B Pillai (abpillai at gmail dot com).
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
     For licensing information see the file LICENSE.txt that
     is included in this distribution.

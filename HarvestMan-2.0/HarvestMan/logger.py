@@ -4,7 +4,7 @@
 logger.py -  Logging functions for HarvestMan.
 This module is part of the HarvestMan program.
 
-Author: Anand B Pillai <abpillai at gmail dot com>
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
 Created: Jan 23 2005
 

@@ -2,7 +2,7 @@
 """ rules.py - Rules checker module for HarvestMan.
     This module is part of the HarvestMan program.
 
-     Author: Anand B Pillai <abpillai at gmail dot com>
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
     Modification History
     --------------------

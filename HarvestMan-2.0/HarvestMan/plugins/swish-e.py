@@ -5,6 +5,7 @@ for the swish-e search engine {http://swish-e.org}
 The data format is according to the guidelines given
 at http://swish-e.org/docs/swish-run.html#indexing.
 
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
 Created  Feb 8 2007     Anand B Pillai <abpillai at gmail dot com>
 Modified Feb 17 2007    Anand B Pillai Modified logic to use callbacks

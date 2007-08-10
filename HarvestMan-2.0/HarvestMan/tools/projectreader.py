@@ -4,7 +4,8 @@
 # Utility to print a human readable version
 # of HarvestMan project file.
 
-# Author: Anand B Pillai
+# Author: Anand B Pillai <anand at harvestmanontheweb.com>
+
 # Copyright (C) 2004 - 2005: Anand B Pillai
 
 # This file is part of HarvestMan package.

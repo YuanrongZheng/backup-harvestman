@@ -3,7 +3,7 @@
     from an internet connection using urllib2. This module is
     part of the HarvestMan program.
 
-    Author: Anand B Pillai (abpillai at gmail dot com).
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
     For licensing information see the file LICENSE.txt that
     is included in this distribution.

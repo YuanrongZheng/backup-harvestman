@@ -1,7 +1,7 @@
 # -- coding: latin-1
 """ harvestmanklass - Module containing HarvestMan crawler class.
 
-    Author: Anand B Pillai
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
     Created: May 17 2007 Anand 
     

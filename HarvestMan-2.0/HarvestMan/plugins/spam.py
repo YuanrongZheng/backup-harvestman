@@ -1,7 +1,7 @@
-""" Simulator plugin for HarvestMan. This
-plugin changes the behaviour of HarvestMan
-to only simulate crawling without actually
-downloading anything.
+""" Test plugin for HarvestMan. This demonstrates
+how to write a simple plugin based on callbacks.
+
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
 Created Feb 7 2007  Anand B Pillai <abpillai at gmail dot com>
 

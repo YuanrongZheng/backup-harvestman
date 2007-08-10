@@ -9,7 +9,7 @@ using pyexpat.
 
 This module is part of the HarvestMan program.
 
-Author: Anand B Pillai <abpillai at gmail dot com>
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
 Created xx-xx-xxxx  Anand
 

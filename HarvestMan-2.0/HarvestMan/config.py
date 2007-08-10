@@ -3,7 +3,7 @@
     for HarvestMan program and its related modules. This 
     module is part of the HarvestMan program.
 
-    Author: Anand B Pillai <abpillai at gmail dot com>
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
     For licensing information see the file LICENSE.txt that
     is included in this distribution.
@@ -44,7 +44,7 @@ USAGE1 = """\
 %(appname)s %(version)s %(maturity)s: An extensible, multithreaded web crawler.
 Author: Anand B Pillai
 
-Mail bug reports and suggestions to <abpillai@gmail.com>."""
+Mail bug reports and suggestions to <anand@harvestmanontheweb.com>."""
 
 USAGE2 = """\
  %(program)s [options] URL
@@ -52,7 +52,7 @@ USAGE2 = """\
 %(appname)s %(version)s %(maturity)s: A multithreaded web downloader based on HarvestMan.
 Author: Anand B Pillai
 
-Mail bug reports and suggestions to <abpillai@gmail.com>."""
+Mail bug reports and suggestions to <anand@harvestmanontheweb.com>."""
 
 import os, sys
 import configparser

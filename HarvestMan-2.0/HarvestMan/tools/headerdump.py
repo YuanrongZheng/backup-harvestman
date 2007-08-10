@@ -9,7 +9,8 @@ of a DBM file.
 NOTE: This will work only if the cache file
 has an entry for URL headers.
 
-Author: Anand B Pillai
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
+
 Copyright (C) 2005: Anand B Pillai
 
 This file is part of HarvestMan package.

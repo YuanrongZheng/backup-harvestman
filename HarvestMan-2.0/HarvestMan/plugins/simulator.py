@@ -3,6 +3,8 @@ plugin changes the behaviour of HarvestMan
 to only simulate crawling without actually
 downloading anything.
 
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
+
 Created Feb 7 2007  Anand B Pillai <abpillai at gmail dot com>
 
 Copyright (C) 2007 Anand B Pillai

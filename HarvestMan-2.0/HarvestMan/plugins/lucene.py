@@ -2,6 +2,8 @@
 behaviour of HarvestMan to create an index of crawled
 webpages by using PyLucene.
 
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
+
 Created  Aug 7 2007     Anand B Pillai <abpillai at gmail dot com>
 
 Copyright (C) 2007 Anand B Pillai

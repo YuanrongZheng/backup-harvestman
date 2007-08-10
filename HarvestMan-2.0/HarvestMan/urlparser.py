@@ -4,8 +4,7 @@
    directory, filename path etc. This module is part of
    the HarvestMan program.
 
-   Author: Anand B Pillai <abpillai at gmail dot com>, based on
-   the original code written by Nirmal K Chidambaram.
+   Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
    Creation Date: Nov 2 2004
 

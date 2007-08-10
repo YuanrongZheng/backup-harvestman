@@ -7,7 +7,9 @@
     This module is part of the HarvestMan program. For licensing information
     see the file LICENSE.txt that is included in this distribution.
 
-    Created by Anand B Pillai <abpillai at gmail dot com> Feb 1 07.
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
+    
+    Created by Anand B Pillai Feb 1 07.
 
     Modified by Anand B Pillai Feb 17 2007 Completed callback implementation
                                            using metaclass methodwrappers.

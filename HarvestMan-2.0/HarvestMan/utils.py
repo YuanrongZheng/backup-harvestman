@@ -4,8 +4,8 @@
 
     Created: Anand B Pillai on Sep 25 2003.
     
-    Author: Anand B Pillai (abpillai at gmail dot com).    
-
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
+    
     This contains a class for pickling using compressed data
     streams and another one for writing project files.
 

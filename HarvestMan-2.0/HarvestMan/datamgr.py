@@ -2,7 +2,7 @@
 """ datamgr.py - Data manager module for HarvestMan.
     This module is part of the HarvestMan program.
 
-    Author: Anand B Pillai <abpillai at gmail dot com>
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
     
     Oct 13 2006     Anand          Removed data lock since it is not required - Python GIL
                                    automatically locks byte operations.

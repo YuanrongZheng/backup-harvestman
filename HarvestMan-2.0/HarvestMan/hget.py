@@ -6,7 +6,7 @@
     
     Version      - 1.0 beta 1.
 
-    Author: Anand B Pillai <abpillai at gmail dot com>
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
     HGET is free software. See the file LICENSE.txt for information
     on the terms and conditions of usage, and a DISCLAIMER of ALL WARRANTIES.

@@ -22,7 +22,7 @@ This module is part of the HarvestMan program.
 For licensing information see the file LICENSE.txt that
 is included in this distribution.
 
-Author Anand B Pillai <abpillai at gmail dot com>
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
 Created Anand B Pillai April 17 2007 Based on inputs from
                                      the EIAO project.

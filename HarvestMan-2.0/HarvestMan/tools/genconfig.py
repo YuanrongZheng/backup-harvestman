@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -- coding: latin-1
 
+# Author: Anand B Pillai <anand at harvestmanontheweb.com>
+
 # genconfig.py - Script to generate config file for
 # HarvestMan Program.
 

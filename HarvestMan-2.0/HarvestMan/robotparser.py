@@ -6,7 +6,7 @@
     with Python standard library. The author does not assert
     any copyright on this module.
 
-    Author: Anand B Pillai (abpillai at gmail dot com).
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
     
     =============== Original Copyright ============================
     robotparser.py
