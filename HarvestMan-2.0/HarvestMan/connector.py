@@ -1632,10 +1632,10 @@ class HarvestManUrlConnector(object):
         if res==3:
             # Trying multipart download...
             pool = dmgr.get_url_threadpool()
-            while not pool.get_download_status(url):
+            while not pool.get_multipart_download_status(urlobj):
                 time.sleep(1.0)
 
-            data = pool.get_url_data(url)
+            data = pool.get_multipart_url_data(urlobj)
             self._data = data
 
             directory = urlobj.get_local_directory()

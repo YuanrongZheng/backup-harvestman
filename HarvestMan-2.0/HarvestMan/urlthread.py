@@ -251,7 +251,7 @@ class HarvestManUrlThread(threading.Thread):
                 self._busyflag = False
             except Exception, e:
                 # raise
-                # print 'Exception',e
+                debug('Worker thread Exception',e)
                 # Now I am dead - so I need to tell the pool
                 # object to migrate my data and produce a new thread.
                 
@@ -273,9 +273,8 @@ class HarvestManUrlThread(threading.Thread):
                 else:
                     self.__class__._lasterror = e
                     # self._pool.dead_thread_callback(self)
-                    # extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))
+                    extrainfo('Worker thread %s has died due to error: %s' % (str(self), str(e)))
                     extrainfo('Worker thread was downloading URL %s' % url_obj.get_full_url())
-
 
     def get_url(self):
 
@@ -500,9 +499,9 @@ class HarvestManUrlThreadPool(Queue):
             self.put( urlObj )
             # If this URL was multipart, mark it as such
             self._multipartstatus[url] = False
-            extrainfo("Pushed URL to queue", urlObj.get_full_url())            
+            debug("Pushed URL to queue", urlObj.get_full_url())            
         except Full:
-            extrainfo("Thread queue full, appending to buffer", urlObj.get_full_url())
+            debug("Thread queue full, appending to buffer", urlObj.get_full_url())
             self.buffer.append(urlObj)
         
     def get_next_urltask(self):

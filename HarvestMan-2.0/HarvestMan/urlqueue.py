@@ -511,7 +511,7 @@ class HarvestManCrawlerQueue(object):
         # exceeds a certain time.
         if not is_blocked:
             if self.are_crawlers_blocked() and (not self.are_fetchers_blocked()):
-                extrainfo("Managing fetchers...")
+                # extrainfo("Managing fetchers...")
                 # See if fetchers are blocked at download
                 ret = self.manage_blocking_fetchers()
                 if ret:

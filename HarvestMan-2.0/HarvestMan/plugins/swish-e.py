@@ -26,41 +26,56 @@ import time
 from common.common import *
 from types import StringTypes
 
-def process_url1(self, data):
+urllist = []
+
+def process_url(self, data):
     """ Post process url callback for swish-e """
 
     if (type(data) in StringTypes) and len(data):
+        global urllist
+        urllist.append(self._urlobject.get_full_url())
+        
         try:
-            data = unicode(data.encode('ascii'))
+            data = data.encode('ascii', 'ignore')
+            l = len(data)
+            s = ''
+            
+            # Code which works for www.python.org/doc/current/tut/tut.html
+            # and for swish-e.org/docs
+            # if len(data) != len(data.strip()):
+            #    data = data.strip()
+            #    l = len(data) + 1
+
+            add = 0
+            if l != len(data.strip()):
+                # print l, len(data.strip()), self._urlobject.get_full_url()
+                data = data.strip()
+                l = len(data) + 1
+                # print l
+
+            if self.wp.can_index:
+                s ="Path-Name:%s\nContent-Length:%d\n\n%s" % (self._urlobject.get_full_url(),
+                                                             l,
+                                                             data)
+                # Swish-e seems to be very sensitive to any additional
+                # blank lines between content and headers. So stripping
+                # the data of trailing and preceding newlines is important.
+                # print data.strip()
+                try:
+                    print str(s)
+                except IOError, e:
+                    # global urllist
+                    # open('err.out','w').write('\n'.join(urllist))
+                    GetObject('trackerqueue').terminate_threads()
+
             return data
         except UnicodeDecodeError, e:
-            # print e,self._urlobject.get_full_url()
-            return ''
-    else:
-        return ''
+            # open('uni.out','a').write(self._urlobject.get_full_url() + '\n')
+            return data
 
-def process_url2(self, data):
-    
-    # time.sleep(5.0)
-
-    if data:
-        if self.wp.can_index:
-            s="Path-Name: %s\nContent-Length: %d\n\n%s" % (self._urlobject.get_full_url(),
-                                                           len(data),
-                                                           data.strip())
-            #print 'Path-Name:',self._urlobject.get_full_url()
-            #print 'Content-Length:',self._urlobject.clength
-            #print 
-            # Swish-e seems to be very sensitive to any additional
-            # blank lines between content and headers. So stripping
-            # the data of trailing and preceding newlines is important.
-            #print data.strip()
-            print s
-
-            # print '0'*len(data)
-            
     return data
 
+    
 def apply_plugin():
     """ Apply the plugin - overrideable method """
 
@@ -77,9 +92,7 @@ def apply_plugin():
     # Makes sense to activate the callback only if swish-integration
     # is enabled.
     hookswrapper.register_post_callback_method('crawler:fetcher_process_url_callback',
-                                               process_url1)
-    hookswrapper.register_post_callback_method('crawler:fetcher_process_url_callback',
-                                               process_url2)    
+                                               process_url)
     # Turn off caching, since no files are saved
     cfg.pagecache = 0
     # Turn off console-logging
@@ -96,3 +109,5 @@ def apply_plugin():
     # Increase sleep time
     cfg.sleeptime = 1.0
     # sys.stderr = open('swish-errors.txt','wb')
+    # cfg.maxtrackers = 2
+    cfg.usethreads = 0

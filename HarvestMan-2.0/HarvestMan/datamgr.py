@@ -54,7 +54,8 @@ __plugins__ = { 'download_url_plugin': 'HarvestManDataManager:download_url',
                 'dump_url_tree_plugin': 'HarvestManDataManager:dump_url_tree'}
 
 # Defining functions with callbacks
-__callbacks__ = { 'download_url_callback': 'HarvestManDataManager:download_url' }
+__callbacks__ = { 'download_url_callback': 'HarvestManDataManager:download_url',
+                  'post_download_setup_callback' : 'HarvestManDataManager:post_download_setup' }
 
 class HarvestManDataManager(object):
     """ The data manager cum indexer class """
@@ -452,6 +453,10 @@ class HarvestManDataManager(object):
         """ A utility function to conditionally enable/disable
         the cache mechanism """
 
+        # If already page cache is disabled, do not do anything
+        if not self._cfg.pagecache:
+            return
+        
         # If the cache file exists for this project, disable
         # cache, else enable it.
         cachefilename = self.get_proj_cache_filename()
@@ -948,9 +953,9 @@ class HarvestManDataManager(object):
 
             del conn
         else:
-            extrainfo("Scheduling %s for thread download: %s..." % (urlobj.get_full_url(), caller))
+            debug("Scheduling %s for thread download: %s..." % (urlobj.get_full_url(), caller))
             self.thread_download( urlobj )
-            extrainfo("Scheduled %s for thread download: %s" % (urlobj.get_full_url(), caller))
+            debug("Scheduled %s for thread download: %s" % (urlobj.get_full_url(), caller))
             
 
         return data

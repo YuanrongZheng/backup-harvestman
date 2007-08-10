@@ -165,6 +165,8 @@ class HarvestManStateObject(dict):
         self.testnocrawl = False
         self.nocrawl = False
         self.ignoreinterrupts = False
+        # Set to true when a kb interrupt is caught
+        self.keyboardinterrupt = False
         # Differentiate between sub-domains of a domain ?
         # When set to True, subdomains act like different
         # domains, so they are filtered out for fetchlevel<=1
@@ -202,8 +204,6 @@ class HarvestManStateObject(dict):
         self.savesessions = False
         # List of enabled plugins
         self.plugins = []
-        # Attribute value of plugin enabled
-        self.pluginenabled = []
         # Control var for simulation feature
         self.simulate = False
         # Time to sleep between requests
@@ -338,11 +338,10 @@ class HarvestManStateObject(dict):
                          'urlprioritydict_value': ('urlprioritydict', 'dict'),
                          'serverprioritydict_value': ('serverprioritydict', 'dict'),
                          'http_compress' : ('httpcompress', 'int'),
-                         'plugin_name': ('plugins','list:str'),
-                         'plugin_enable': ('pluginenabled', 'list:int')
+                         'plugin_name': ('plugins','func:set_plugin')
                          }
 
-    def assign_option(self, option_val, value):
+    def assign_option(self, option_val, value, kwargs={}):
         """ Assign values to internal variables
         using the option specified """
 
@@ -363,7 +362,7 @@ class HarvestManStateObject(dict):
                 elif value.lower() == 'false':
                     value = 0
 
-            if typ.find('list') == -1:
+            if typ.find(':') == -1:
                 # do any type casting of the option
                 fval = (eval(typ))(value)
                 self[key] = fval
@@ -372,16 +371,22 @@ class HarvestManStateObject(dict):
                 # appending, after doing any type
                 # casting of the actual value
             else:
-                # Type is of the form list:<actual type>
-                typ = (typ.split(':'))[1]
-                if typ:
-                    fval = (eval(typ))(value)
-                else:
-                    fval = value
-                    
-                var = self[key]
-                var.append(fval)
-
+                # Type is of the form <type>:<actual type>
+                typname, typ = typ.split(':')
+                # print 'typename',typname
+                
+                if typname == 'list':
+                    if typ:
+                        fval = (eval(typ))(value)
+                    else:
+                        fval = value
+                        
+                    var = self[key]
+                    var.append(fval)
+                elif typname == 'func':
+                    funktion = getattr(self, typ)
+                    if funktion:
+                        funktion(kwargs)
         else:
             debug('Error in option value %s!' % option_val)
 
@@ -445,7 +450,33 @@ class HarvestManStateObject(dict):
                 return 1
 
         return -1
-    
+
+    def set_option_xml_attr(self, option, value, attrs):
+        """ Set an option from the xml config file for an XML attribute """
+
+        # If option in things to be skipped, return
+        if option in self.items_to_skip:
+            return
+        
+        option_val = self.xml_map.get(option, None)
+        
+        if option_val:
+            try:
+                if type(option_val) is tuple:
+                    self.assign_option(option_val, value, attrs)
+                elif type(option_val) is list:
+                    # If the option_val is a list, there
+                    # might be multiple vars to set.
+                    for item in option_val:
+                        # The item has to be a tuple again...
+                        if type(item) is tuple:
+                            # Set it
+                            self.assign_option(item, value, attrs)
+            except Exception, e:
+                return  
+        else:
+            pass
+
     def set_option_xml(self, option, value):
         """ Set an option from the xml config file """
 
@@ -471,7 +502,14 @@ class HarvestManStateObject(dict):
                 return  
         else:
             pass
-                       
+
+    def set_plugin(self, plugindict):
+        """ Function for setting plugins from config file """
+
+        plugin = plugindict['name']
+        enable = int(plugindict['enable'])
+        if enable: self.plugins.append(plugin)
+        
     def parse_arguments(self):
         """ Parse the command line arguments """
 
@@ -602,10 +640,8 @@ class HarvestManStateObject(dict):
                     plugins = value.split('+')
                     # Remove any duplicate occurence of same plugin
                     self.plugins = list(set([plugin.strip() for plugin in plugins]))
-                    self.pluginenabled = [1]*len(self.plugins)
                     # Don't allow reading plugin from config file now
                     self.items_to_skip.append('plugin_name')
-                    self.items_to_skip.append('plugin_enabled')                    
 
         elif self.appname == 'Hget':
             # Hget options
@@ -849,21 +885,9 @@ class HarvestManStateObject(dict):
             if not basedir:
                 self.basedirs.append('.')
 
-            # Fix plugins
-            # Remove duplicates if any
-            # print '2',self.plugins
             self.plugins = list(set(self.plugins))
-            # For every plugin find if it is enabled,
-            # if not, remove from list.
-            plugins = self.plugins[:]
-            # print plugins
-
-            for x in range(len(plugins)):
-                plugin = plugins[x]
-                enabled = self.pluginenabled[x]
-                if not enabled:
-                    self.plugins.remove(plugin)
-
+            print 'plugins',self.plugins
+            
             if 'swish-e' in self.plugins:
                 # Disable any message output for swish-e
                 from common.common import SetLogSeverity

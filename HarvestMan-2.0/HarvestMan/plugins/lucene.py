@@ -20,15 +20,6 @@ import threading
 from common.common import *
 from types import StringTypes
 
-# We keep all Lucene Documents here until they are indexed at the end
-# Reason is that PyLucene does not work with normal Python threads
-# and requires its own threads (PyLucene.PyThread). Since HarvestMan
-# uses Python threads, this will cause crashes, if we add the document
-# to the writer while the program is running. For more information
-# see http://chandlerproject.org/PyLucene/ThreadingInPyLucene
-
-doclist = []
-
 class PorterStemmerAnalyzer(object):
 
     def tokenStream(self, fieldName, reader):
@@ -41,9 +32,10 @@ class PorterStemmerAnalyzer(object):
 
         return result
 
-def init_further(self, arg):
-    """ Post-callback for init method """
+def create_index(self, arg):
+    """ Post download setup callback for creating a lucene index """
 
+    moreinfo("Creating lucene index")
     storeDir = "index"
     if not os.path.exists(storeDir):
         os.mkdir(storeDir)
@@ -55,42 +47,51 @@ def init_further(self, arg):
     # self.lucene_writer = PyLucene.IndexWriter(store, PorterStemmerAnalyzer(), True)    
     self.lucene_writer.setMaxFieldLength(1048576)
     
-def process_url_further(self, data):
-    """ Post process url callback for pylucene """
+    count = 0
 
-    # Only HTML pages will be indexed
-    doc = PyLucene.Document()
-    # Let us point to the web URL of the document
-    path = self._urlobject.get_full_url()
-    # filename - The disk filename of the document
-    filename = self._urlobject.get_full_filename()
+    urllist = []
     
-    doc.add(PyLucene.Field("name", filename,
-                           PyLucene.Field.Store.YES,
-                           PyLucene.Field.Index.UN_TOKENIZED))
-    doc.add(PyLucene.Field("path", path,
-                           PyLucene.Field.Store.YES,
-                           PyLucene.Field.Index.UN_TOKENIZED))
-    if data and len(data) > 0:
-        doc.add(PyLucene.Field("contents", data,
-                               PyLucene.Field.Store.YES,
-                               PyLucene.Field.Index.TOKENIZED))
-    else:
-        extrainfo("warning: no content in %s" % filename)
+    for urlobj in self._urldict.values():
 
-    # Don't add yet - keep in a buffer.
-    global doclist
-    doclist.append(doc)
+        filename = urlobj.get_full_filename()
+        url = urlobj.get_full_url()
 
-    return data
+        try:
+            urllist.index(url)
+            continue
+        except ValueError:
+            urllist.append(url)
 
-def before_finalize(self):
-    """ Pre callback for finalize method """
-
-    moreinfo("Creating lucene index")
-    for doc in doclist:
-        self.lucene_writer.addDocument(doc)
+        if not filename in self._downloaddict['_savedfiles']: continue
         
+        data = ''
+
+        moreinfo('Adding index for URL',url)
+        
+        if os.path.isfile(filename):
+            try:
+                data = unicode(open(filename).read(), 'iso-8859-1')
+            except UnicodeDecodeError, e:
+                data = ''
+            
+        doc = PyLucene.Document()
+        doc.add(PyLucene.Field("name", filename,
+                               PyLucene.Field.Store.YES,
+                               PyLucene.Field.Index.UN_TOKENIZED))
+        doc.add(PyLucene.Field("path", url,
+                               PyLucene.Field.Store.YES,
+                               PyLucene.Field.Index.UN_TOKENIZED))
+        if data and len(data) > 0:
+            doc.add(PyLucene.Field("contents", data,
+                                   PyLucene.Field.Store.YES,
+                                   PyLucene.Field.Index.TOKENIZED))
+        else:
+            extrainfo("warning: no content in %s" % filename)
+
+        self.lucene_writer.addDocument(doc)
+        count += 1
+
+    moreinfo('Created lucene index for %d documents' % count)
     moreinfo('Optimizing lucene index')
     self.lucene_writer.optimize()
     self.lucene_writer.close()
@@ -108,12 +109,8 @@ def apply_plugin():
 
     cfg = GetObject('config')
 
-    hookswrapper.register_post_callback_method('harvestmanklass:init_callback',
-                                               init_further)    
-    hookswrapper.register_post_callback_method('crawler:fetcher_process_url_callback',
-                                               process_url_further)
-    hookswrapper.register_pre_callback_method('harvestmanklass:finalize_callback',
-                                               before_finalize)
+    hookswrapper.register_post_callback_method('datamgr:post_download_setup_callback',
+                                               create_index)
     #logger.disableConsoleLogging()
     # Turn off session-saver feature
     cfg.savesessions = False

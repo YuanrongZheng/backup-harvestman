@@ -81,7 +81,7 @@
       <plugins>
         <plugin name="swish-e" enable="0" />
         <plugin name="simulator" enable="0" />
-        <plugin name="lucene" enable="0" />
+        <plugin name="lucene" enable="1" />
       </plugins>
     </control>
 

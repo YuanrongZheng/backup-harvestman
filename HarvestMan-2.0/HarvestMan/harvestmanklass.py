@@ -441,6 +441,7 @@ class HarvestMan(object):
                 self.start_project()
         except (KeyboardInterrupt, ), e:
            if not self._cfg.ignoreinterrupts:
+               self._cfg.keyboardinterrupt = True
                logconsole('Exception received=>',str(e))
                # dont allow to write cache, since it
                # screws up existing cache.

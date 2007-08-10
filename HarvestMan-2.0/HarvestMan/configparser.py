@@ -53,7 +53,7 @@ class HarvestManConfigParser(object):
                 xmlkey = "".join((name, "_", key))
                 # Set value
                 if self.cfg:
-                    self.cfg.set_option_xml(xmlkey, value)
+                    self.cfg.set_option_xml_attr(xmlkey, value, attrs)
                 else:
                    print key, value
         else:
