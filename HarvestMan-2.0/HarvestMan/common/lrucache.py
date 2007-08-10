@@ -1,8 +1,9 @@
 """
 lrucache.py - Length-limited O(1) LRU cache implementation
 
-Created Anand B Pillai <abpillai@gmail.com> Jun 26 2007 from ASPN Python
-                                            Cookbook recipe #252524.
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
+    
+Created Anand B Pillai Jun 26 2007 from ASPN Python Cookbook recipe #252524.
 
 {http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/252524}
 

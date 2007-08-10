@@ -33,7 +33,7 @@ This module was originally created as an ASPN cookbook
 recipe http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/425345 .
 The current module is a slightly modified form of the recipe.
 
-Author: Anand B Pillai <abpillai at gmail dot com>
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
 Created: Feb 11 2007 by Anand B Pillai 
 

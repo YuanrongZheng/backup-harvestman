@@ -15,7 +15,9 @@ sets a given method as a pre or post callback method on a class.
 This module is part of the HarvestMan program. For licensing
 information see the file LICENSE.txt that is included in this distribution.
 
-Created Anand B Pillai <abpillai at gmail dot com> Feb 17 2007
+Author: Anand B Pillai <anand at harvestmanontheweb.com>
+    
+Created Anand B Pillai Feb 17 2007
 
 Copyright (C) 2007 Anand B Pillai.
 """

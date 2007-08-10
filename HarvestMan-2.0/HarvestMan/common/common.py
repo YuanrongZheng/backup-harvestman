@@ -3,7 +3,7 @@
     This file is part of the HarvestMan software.
     For licensing information, see file LICENSE.TXT.
 
-    Author: Anand B Pillai <abpillai at gmail dot com>
+    Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
     Created: Jun 10 2003
 
