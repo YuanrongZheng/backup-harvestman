@@ -3,6 +3,9 @@
     entity characters (characters starting with an ampersand
     and ending with a semicolon). 
 
+    All entities here added from
+    http://www.w3schools.com/tags/ref_entities.asp
+    
     This module is part of the HarvestMan program.
     For licensing information see the file LICENSE.txt that
     is included in this distribution.
@@ -108,7 +111,39 @@ char_names = ['LESS-THAN SIGN',
               'BROKEN BAR',
               'SECTION SIGN',
               'LEFT-POINTING DOUBLE ANGLE QUOTATION MARK',
-              'RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK']
+              'RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK',
+              'EURO SIGN',
+              'SINGLE RIGHT-POINTING ANGLE QUOTATION MARK',
+              'SINGLE LEFT-POINTING ANGLE QUOTATION MARK',              
+              'PER MILLE SIGN',
+              'HORIZONTAL ELLIPSIS',
+              'DOUBLE DAGGER',
+              'DAGGER',
+              'DOUBLE LOW-9 QUOTATION MARK',
+              'RIGHT DOUBLE QUOTATION MARK',
+              'LEFT DOUBLE QUOTATION MARK',
+              'SINGLE LOW-9 QUOTATION MARK',
+              'RIGHT SINGLE QUOTATION MARK',
+              'LEFT SINGLE QUOTATION MARK',
+              'EM DASH',
+              'EN DASH',
+              'LATIN SMALL LETTER S WITH CARON',
+              'LATIN CAPITAL LETTER S WITH CARON',
+              'LATIN SMALL LIGATURE OE',
+              'LATIN CAPITAL LIGATURE OE',
+              'INVERTED EXCLAMATION MARK',
+              'CURRENCY SIGN',
+              'DIAERESIS',
+              'FEMININE ORDINAL INDICATOR',
+              'NOT SIGN',
+              'TRADE MARK SIGN',
+              'MACRON',
+              'ACUTE ACCENT',
+              'CEDILLA',
+              'MASCULINE ORDINAL INDICATOR',
+              'MULTIPLICATION SIGN',
+              'DIVISION SIGN'
+              ]
 
 # Entity characters
 ampersand_strings = ('&lt;','&gt;','&amp;','&quot;',
@@ -132,7 +167,15 @@ ampersand_strings = ('&lt;','&gt;','&amp;','&quot;',
                      '&cent;','&pound;','&yen;','&frac14;',
                      '&frac12;','&frac34;','&sup1;','&sup2;',
                      '&sup3;','&iquest;','&deg;','&brvbar;',
-                     '&sect;','&laquo;','&raquo;')
+                     '&sect;','&laquo;','&raquo;','&euro;',
+                     '&rsaquo;','&lsaquo;','&permil;','&hellip;',
+                     '&Dagger;','&dagger;','&bdquo;','&rdquo;',
+                     '&ldquo;','&sbquo;','&rsquo;','&lsquo;',
+                     '&mdash;','&ndash;','&scaron;','&Scaron;',
+                     '&oelig;','&OElig;','&iexcl;','&curren;',
+                     '&uml;','&ordf;','&not;','&trade;',
+                     '&macr;','&acute;','&cedil;','&ordm;','&times;',
+                     '&divide;')
                          
                          
 def modify_url(url):

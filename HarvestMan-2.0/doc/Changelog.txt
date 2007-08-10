@@ -16,9 +16,12 @@ the program very easily by defining simple plugin modules.
 2. Integration with swish-e which allows HarvestMan to
 run as an external program for feeding content to swish-e.
 Swish-e support is implemented as a standard plugin.
+3. Integration with Lucene using PyLucene which allows
+to use HarvestMan to crawl and index web pages using
+lucene. Lucene support is implemented as a standard plugin.
 3. A simulate feature which allows to simulate crawls 
 without performing any actual downloads. Simulate feature
-is also implemented as plugin.
+is implemented as plugin.
 4. A session-save & restore feature which allows to save
 state of HarvestMan in a session file upon crashes or manual
 kills. The program can then resume from this state on the
@@ -37,6 +40,10 @@ other stylesheets referred in them.
 10. Support for META REFRESH tags.
 11. Support for HTML embed, object tags.
 12. Support for HTTP compression.
+13. Support for byte-range downloading in threads. Program
+attempts to split large files to several chunks across multiple
+threads.
+14. Support for HTML entities in URLs.
 
 Other Changes
 =============
@@ -69,7 +76,7 @@ cases. All classes now start with upper-case letters.
 12. The following command line options have been added,
 removed or updated.
 
-  1. --subdomain, -S: Removed, -S is now used for savesessions option.
+  1. --subdomain, -S: Changed to -s.
   2. -m,--simulate: New option to simulate crawling.
   3. -g,--plugin: New option to apply a given plugin.
   4. -S,--savesession: New option to turn session saver feature on/off.
@@ -111,3 +118,4 @@ download rate stats as bps (should be kbps).
 9. Fixed problem with URLs not downloaded when base url is
 redefined. This was causing a deep-crawling problem for
 some sites.
+10. Fixed bugs in re-resolving of URLs in urlparser module.
