@@ -1,3 +1,4 @@
+<!--- Template configuration XML file for HarvestMan -->
 <?xml version="1.0" encoding="utf-8"?>
 
 <HarvestMan xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -7,11 +8,11 @@
       
       <project skip="0">
 
-        <url>www.python.org/doc/current/tut/tut.html</url>
-        <name>pytut</name>
+        <url></url>
+        <name></name>
 
-        <basedir>~/websites</basedir>
-        <verbosity value="3"/>
+        <basedir></basedir>
+        <verbosity value="2"/>
       </project>
       
     </projects>
@@ -40,7 +41,7 @@
         <http compress="1" type="gzip" />
       </protocol>
       <misc>
-        <retries value="1"/>
+        <retries value="0"/>
       </misc>
     </download>
     
@@ -94,8 +95,8 @@
     </system>
     
     <files>
-      <urllistfile>urls-list.txt</urllistfile>
-      <urltreefile>urls.html</urltreefile>
+      <urllistfile></urllistfile>
+      <urltreefile></urltreefile>
       <archive status="0" format="bzip"/>
       <urlheaders status="1" />
     </files>

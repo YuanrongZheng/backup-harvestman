@@ -749,13 +749,12 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     mgr.add_url(child_urlobj)
                     coll.addURL(child_urlobj)
 
-                    #extrainfo('URL: %s FROMURL: %s' % (url, self._urlobject.get_full_url()))
-                    #extrainfo('CONSTRUCTED URL: %s' % child_urlobj.get_full_url())
+                    # extrainfo('URL: %s FROMURL: %s' % (url, self._urlobject.get_full_url()))
+                    # extrainfo('CONSTRUCTED URL: %s' % child_urlobj.get_full_url())
                     
-                except urlparser.HarvestManUrlParserError:
+                except urlparser.HarvestManUrlParserError, e:
+                    debug('Error: ',e)
                     continue
-
-
                 
             if not self._crawlerqueue.push((url_obj.priority, coll), 'fetcher'):
                 if self._pushflag: self.buffer.append((url_obj.priority, coll))

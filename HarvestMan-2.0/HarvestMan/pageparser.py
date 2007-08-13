@@ -374,9 +374,11 @@ class HarvestManCSSParser(object):
 
 if __name__=="__main__":
     import os
+    import config
+    import logger
     
-    InitConfig()
-    InitLogger()
+    InitConfig(config.HarvestManStateObject)
+    InitLogger(logger.HarvestManLogger)
     
     cfg = GetObject('config')
     cfg.verbosity = 5
@@ -388,7 +390,8 @@ if __name__=="__main__":
     urls = ['http://projecteuler.net/index.php?section=problems']
     urls = ['http://www.evvs.dk/index.php?cPath=30&osCsid=3b110c689f01d722dbbe53c5cee0bf2d']
     urls = ['http://nltk.sourceforge.net/lite/doc/api/nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html']
-
+    urls = ['ftp://ftp.gnu.org']
+    
     for url in urls:
         if os.system('wget %s -O index.html' % url ) == 0:
             p.feed(open('index.html').read())

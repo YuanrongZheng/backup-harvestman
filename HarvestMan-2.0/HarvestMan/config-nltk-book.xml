@@ -7,8 +7,8 @@
       
       <project skip="0">
 
-        <url>www.python.org/doc/current/tut/tut.html</url>
-        <name>pytut</name>
+        <url>http://nltk.sourceforge.net/index.php/Book</url>
+        <name>nltk-book</name>
 
         <basedir>~/websites</basedir>
         <verbosity value="3"/>
@@ -40,7 +40,7 @@
         <http compress="1" type="gzip" />
       </protocol>
       <misc>
-        <retries value="1"/>
+        <retries value="0"/>
       </misc>
     </download>
     
@@ -50,7 +50,7 @@
         <stylesheetlinks value="1"/>
       </links>
       <extent>
-        <fetchlevel value="0"/>
+        <fetchlevel value="3"/>
         <extserverlinks value="0"/>
         <extpagelinks value="1"/>
         <depth value="10"/>
@@ -72,7 +72,7 @@
         <serverpriority></serverpriority>
       </rules>
       <filters>
-        <urlfilter></urlfilter>
+        <urlfilter>+nltk.org/doc/en/*</urlfilter>
         <serverfilter></serverfilter>
         <wordfilter></wordfilter>
         <junkfilter value="1"/>
@@ -80,7 +80,7 @@
       <plugins>
         <plugin name="swish-e" enable="0" />
         <plugin name="simulator" enable="0" />
-        <plugin name="lucene" enable="0" />
+        <plugin name="lucene" enable="1" />
       </plugins>
     </control>
 
@@ -101,7 +101,7 @@
     </files>
     
     <indexer>
-      <localise value="2"/>
+      <localise value="0"/>
     </indexer>
     
     <display>

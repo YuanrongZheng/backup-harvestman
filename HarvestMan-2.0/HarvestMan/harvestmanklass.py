@@ -75,11 +75,6 @@ class HarvestMan(object):
                 browser = utils.HarvestManBrowser()
                 browser.make_project_browse_page()
 
-        # Clean up lists inside data manager
-        GetObject('datamanager').clean_up()
-        # Clean up lists inside rules module
-        GetObject('ruleschecker').clean_up()
-
     def finalize(self):
         """ This function can be called at program exit or
         when handling signals to clean up """
@@ -105,7 +100,12 @@ class HarvestMan(object):
 
         RegisterObj.ini = 0
         RegisterObj.logger.shutdown()
-        
+
+        # Clean up lists inside data manager
+        # GetObject('datamanager').clean_up()
+        # Clean up lists inside rules module
+        # GetObject('ruleschecker').clean_up()
+
     def save_current_state(self):
         """ Save state of objects to disk so program
         can be restarted from saved state """

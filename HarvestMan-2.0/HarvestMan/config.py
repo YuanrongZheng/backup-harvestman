@@ -55,6 +55,7 @@ Author: Anand B Pillai
 Mail bug reports and suggestions to <anand@harvestmanontheweb.com>."""
 
 import os, sys
+import re
 import configparser
 import options
 import urlparser
@@ -108,7 +109,7 @@ class HarvestManStateObject(dict):
         self.errorfile='errors.log'
         self.localise=2
         self.jitlocalise=0
-        self.images=0
+        self.images=1
         self.depth=10
         self.html=1
         self.robots=1
@@ -713,6 +714,7 @@ class HarvestManStateObject(dict):
             # URLs from the config file - same for plugins
             self.items_to_skip = ['url','name','basedir','verbosity_value']
 
+        # print 'URLS=>',self.urls
         # If urlfile option set, read all URLs from a file
         # and load them.
         if self.urlfile:
@@ -731,20 +733,29 @@ class HarvestManStateObject(dict):
 
                     for line in lines:
                         url = line.strip()
-                        self.urls.append(url)
-                        # Create project name
-                        h = urlparser.HarvestManUrlParser(url)
-                        project = h.get_domain()
-                        self.projects.append(project)
-                        self.basedirs.append('.')
+                        # Fix URL protocol string
+                        url = self._fix_url_protocol(url)
+                        try:
+                            # Create project name
+                            h = urlparser.HarvestManUrlParser(url)
+                            self.urls.append(url)
+                            project = h.get_domain()
+                            self.projects.append(project)
+                            self.basedirs.append('.')
+                        except urlparser.HarvestManUrlParserError, e:
+                            continue
 
                     # We would now want to skip url, project,
                     # basedir etc in the config file
                     self.items_to_skip = ['url','name','basedir','verbosity_value']
-                        
+
             except Exception, e:
                 print e
                 return -1
+
+
+        # print 'URLS=>',self.urls
+        # sys.exit(0)
                         
         # Error in option value
         if self._error:
@@ -810,6 +821,19 @@ class HarvestManStateObject(dict):
 
         print 'Version: %s %s' % (self.version, self.maturity)
 
+    def _fix_url_protocol(self, url):
+        """ Fix URL protocol string """
+        
+        r = re.compile('www\d?\.|http://|https://|ftp://|file://',re.IGNORECASE)
+        if not r.match(url):
+            # Assume http url
+            # prepend http:// to it
+            # We prepend http:// to even FTP urls so that
+            # the ftp servers can be crawled.
+            url = 'http://' + url
+
+        return url
+    
     def _fix(self):
         """ Fix errors in config variables """
 
@@ -850,26 +874,8 @@ class HarvestManStateObject(dict):
             # If null url, return
             if not url: continue
 
-            # Check for protocol strings
-            # http://
-            pindex = -1
-            pindex = url.find('http://')
-            if pindex == -1:
-                # ftp://
-                pindex = url.find('ftp://')
-                if pindex == -1:
-                    # https://
-                    pindex = url.find('https://')
-                    if pindex == -1:
-                        # www.
-                        pindex = url.find('www.')
-                        if pindex == -1:
-                            pindex = url.find('file://')
-                            if pindex == -1:
-                                # prepend http:// to it
-                                url = 'http://' + url
-
-
+            # Fix protocol strings
+            url = self._fix_url_protocol(url)
             self.urls[x] = url
             
             # If project is not set, set it to domain

@@ -31,7 +31,7 @@ Either the plugin can be given as a command-line parameter using the
 -g/--plugins option, or it can be specified in the configuration file
 by editing the "plugins" element and adding an appopriate plugin
 element with its "enable" attribute set to 1. For more information
-read the HOWTO.plugins document in the "plugins" folder.
+read the HOWTO.plugins document in the "doc" folder.
 
 There are also two ways to pass URL and other options. The suggested
 way is to create an appropriate configuration file and put all the
