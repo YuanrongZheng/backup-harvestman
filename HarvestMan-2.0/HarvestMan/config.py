@@ -109,7 +109,7 @@ class HarvestManStateObject(dict):
         self.errorfile='errors.log'
         self.localise=2
         self.jitlocalise=0
-        self.images=1
+        self.images=0
         self.depth=10
         self.html=1
         self.robots=1
@@ -202,7 +202,7 @@ class HarvestManStateObject(dict):
         self.resuming = False
         self.runfile = None
         # Control var for session-saver feature.
-        self.savesessions = False
+        self.savesessions = True
         # List of enabled plugins
         self.plugins = []
         # Control var for simulation feature
@@ -214,6 +214,12 @@ class HarvestManStateObject(dict):
         self.useasyncore = True
         # For http compression
         self.httpcompress = True
+        # Type of URLs which can be
+        # set to skip any rules we define
+        # This is not a user configurable
+        # option, but can be configured in
+        # plugins, of course.
+        self.skipruletypes = []
         # Number of parts to split a file
         # to, for multipart http downloads
         self.numparts = 5

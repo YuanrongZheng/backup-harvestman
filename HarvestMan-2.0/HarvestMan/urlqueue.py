@@ -96,9 +96,17 @@ class HarvestManCrawlerQueue(object):
         # Condition object for exit condition checking
         # loop - to halt exit condition check, acquire this lock
         self._cond = threading.Condition(threading.Lock())
-
+        # Event object
+        self._evt = threading.Event()
+        self._evt.set()
+        
     def get_state(self):
 
+        # Set flag
+        self._flag = 1
+        # Clear event
+        self._evt.clear()
+        
         # Return state of this object,
         # it's queues and the threads it contain
         d = {}
@@ -113,9 +121,9 @@ class HarvestManCrawlerQueue(object):
         # For the queues, get their contents
         q1 = self.url_q.queue
         # This is an index of priorities and url indices
-        d['url_q'] = copy.deepcopy(q1)
+        d['url_q'] = q1
         q2 = self.data_q.queue
-        d['data_q'] = copy.deepcopy(q2)
+        d['data_q'] = q2
 
         # Thread dictionary
         tdict = {}
@@ -138,9 +146,12 @@ class HarvestManCrawlerQueue(object):
             tdict[t._index] = d2
             
         d['threadinfo'] = tdict
-        
-        return copy.deepcopy(d)
 
+        dcopy = copy.deepcopy(d)
+        self._evt.set()
+        
+        return dcopy
+        
     def set_state(self, state):
         """ Set state to a previous saved state """
 
@@ -368,7 +379,8 @@ class HarvestManCrawlerQueue(object):
         """ Pop url data from the queue """
 
         if self._flag: return None
-
+        self._evt.wait()
+        
         obj = None
 
         blk = self._configobj.blocking
@@ -640,8 +652,8 @@ class HarvestManCrawlerQueue(object):
         """ Push trackers to the queue """
 
         if self._flag: return
-
-
+        self._evt.wait()
+        
         ntries, status = 0, 0
 
         if role == 'crawler' or role=='tracker' or role =='downloader':

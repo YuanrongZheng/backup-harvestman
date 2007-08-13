@@ -138,8 +138,9 @@ class HarvestMan(object):
         try:
             cPickle.dump(state, open(fname, 'wb'), pickle.HIGHEST_PROTOCOL)
             moreinfo('Saved run-state to file %s.' % fname)
-        except pickle.PicklingError, e:
+        except (pickle.PicklingError, RuntimeError), e:
             logconsole(e)
+            moreinfo('Could not save run-state !')
         
     def welcome_message(self):
         """ Print a welcome message """
@@ -475,6 +476,7 @@ class HarvestMan(object):
                 for key,val in cfg.items():
                     self._cfg[key] = val
             else:
+                print 'Config corrupted'
                 # Corrupted object ?
                 return -1
 
@@ -497,6 +499,7 @@ class HarvestMan(object):
                 logconsole("Error restoring state in 'datamgr' module - cannot proceed further!")
                 return -1
             else:
+                dm.initialize()
                 logconsole("Restored state in datamgr module.")                
             
             # Update threadpool if any
@@ -513,7 +516,8 @@ class HarvestMan(object):
             
             return 0
         except (pickle.UnpicklingError, AttributeError, IndexError, EOFError), e:
-           return -1
+            raise
+            return -1
 
     def run_saved_state(self):
 

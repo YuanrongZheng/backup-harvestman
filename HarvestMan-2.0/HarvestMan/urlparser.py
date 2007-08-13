@@ -209,9 +209,15 @@ class HarvestManUrlParser(object):
         self.validfilenameold = 'index.html'
         # Archive for self.rpath
         self.rpathold = []
+        # Archive for self.domain
+        self.domainold = ''
         # Re-computation flag
         self.reresolved = False
         self.baseurl = None
+        # Hash of page data
+        self.pagehash = ''
+        # Flag for using old filename
+        self.useoldfilename = False
         # Base Url Dictionary
         if baseurl:
             if isinstance(baseurl, HarvestManUrlParser):
@@ -266,6 +272,7 @@ class HarvestManUrlParser(object):
         self.rpathold = self.rpath[:]
         self.filenameold = self.filename[:]
         self.validfilenameold = self.validfilename[:]
+        self.domainold = self.domain[:]
         self.re_init()
         
         self.anchorcheck()
@@ -946,7 +953,12 @@ class HarvestManUrlParser(object):
         m = md5.new()
         m.update(self.get_full_domain())
         return str(m.hexdigest())
-                 
+
+    def get_data_hash(self):
+        """ Return the hash value for the URL data """
+
+        return self.pagehash
+
     def get_domain(self):
         """ Return the domain (server) for this url object """
         
@@ -986,6 +998,9 @@ class HarvestManUrlParser(object):
         This is created w.r.t the local directory where we save
         the url data """
 
+        if self.useoldfilename:
+            return self.get_full_filename_old()
+        
         if not self.__class__.TEST:
             cfg = GetObject('config')
             if cfg.rawsave:
@@ -995,16 +1010,38 @@ class HarvestManUrlParser(object):
         else:
             return os.path.join(self.get_local_directory(), self.get_filename())            
 
-    def get_filename(self):
-        """ Return the filenam of this url on the disk. """
+    def get_full_filename_old(self):
+        """ Return the old full filename of this url on the disk.
+        This is created w.r.t the local directory where we save
+        the url data """
 
+        if not self.__class__.TEST:
+            cfg = GetObject('config')
+            if cfg.rawsave:
+                return self.get_filename_old()
+            else:
+                return os.path.join(self.get_local_directory_old(), self.get_filename_old())
+        else:
+            return os.path.join(self.get_local_directory_old(), self.get_filename_old())            
+
+    def get_filename(self):
+        """ Return the filename of this url on the disk. """
+
+        if self.useoldfilename:
+            return self.validfilenameold
+        
         # NOTE: This is just the filename, not the absolute filename path
         if not self.filelike:
             self.validfilename = 'index.html'
             
         return self.validfilename
 
-        
+    def get_filename_old(self):
+        """ Return the old filename of this url on the disk. """
+
+        # NOTE: This is just the filename, not the absolute filename path
+        return self.validfilenameold
+    
     def get_relative_filename(self, filename=''):
 
         # NOTE: Rewrote this method completely
@@ -1193,6 +1230,19 @@ class HarvestManUrlParser(object):
             rval = os.path.abspath( os.path.join(rval, self.make_valid_filename(diry)))
 
         return os.path.normpath(rval)
+
+    def get_local_directory_old(self):
+        """ Return the old local directory path of this url w.r.t
+        the directory on the disk where we save the files of this url """
+        
+        # Gives Local Direcory path equivalent to URL Path in server
+        rval = os.path.join(self.rootdir, self.domainold)
+
+        for diry in self.dirpathold:
+            if not diry: continue
+            rval = os.path.abspath( os.path.join(rval, self.make_valid_filename(diry)))
+
+        return os.path.normpath(rval)    
 
     # ============ Begin - Set Methods =========== #
 

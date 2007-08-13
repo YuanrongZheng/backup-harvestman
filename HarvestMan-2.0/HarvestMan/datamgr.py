@@ -92,7 +92,10 @@ class HarvestManDataManager(object):
         self._redownload = False
         # Cached list of failed sf mirrors
         self._failedsfmirrors = []
-
+        # Event object for holding threads
+        self._evt = tg.Event()
+        self._evt.set()
+        
     def initialize(self):
         """ Do initializations per project """
 
@@ -106,15 +109,21 @@ class HarvestManDataManager(object):
     def get_state(self):
         """ Return a snapshot of the current state of this
         object and its containing threads for serializing """
+
+        # Hold threads
+        self._evt.clear()
         
         d = {}
         d['_numfailed'] = self._numfailed
-        d['_downloaddict'] = self._downloaddict.copy()
-        d['_urldict'] = self._urldict.copy()
-        d['_serversdict'] = self._serversdict.copy()        
+        d['_downloaddict'] = self._downloaddict
+        d['_urldict'] = self._urldict
+        d['_serversdict'] = self._serversdict
         d['_bytes'] = self._bytes
-        
-        return copy.deepcopy(d)
+
+        dcopy = copy.deepcopy(d)
+        self._evt.set()
+                
+        return dcopy
 
     def set_state(self, state):
         """ Set state to a previous saved state """
@@ -466,73 +475,11 @@ class HarvestManDataManager(object):
         else:
             self._cfg.pagecache = True
 
-    def write_scen_info2(self):
-        """Write the scenario information about each URL to the URL repository
-        """
-
-        import urlcollections
-        
-        allscenarios = []
-        collections = self._downloaddict.get('_collections')
-        
-        for collection in collections:
-            contextdict = collection.getContextDict()
-
-            # Scenario URL ID
-            scenariourlid = collection.getSourceURL()
-            scenariourl = self.get_url(scenariourlid).get_full_url()
-            domain = urlparse.urlparse(self.get_url(scenariourlid).get_full_domain())[1]
-
-            contextfound = False
-            
-            for context, childurlindices in contextdict.iteritems():
-                # Keys are context classes
-
-                # Create unique scenario ID - this is done by adding
-                # the id of the context dictionary and the id of the key
-                # i.e, the context class.
-                scenarioid = abs(id(context) + id(contextdict))
-
-                # Now append child URL information for supported scenarios
-                # These are HTML-CSS context (HarvestManStyleContext) and
-                # Frameset-Frame context (HarvestManFrameContext) 
-                if context in (urlcollections.HarvestManStyleContext,
-                               urlcollections.HarvestManFrameContext):
-
-                    contextfound = True
-                    
-                    allscenarios.append({'domain':domain,
-                                         'url':scenariourl,
-                                         'scenarioid':scenarioid,
-                                         'pageindex':scenariourlid})
-
-
-                    for childurlidx in childurlindices:
-                        childurl = self.get_url(childurlidx).get_full_url()
-                        
-                        # Append child URL information 
-                        allscenarios.append({'domain':domain,
-                                             'url':childurl,
-                                             'scenarioid':scenarioid,
-                                             'pageindex':childurlidx})                        
-
-            if not contextfound:
-                # No context found for this URL i.e it may not
-                # have any child CSS or frame URLs - So append
-                # it to the scenarios list with its own ID as the
-                # scenario id
-                allscenarios.append({'domain':domain,
-                                     'url':scenariourl,
-                                     'scenarioid':scenariourlid,
-                                     'pageindex':scenariourlid})
-
-
-        return allscenarios
-    
     def post_download_setup(self):
         """ Actions to perform after project is complete """
 
-        # open('sceninfo.txt','w').write(str(self.write_scen_info2()))
+        # Clear event to block all threads
+        self._evt.clear()
         
         if self._cfg.retryfailed:
             self._numfailed = len(self._downloaddict['_failedurls'])
@@ -545,7 +492,7 @@ class HarvestManDataManager(object):
 
                 # FIXME: Since a copy of urlobject is made, we need to
                 # modify the logic in update_file_stats function for failedurls.
-                failedurls = copy.deepcopy(self._downloaddict['_failedurls'])
+                failedurls = self._downloaddict['_failedurls']
                 # print id(failedurls), id(self._downloaddict['_failedurls'])
                 for urlobj in failedurls:
                     if not urlobj.fatal:
@@ -587,6 +534,8 @@ class HarvestManDataManager(object):
         if self._cfg.urltreefile:
             self.dump_urltree(self._cfg.urltreefile)
 
+        self._evt.set()
+        
         if not self._cfg.project: return
 
         # print stats of the project
@@ -626,6 +575,9 @@ class HarvestManDataManager(object):
 
         if self._redownload: return -1
 
+        # Wait on the event
+        self._evt.wait()
+        
         try:
             self._downloaddict['_failedurls'].index(urlObject)
         except:
@@ -636,6 +588,9 @@ class HarvestManDataManager(object):
     def remove_file_from_stats(self, filename, typ=0):
         """ Removed passed file from stats data structures """
 
+        # Wait on the event
+        self._evt.wait()
+        
         # typ mapping
         # 0 => saved files
         if typ==0:
@@ -651,6 +606,9 @@ class HarvestManDataManager(object):
 
         if not urlObject: return -1
 
+        # Wait on the event
+        self._evt.wait()
+        
         # Bug: we should be getting this url as rooturl and not
         # the base url of this url.
         filename = urlObject.get_full_filename()
@@ -684,6 +642,9 @@ class HarvestManDataManager(object):
     def update_links(self, collection):
         """ Update the links dictionary for this collection """
 
+        # Wait on the event
+        self._evt.wait()
+        
         linkscoll = self._downloaddict.get('_collections')
         linkscoll.append(collection)
 
@@ -893,6 +854,9 @@ class HarvestManDataManager(object):
         # Modified: Add all urlobjects to a local list
         # to avoid duplicate downloads. This is the best
         # way rather than checking downloads in progress.
+
+        # Wait on the event
+        self._evt.wait()
         
         url = urlobj.get_full_url()
         
@@ -1047,7 +1011,6 @@ class HarvestManDataManager(object):
         """ Add original URL headers of urls downloaded
         as an entry to the cache file """
 
-
         linkscoll = self._downloaddict['_collections']
         listoflinks = [coll.getAllURLs() for coll in linkscoll]
 
@@ -1103,18 +1066,21 @@ class HarvestManDataManager(object):
         
         info('Localising links of downloaded web pages...',)
 
-        linkscoll = copy.copy(self._downloaddict['_collections'])
+        linkscoll = self._downloaddict['_collections']
         
         count = 0
+
+        localized = []
         for collection in linkscoll:
             sourceurl = self.get_url(collection.getSourceURL())
             childurls = [self.get_url(index) for index in collection.getAllURLs()]
             filename = sourceurl.get_full_filename()
 
-            if os.path.exists(filename):
+            if (not filename in localized) and os.path.exists(filename):
                 info('Localizing links for',filename)
                 if self.localise_file_links(filename, childurls)==0:
                     count += 1
+                    localized.append(filename)
 
         extrainfo('Localised links of',count,'web pages.')
 

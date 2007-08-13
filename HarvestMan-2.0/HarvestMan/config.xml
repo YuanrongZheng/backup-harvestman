@@ -28,7 +28,7 @@
     <download>
       <types>
         <html value="1"/>
-        <images value="0"/>
+        <images value="1"/>
         <javascript value="1"/>
         <javaapplet value="1"/>
         <forms value="1"/>

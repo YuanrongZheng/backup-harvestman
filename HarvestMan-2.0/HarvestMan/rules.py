@@ -119,6 +119,12 @@ class HarvestManRulesChecker(object):
 
         url = urlObj.get_full_url()
 
+        # New in 2.0
+        # If checking of rules on the type of this URL
+        # is set to be skipped, return False
+        if urlObj.typ in self._configobj.skipruletypes:
+            return False
+        
         # if this url exists in filter list, return
         # True rightaway
         try:
@@ -164,7 +170,7 @@ class HarvestManRulesChecker(object):
         except KeyError, e:
             self.add_link(urlobj)
             return False
-            
+
     def add_link(self, urlobj):
         """ Add URL to links """
 
@@ -845,17 +851,17 @@ class HarvestManRulesChecker(object):
 
         return index
 
-    def check_duplicate_content(self, urlobj, datahash):
+    def check_duplicate_content(self, urlobj):
         """ Check if content for this URL is already there """
 
         # self._pagehash is an LRU cache.
         # Note - we allow same content from different domains
-        if datahash in self._pagehash:
+        if urlobj.pagehash in self._pagehash:
             # Check if earlier page was from this domain
-            dom = self._pagehash[datahash]
+            dom = self._pagehash[urlobj.pagehash]
             return (dom == urlobj.get_domain())
         else:
-            self._pagehash[datahash] = urlobj.get_domain()
+            self._pagehash[urlobj.pagehash] = urlobj.get_domain()
             return False
         
     def get_stats(self):

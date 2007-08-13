@@ -1576,8 +1576,54 @@ class HarvestManUrlConnector(object):
 
     def get_content_encoding(self):
         return self._headers.get('content-encoding', 'plain')
-                                 
-    def _write_url(self, filename):
+
+    def _write_url(self, urlobj):
+        """ Write the filename for this URL to disk """
+
+        dmgr = GetObject('datamanager')
+        
+        # If the file does not exist...
+        fname = urlobj.get_full_filename()
+        if not os.path.isfile(fname):
+            directory = urlobj.get_local_directory()
+            if dmgr.create_local_directory(directory) == 0:
+                return self._write_url_filename( urlobj.get_full_filename() )
+            else:
+                extrainfo("Error in creating local directory for", url)
+                return 0
+        else:
+            extrainfo("File exists => ",urlobj.get_full_filename())
+            # File exists - could be many reasons for it (redirected URL
+            # duplicate download etc) - first check if this is a redirected
+            # URL.
+            if urlobj.reresolved:
+                # Get old filename and save in it
+                urlobj.useoldfilename = True
+                directory = urlobj.get_local_directory_old()
+                if dmgr.create_local_directory(directory) == 0:
+                    return self._write_url_filename( urlobj.get_full_filename_old() )
+                else:
+                    extrainfo("Error in creating local directory for", url)
+                    return 0
+            else:
+                # Save as filename.1 etc
+                index = 1
+                fname2 = fname
+                rootfname = urlobj.validfilename
+
+                while os.path.isfile(fname2):
+                    urlobj.validfilename = rootfname + '.' + str(index)
+                    fname2 = urlobj.get_full_filename()
+                    index += 1
+
+                directory = urlobj.get_local_directory()
+                if dmgr.create_local_directory(directory) == 0:
+                    return self._write_url_filename( urlobj.get_full_filename() )
+                else:
+                    extrainfo("Error in creating local directory for", url)
+                    return 0
+                    
+    def _write_url_filename(self, filename):
         """ Write downloaded data to the passed file """
 
         if self._data=='':
@@ -1638,13 +1684,8 @@ class HarvestManUrlConnector(object):
             data = pool.get_multipart_url_data(urlobj)
             self._data = data
 
-            directory = urlobj.get_local_directory()
-            if dmgr.create_local_directory(directory) == 0:
-                return self._write_url( urlobj.get_full_filename() )
-            else:
-                extrainfo("Error in creating local directory for", url)
-                return 0
-                
+            return self._write_url(urlobj)
+            
         retval=0
         # Apply word filter
         if not urlobj.starturl:
@@ -1722,11 +1763,7 @@ class HarvestManUrlConnector(object):
                 dmgr.wrapper_update_cache_for_url(urlobj, filename, datalen, self._data)
 
 
-        directory = urlobj.get_local_directory()
-        if dmgr.create_local_directory(directory) == 0:
-            retval=self._write_url( filename )
-        else:
-            extrainfo("Error in creating local directory for", url)
+        retval = self._write_url(urlobj)
             
         return retval
 
@@ -1847,7 +1884,7 @@ class HarvestManUrlConnector(object):
         tgap = end - start
         timestr = str(datetime.timedelta(seconds=int(tgap)))
         if self._mode==1:
-            res=self._write_url(filename)
+            res=self._write_url_filename(filename)
             if res:
                 sz = os.path.getsize(filename)
                 bw = float(sz)/float(1024*tgap)

@@ -195,3 +195,4 @@ if __name__ == "__main__":
     print TYPE_ANCHOR.isA(TYPE_ANY)
     print TYPE_IMAGE.isA(TYPE_WEBPAGE)
     print TYPE_ANY.isA(TYPE_ANY)
+    print TYPE_IMAGE in ('image','stylesheet')

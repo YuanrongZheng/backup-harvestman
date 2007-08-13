@@ -474,12 +474,11 @@ class HarvestManUrlCrawler(HarvestManBaseUrlCrawler):
         ruleschecker = GetObject('ruleschecker')
         # Data manager object
         mgr = GetObject('datamanager')
-
+        
         ruleschecker.add_link(self._urlobject)
         
-        # Configuration object
         moreinfo('Fetching links for url', self._url)
- 
+        
         priority_indx = 0
 
         send_str = ''
@@ -662,9 +661,11 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             url = self._urlobject.get_full_url()
             sh = sha.new()
             sh.update(data)
+            # Set this hash on the URL object itself
+            self._urlobject.pagehash = str(sh.hexdigest())
 
             # Duplicate content check is different from duplicate URL check...
-            if ruleschecker.check_duplicate_content(self._urlobject, sh.hexdigest()):
+            if ruleschecker.check_duplicate_content(self._urlobject):
                 extrainfo('Skipped URL %s => duplicate content' % url)
                 return ''
 
@@ -744,7 +745,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                                                                  typ,
                                                                  is_cgi,
                                                                  url_obj)
-
+                    
                     child_urlobj.set_index()
                     mgr.add_url(child_urlobj)
                     coll.addURL(child_urlobj)
