@@ -47,6 +47,9 @@
                         connection is resumed, instead new data is
                         added to existing data, by adjusting byte range
                         if necessary.
+   Aug 14 2007    Anand Fixed a bug with download after querying a server
+                        for multipart download abilities. Also split
+                        _write_url function and rewrote it.
                       
    Copyright (C) 2004 Anand B Pillai.    
                               
@@ -67,6 +70,7 @@ import gzip
 import cStringIO
 import os
 import shutil
+import mirrors
 
 from common.common import *
 from common.methodwrapper import MethodWrapperMetaClass
@@ -1224,7 +1228,7 @@ class HarvestManUrlConnector(object):
 
                     logconsole('Content Encoding: %s\n' % encoding)
 
-                # Most FTP servers do not support HTTP like byte-range
+                # FTP servers do not support HTTP like byte-range
                 # requests. The way to do multipart for FTP is to use
                 # the FTP restart (REST) command, but that requires writing
                 # new wrappers on top of ftplib instead of the current simpler
@@ -1248,7 +1252,7 @@ class HarvestManUrlConnector(object):
                         logconsole('Forcing download into %d parts' % self._cfg.numparts)
                         
                     if not trynormal:
-                        if not dmgr.is_multipart_download_supported(urlobj):
+                        if not mirrors.is_multipart_download_supported(urlobj):
                             logconsole('Checking whether server supports multipart downloads...')
                             # See if the server supports 'Range' header
                             # by requesting half the length
@@ -1256,12 +1260,13 @@ class HarvestManUrlConnector(object):
                             request.add_header('Range','bytes=%d-%d' % (0,clength/2))
                             self._freq.close()                        
                             self._freq = urllib2.urlopen(request)
-
+                            
                             # Set http headers
                             self.set_http_headers()
                             range_result = self._headers.get('accept-ranges', '')
                             if range_result.lower()=='bytes':
                                 logconsole('Server supports multipart downloads')
+                                self._freq.close()
                             else:
                                 logconsole('Server does not support multipart downloads')
                                 resp = raw_input('Do you still want to download this URL [y/n] ?')
@@ -1269,6 +1274,11 @@ class HarvestManUrlConnector(object):
                                     logconsole('Aborting download.')
                                     return 3
                                 else:
+                                    # Create a fresh request object
+                                    self._freq.close()
+                                    request = urllib2.Request(urltofetch)
+                                    self._freq = urllib2.urlopen(request)
+                                    
                                     logconsole('Downloading URL %s...' % urltofetch)
                                     trynormal = True
                         else:

@@ -41,6 +41,7 @@ import threading as tg
 # Utils
 import utils
 import urlparser
+import mirrors
 
 from urlthread import HarvestManUrlThreadPool
 from connector import *
@@ -701,111 +702,6 @@ class HarvestManDataManager(object):
 
         return 0
 
-    def get_sourceforge_servers(self):
-        """ Return a list of sf.net download servers """
-
-        l=['http://umn.dl.sourceforge.net','http://jaist.dl.sourceforge.net',
-           'http://mesh.dl.sourceforge.net','http://superb-west.dl.sourceforge.net',
-           'http://superb-east.dl.sourceforge.net','http://keihanna.dl.sourceforge.net',
-           'http://optusnet.dl.sourceforge.net','http://kent.dl.sourceforge.net',
-           'http://ufpr.dl.sourceforge.net','http://ovh.dl.sourceforge.net',
-           'http://switch.dl.sourceforge.net','http://nchc.dl.sourceforge.net',
-           'http://heanet.dl.sourceforge.net','http://surfnet.dl.sourceforge.net',
-           'http://easynews.dl.sourceforge.net','http://belnet.dl.sourceforge.net',
-           'http://puzzle.dl.sourceforge.net','http://internap.dl.sourceforge.net']
-
-        return l
-
-    def is_multipart_download_supported(self, urlobj):
-        """ Check whether this URL (server) supports multipart downloads """
-
-        return self.is_sourceforge_url(urlobj)
-    
-    def is_sourceforge_url(self, urlobj):
-        """ Is this a download from sourceforge ? """
-        
-        return (urlobj.domain in ('downloads.sourceforge.net', 'prdownloads.sourceforge.net') or \
-               urlobj.get_full_domain() in self.get_sourceforge_servers())
-        
-    def get_mirror_url(self, urlobj):
-        """ Return a mirror URL for the given URL """
-
-        domain = urlobj.get_full_domain()
-        
-        # Works only for sourceforge.net URLs
-        sfmirrors = self.get_sourceforge_servers()
-        if domain in sfmirrors:
-            # Failed mirror
-            self._failedsfmirrors.append(domain)
-            
-            # Get current domains being used by running threads
-            curr_domains = [obj.get_full_domain() for obj in self._urlThreadPool.get_thread_urls()]
-            l = set(sfmirrors).difference(set(curr_domains))
-            l2 = list(l.difference(set(self._failedsfmirrors)))
-
-            if l2:
-                relpath = urlobj.get_relative_url()
-                
-                urlobj2 = urlparser.HarvestManUrlParser(relpath,baseurl=l2[0])
-                urlobj2.trymultipart = True
-                urlobj2.clength = urlobj.clength
-                urlobj2.range = urlobj.range
-                urlobj2.mindex = urlobj.mindex
-                
-                return urlobj2
-            
-        pass
-        
-    def download_multipart_url_sf(self, urlobj, clength):
-        """ Download URL multipart from sourceforge.net servers """
-
-        logconsole('Sourceforge URL found - Splitting download across sourceforge.net mirrors...')
-        # List of servers - note that we are not doing
-        # any kind of search for the nearest servers. Instead
-        # a random list is created.
-        parts = self._cfg.numparts
-        # Calculate size of each piece
-        piecesz = clength/parts
-        
-        # Calculate size of each piece
-        pcsizes = [piecesz]*parts
-        # For last URL add the reminder
-        pcsizes[-1] += clength % parts 
-        # Create a URL object for each and set range
-        urlobjects = []
-
-        # Get relative path of the URL w.r.t root
-        relpath = urlobj.get_relative_url()
-        relpath = 'sourceforge' + relpath
-        
-        # Get a random list of servers
-        sf = random.sample(self.get_sourceforge_servers(), parts)
-        # sf = ['http://umn.dl.sourceforge.net','http://jaist.dl.sourceforge.net',
-        #       'http://mesh.dl.sourceforge.net','http://superb-west.dl.sourceforge.net',
-        #       'http://keihanna.dl.sourceforge.net']
-        
-        for x in range(parts):
-            # urlobjects.append(copy.deepcopy(urlobj))
-            newurlobj = urlparser.HarvestManUrlParser(relpath,baseurl=sf[x])
-            print newurlobj.get_full_url()
-            urlobjects.append(newurlobj)
-
-        prev = 0
-
-        for x in range(parts):
-            curr = pcsizes[x]
-            next = curr + prev
-            urlobject = urlobjects[x]
-            urlobject.trymultipart = True
-            urlobject.clength = clength
-            urlobject.range = xrange(prev, next)
-            urlobject.mindex = x
-            prev = next
-            self._urlThreadPool.push(urlobject)
-
-        # Push this URL objects to the pool
-        return 0
-    
     def download_multipart_url(self, urlobj, clength):
         """ Download a URL using HTTP/1.1 multipart download
         using range headers """
@@ -818,8 +714,8 @@ class HarvestManDataManager(object):
         except KeyError:
             self._serversdict[domain] = {'accept-ranges': True}
 
-        if self.is_sourceforge_url(urlobj):
-            return self.download_multipart_url_sf(urlobj, clength)
+        if mirrors.supported_server(urlobj):
+            return mirrors.download_multipart_url(urlobj, clength, self._cfg.numparts, self._urlThreadPool)
         
         parts = self._cfg.numparts
         # Calculate size of each piece

@@ -17,6 +17,17 @@ __author__ = 'Anand B Pillai'
 import hookswrapper
 from common.common import *
 
+# User browsing plugin approximates how a webpage
+# presents itself to a user. This means a few things
+#
+# 1. All images and stylesheets referenced by the page are fetched.
+# 2. In addition, all links directly linked from the page are
+# fetched and saved to disk. Nothing further is crawled.
+#
+# This is done by using a fetchlevel control of 2, a depth
+# control of 0, and allowing images & stylesheets to skip
+# constraints.
+
 def apply_plugin():
     """ Apply the plugin - overrideable method """
 

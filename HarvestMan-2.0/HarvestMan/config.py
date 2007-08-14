@@ -222,7 +222,7 @@ class HarvestManStateObject(dict):
         self.skipruletypes = []
         # Number of parts to split a file
         # to, for multipart http downloads
-        self.numparts = 5
+        self.numparts = 4
         # Flag to indicate that a multipart
         # download is in progress
         self.multipart = False
