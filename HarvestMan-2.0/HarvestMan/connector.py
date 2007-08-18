@@ -1595,11 +1595,21 @@ class HarvestManUrlConnector(object):
         # If the file does not exist...
         fname = urlobj.get_full_filename()
         if not os.path.isfile(fname):
+            # Recalculate locations to check if there is any error
+            # in computed directories/filenames - like saving a
+            # filename, when its parent directory is saved as a
+            # file or trying to save as file when there is already
+            # a directory in that name etc... This is a fix for
+            # EIAO bug #491 - sample websites: www.nyc.estemb.org
+            # and www.est-emb.fr
+            urlobj.recalc_locations()
+            
             directory = urlobj.get_local_directory()
             if dmgr.create_local_directory(directory) == 0:
+                
                 return self._write_url_filename( urlobj.get_full_filename() )
             else:
-                extrainfo("Error in creating local directory for", url)
+                extrainfo("Error in creating local directory for", urlobj.get_full_url())
                 return 0
         else:
             extrainfo("File exists => ",urlobj.get_full_filename())
@@ -1613,7 +1623,7 @@ class HarvestManUrlConnector(object):
                 if dmgr.create_local_directory(directory) == 0:
                     return self._write_url_filename( urlobj.get_full_filename_old() )
                 else:
-                    extrainfo("Error in creating local directory for", url)
+                    extrainfo("Error in creating local directory for", urlobj.get_full_url())
                     return 0
             else:
                 # Save as filename.1 etc
@@ -1630,7 +1640,7 @@ class HarvestManUrlConnector(object):
                 if dmgr.create_local_directory(directory) == 0:
                     return self._write_url_filename( urlobj.get_full_filename() )
                 else:
-                    extrainfo("Error in creating local directory for", url)
+                    extrainfo("Error in creating local directory for", urlobj.get_full_url())
                     return 0
                     
     def _write_url_filename(self, filename):

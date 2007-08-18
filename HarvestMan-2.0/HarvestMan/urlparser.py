@@ -848,11 +848,11 @@ class HarvestManUrlParser(object):
         
         return self.origurl
     
-    def get_full_url(self, intranet=0):
+    def get_full_url(self):
         """ Return the full url path of this url object after
         resolving relative paths, filenames etc """
 
-        rval = self.get_full_domain_with_port(intranet)
+        rval = self.get_full_domain_with_port()
         if self.dirpath:
             newpath = "".join([ x+self.URLSEP for x in self.dirpath if x and not x[-1] ==self.URLSEP])
             rval = "".join((rval, self.URLSEP, newpath))
@@ -928,14 +928,14 @@ class HarvestManUrlParser(object):
             # so return it straight away
             return domain
 
-    def get_base_domain_with_port(self, intranet=0):
+    def get_base_domain_with_port(self):
         """ Return the base domain (server) with port number
         appended to it, if the port number is not the
         default for the current protocol """
         
-        if intranet or ((self.protocol == 'http://' and int(self.port) != 80) \
-                        or (self.protocol == 'https://' and int(self.port) != 443) \
-                        or (self.protocol == 'ftp://' and int(self.port) != 21)):
+        if ((self.protocol == 'http://' and int(self.port) != 80) \
+            or (self.protocol == 'https://' and int(self.port) != 443) \
+            or (self.protocol == 'ftp://' and int(self.port) != 21)):
             return self.get_base_domain() + ':' + str(self.port)
         else:
             return self.get_base_domain()
@@ -969,26 +969,26 @@ class HarvestManUrlParser(object):
         
         return self.protocol + self.domain
 
-    def get_full_domain_with_port(self, intranet=0):
+    def get_full_domain_with_port(self):
         """ Return the domain (server) with port number
         appended to it, if the port number is not the
         default for the current protocol """
 
-        if intranet or ((self.protocol == 'http://' and int(self.port) != 80) \
-                        or (self.protocol == 'https://' and int(self.port) != 443) \
-                        or (self.protocol == 'ftp://' and int(self.port) != 21)):
+        if (self.protocol == 'http://' and int(self.port) != 80) \
+           or (self.protocol == 'https://' and int(self.port) != 443) \
+           or (self.protocol == 'ftp://' and int(self.port) != 21):
             return self.get_full_domain() + ':' + str(self.port)
         else:
             return self.get_full_domain()
 
-    def get_domain_with_port(self, intranet=0):
+    def get_domain_with_port(self):
         """ Return the domain (server) with port number
         appended to it, if the port number is not the
         default for the current protocol """
 
-        if intranet or ((self.protocol == 'http://' and self.port != 80) \
-                        or (self.protocol == 'https://' and self.port != 443) \
-                        or (self.protocol == 'ftp://' and self.port != 21)):
+        if (self.protocol == 'http://' and self.port != 80) \
+           or (self.protocol == 'https://' and self.port != 443) \
+           or (self.protocol == 'ftp://' and self.port != 21):
             return self.domain + ':' + str(self.port)
         else:
             return self.domain
@@ -1284,6 +1284,32 @@ class HarvestManUrlParser(object):
 
         return self.violatesrules
 
+    def recalc_locations(self):
+        """ Recalculate filenames/directories etc """
+
+        # Case 1 - trying to save as a file when the
+        # parent "directory" is an existing file.
+        # Solution - Change the paths of parent URL object
+        # to change its filename...
+        directory = self.get_url_directory()
+        if os.path.isfile(directory):
+            parent = self.baseurl
+            # Anything can be done on this only if this
+            # is a HarvestManUrlParser object
+            if isinstance(parent, HarvestManUrlParser):
+                parent.dirpath.append(parent.filename)
+                parent.filename = 'index.html'
+                parent.validfilename = 'index.html'
+
+        # Case 2 - trying to save as file when the
+        # path is an existing directory.
+        # Solution - Save as index.html in the directory
+        filename = self.get_full_filename()
+        if os.path.isdir(filename):
+            self.dirpath.append(self.filename)
+            self.filename = 'index.html'
+            self.validfilename = 'index.html'
+        
     def manage_content_type(self, content_type):
         """ This function gets called from connector modules
         connect method, after retrieving information about

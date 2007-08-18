@@ -5,7 +5,7 @@ browsing a web-page.
 
 Author: Anand B Pillai <anand at harvestmanontheweb.com>
 
-Created  Aug 13 2007     Anand B Pillai <abpillai at gmail dot com>
+Created  Aug 13 2007     Anand B Pillai 
 
 Copyright (C) 2007 Anand B Pillai
 

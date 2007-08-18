@@ -200,7 +200,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
             self.action()
         except Exception, e:
             self._status = 0
-            raise
+            # raise
             # Don't try to regenerate threads if this is a local
             # exception.
             if e.__class__ == HarvestManUrlCrawlerException:
@@ -593,7 +593,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                         if self.buffer and self._pushflag:
                             debug('Trying to push buffer...')
                             self.push_buffer()
-                            
+
                         continue
 
                     if not self.set_url_object(obj):
@@ -638,7 +638,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         data = ''
         if not mgr.is_downloaded(self._url):
-            moreinfo('Downloading file for url from URL', self._urlobject.get_full_url(), self._urlobject.get_base_urlobject().get_full_url())
+            moreinfo('Downloading file for url from URL', self._urlobject.get_full_url())
             # About to fetch
             self._fetchstatus = 1
             self._fetchtime = time.time()

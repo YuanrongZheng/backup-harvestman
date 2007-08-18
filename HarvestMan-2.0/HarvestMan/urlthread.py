@@ -509,8 +509,6 @@ class HarvestManUrlThreadPool(Queue):
         # Insert a random sleep in range
         # of 0 - 0.5 seconds
         # time.sleep(random.random()*0.5)
-
-        caller = threading.currentThread()
         try:
             if len(self.buffer):
                 # Get last item from buffer

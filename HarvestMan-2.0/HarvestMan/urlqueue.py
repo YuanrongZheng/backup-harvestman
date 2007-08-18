@@ -502,15 +502,15 @@ class HarvestManCrawlerQueue(object):
 
         # If the trackers are blocked, but waiting for sub-threads
         # to finish, kill the sub-threads.
-  ##       if is_blocked and has_running_threads:
-##             # Find out time difference between when trackers
-##             # got blocked and curr time. If greater than 1 minute
-##             # Kill hanging threads
-##             timediff2 = currtime - self._lastblockedtime
-##             if timediff2 > 60.0:
-##                 moreinfo("Killing download threads ...")
-##                 dmgr.kill_download_threads()
-##                 has_running_threads = False
+        if is_blocked and has_running_threads:
+            # Find out time difference between when trackers
+            # got blocked and curr time. If greater than 1 minute
+            # Kill hanging threads
+            timediff2 = currtime - self._lastblockedtime
+            if timediff2 > 240.0:
+                moreinfo("Killing download threads ...")
+                dmgr.kill_download_threads()
+                has_running_threads = False
 
         if is_blocked and not has_running_threads:
             need_to_exit = True

@@ -27,6 +27,7 @@ __version__ = '2.0 b1'
 __author__ = 'Anand B Pillai'
 
 import os, sys
+import shutil
 import time
 import math
 import binascii
@@ -174,7 +175,6 @@ class HarvestManDataManager(object):
             return os.path.join(self._cfg.projdir, "hm-cache")
         else:
             return ''        
-
 
     def get_server_dictionary(self):
         return self._serversdict
@@ -692,7 +692,31 @@ class HarvestManDataManager(object):
             return 0
         
         try:
-            if not os.path.exists( directory ):
+            # Fix for EIAO bug #491
+            # Sometimes, however had we try, certain links
+            # will be saved as files, whereas they might be
+            # in fact directories. In such cases, check if this
+            # is a file, then create a folder of the same name
+            # and move the file as index.html to it.
+            path = directory
+            while path:
+                if os.path.isfile(path):
+                    # Rename file to file.tmp
+                    fname = path
+                    os.rename(fname, fname + '.tmp')
+                    # Now make the directory
+                    os.makedirs(path)
+                    # If successful, move the renamed file as index.html to it
+                    if os.path.isdir(path):
+                        fname = fname + '.tmp'
+                        shutil.move(fname, os.path.join(path, 'index.html'))
+                    
+                path2 = os.path.dirname(path)
+                # If we hit the root, break
+                if path2 == path: break
+                path = path2
+                
+            if not os.path.isdir(directory):
                 os.makedirs( directory )
                 extrainfo("Created => ", directory)
             return 0
