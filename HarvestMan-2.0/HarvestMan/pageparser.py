@@ -28,7 +28,6 @@ __version__ = '2.0 b1'
 __author__ = 'Anand B Pillai'
 
 from sgmllib import SGMLParser
-from HTMLParser import HTMLParser
 from urltypes import *
 from common.common import *
 
@@ -94,12 +93,14 @@ class HarvestManSimpleParser(SGMLParser):
 
         # Skip javascript, mailto, news and directory special tags.
         if self.skip_re.match(llink):
+            print 'Filtering link',link
             return 1
 
         cfg = GetObject('config')
 
         # Check if we're accepting query style URLs
-        if not cfg.getqueryforms and self.query_re.search(llink):
+        if not cfg.getquerylinks and self.query_re.search(llink):
+            print 'Filtering link',link            
             return 1
 
         return 0
@@ -324,6 +325,18 @@ class HarvestManSimpleParser(SGMLParser):
     def get_base_url(self):
         return self.base
 
+
+class HarvestManSGMLOpParser(HarvestManSimpleParser):
+    """ A parser based on effbot's sgmlop """
+
+    def finish_starttag(self, tag, attrs):
+        self.unknown_starttag(tag, attrs)
+        
+    #def finish_endtag(self, tag):
+    #    print "END", tag
+    #def handle_data(self, data):
+    #    print "DATA", repr(data)    
+
 class HarvestManCSSParser(object):
     """ Class to parse stylesheets and extract URLs """
 
@@ -384,18 +397,19 @@ if __name__=="__main__":
     cfg.verbosity = 5
     SetLogSeverity()
     
-    cfg.forms = True
+    cfg.getquerylinks = True
     
     p = HarvestManSimpleParser()
     urls = ['http://projecteuler.net/index.php?section=problems']
     urls = ['http://www.evvs.dk/index.php?cPath=30&osCsid=3b110c689f01d722dbbe53c5cee0bf2d']
     urls = ['http://nltk.sourceforge.net/lite/doc/api/nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html']
-    urls = ['ftp://ftp.gnu.org']
+    urls = ['http://wiki.java.net/bin/view/Javawsxml/Rome05Tutorials']
     
     for url in urls:
         if os.system('wget %s -O index.html' % url ) == 0:
             p.feed(open('index.html').read())
-            print p.links
+            for link in p.links:
+                print link
             p.reset()
 ##            pass
                                    

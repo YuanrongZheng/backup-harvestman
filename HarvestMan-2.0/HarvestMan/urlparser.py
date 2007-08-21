@@ -700,7 +700,7 @@ class HarvestManUrlParser(object):
                     # if it matches the from_re precompiled regex then we'll assume its
                     # a query style URL and we'll return true.
                     cfg = GetObject('config')
-                    if cfg.getqueryforms and self.form_re.search(self.get_full_url()):                 
+                    if cfg.getquerylinks and self.form_re.search(self.get_full_url()):                 
                         return True
 
         return False

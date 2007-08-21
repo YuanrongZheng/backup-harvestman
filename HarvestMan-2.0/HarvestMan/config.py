@@ -172,7 +172,7 @@ class HarvestManStateObject(dict):
         # When set to True, subdomains act like different
         # domains, so they are filtered out for fetchlevel<=1
         self.subdomain = True
-        self.getqueryforms = False
+        self.getquerylinks = True
         self.requests = 5
         self.bytes = 20.00 # Not used!
         self.projtimeout = 1800.00
@@ -285,7 +285,7 @@ class HarvestManStateObject(dict):
                          'images_value' : ('images','int'),
                          'javascript_value' : ('javascript','int'),
                          'javaapplet_value' : ('javaapplet','int'),
-                         'forms_value' : ('getqueryforms','int'),
+                         'querylinks_value' : ('getquerylinks','int'),
 
                          'cache_status' : ('pagecache','int'),
                          'datacache_value' : ('datacache','int'),
