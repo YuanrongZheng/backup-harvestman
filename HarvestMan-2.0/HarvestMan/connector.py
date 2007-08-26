@@ -50,7 +50,10 @@
    Aug 14 2007    Anand Fixed a bug with download after querying a server
                         for multipart download abilities. Also split
                         _write_url function and rewrote it.
-                      
+
+   Aug 22 2007    Anand  MyRedirectHandler is buggy - replaced with
+                         urllib2.HTTPRedirectHandler.
+                         
    Copyright (C) 2004 Anand B Pillai.    
                               
 """
@@ -70,6 +73,8 @@ import gzip
 import cStringIO
 import os
 import shutil
+import glob
+import random
 import mirrors
 
 from common.common import *
@@ -86,6 +91,9 @@ __callbacks__ = { 'connect_callback' : 'HarvestManUrlConnector:connect' }
 
 __protocols__=["http", "ftp"]
 
+class DataReaderException(Exception):
+    pass
+
 class DataReader(tg.Thread):
     """ Data reader thread class which is used by
     the HarvestMan hget interface """
@@ -95,6 +103,7 @@ class DataReader(tg.Thread):
     START_TIME = 0.0
     CONTENTLEN = []
     MULTIPART = False
+    NETDATALEN = 0
     
     def __init__(self, request, urltofetch, filename, clength, mode = 0, index = 0):
         self._request = request
@@ -117,6 +126,8 @@ class DataReader(tg.Thread):
         self._index = index
         # Initialized flag
         self._init = False
+        # Last error
+        self._lasterror = None
         tg.Thread.__init__(self, None, None, 'data reader')
 
     def initialize(self):
@@ -133,31 +144,45 @@ class DataReader(tg.Thread):
         self.initialize()
 
         while not self._flag:
+            try:
+                block = self._request.read(self._bs)
+                if block=='':
+                    self._flag = True
+                    # Close the file
+                    if self._mode==0: self.close()                
+                    break
+                else:
+                    self._data += block
+                    self._contentlen += len(block)
+                    # Flush data to disk
+                    if self._mode==0: self.flush()
+            
+            except socket.error, e:
+                self._flag = True
+                self._lasterror = e
+            except Exception, e:
+                self._flag = True
+                self._lasterror = e
+                
+    def readNext(self):
+
+        try:
             block = self._request.read(self._bs)
             if block=='':
                 self._flag = True
                 # Close the file
-                if self._mode==0: self.close()                
-                break
+                if self._mode==0: self.close()
+                return False
             else:
                 self._data += block
                 self._contentlen += len(block)
                 # Flush data to disk
                 if self._mode==0: self.flush()
 
-    def readNext(self):
-
-        block = self._request.read(self._bs)
-        if block=='':
-            self._flag = True
-            # Close the file
-            if self._mode==0: self.close()                
-            return False
-        else:
-            self._data += block
-            self._contentlen += len(block)
-            # Flush data to disk
-            if self._mode==0: self.flush()                
+        except socket.error, e:
+            raise DataReaderException, str(e)
+        except Exception, e:
+            raise DataReaderException, str(e)               
 
     def flush(self):
         """ Flush data to disk """
@@ -168,7 +193,11 @@ class DataReader(tg.Thread):
     def close(self):
 
         self._tmpf.close()
-        
+
+    def get_lasterror(self):
+
+        return self._lasterror
+    
     def get_info(self):
         """ Return percentage, data downloaded, bandwidth, estimated time to
         complete as a tuple """
@@ -181,6 +210,7 @@ class DataReader(tg.Thread):
                 pertotal = float(100.0*self._contentlen)/float(self._clength)
             
             l = self._contentlen
+            self.__class__.NETDATALEN = self._contentlen
 
             per = pertotal
             
@@ -194,6 +224,7 @@ class DataReader(tg.Thread):
             kls.CONTENTLEN[self._index] = self._contentlen
 
             total = sum(kls.CONTENTLEN)
+            self.__class__.NETDATALEN = total
             
             if kls.ORIGLENGTH:
                pertotal = float(100.0*total)/float(kls.ORIGLENGTH)
@@ -230,107 +261,6 @@ class DataReader(tg.Thread):
     def stop(self):
         self._flag = True
         
-class MyRedirectHandler(urllib2.HTTPRedirectHandler):
-    # maximum number of redirections to any single URL
-    # this is needed because of the state that cookies introduce
-    max_repeats = 4
-    # maximum total number of redirections (regardless of URL) before
-    # assuming we're in a loop
-    max_redirections = 20
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        """Return a Request or None in response to a redirect.
-
-        This is called by the http_error_30x methods when a
-        redirection response is received.  If a redirection should
-        take place, return a new Request to allow http_error_30x to
-        perform the redirect.  Otherwise, raise HTTPError if no-one
-        else should try to handle this url.  Return None if you can't
-        but another Handler might.
-        """
-
-        m = req.get_method()
-        
-        if (code in (301, 302, 303, 307) and m in ("GET", "HEAD")
-            or code in (301, 302, 303) and m == "POST"):
-
-            # Strictly (according to RFC 2616), 301 or 302 in response
-            # to a POST MUST NOT cause a redirection without confirmation
-            # from the user (of urllib2, in this case).  In practice,
-            # essentially all clients do redirect in this case, so we
-            # do the same.
-            newreq = urllib2.Request(newurl,
-                                     headers=req.headers,
-                                     origin_req_host=req.get_origin_req_host(),
-                                     unverifiable=True)
-
-            # Fix for url cookie headers
-            # This makes sure that the redirection
-            # will not fail if cookies are required
-            # Works for any version of Python.
-            # Jul 19 2005 - Anand
-            for key in headers.keys():
-                if key.lower().find('set-cookie') != -1:
-                    cookie = headers[key]
-                    newreq.add_header('Cookie',  cookie)
-                    break
-
-            return newreq
-        
-        else:
-            raise urllib2.HTTPError(req.get_full_url(), code, msg, headers, fp)
-
-    # Implementation note: To avoid the server sending us into an
-    # infinite loop, the request object needs to track what URLs we
-    # have already seen.  Do this by adding a handler-specific
-    # attribute to the Request object.
-    def http_error_302(self, req, fp, code, msg, headers):
-        # Some servers (incorrectly) return multiple Location headers
-        # (so probably same goes for URI).  Use first header.
-
-        if 'location' in headers:
-            newurl = headers.getheaders('location')[0]
-        elif 'uri' in headers:
-            newurl = headers.getheaders('uri')[0]
-        else:
-            return
-
-        newurl = urlparse.urljoin(req.get_full_url(), newurl)
-
-        # XXX Probably want to forget about the state of the current
-        # request, although that might interact poorly with other
-        # handlers that also use handler-specific request attributes
-        new_req = self.redirect_request(req, fp, code, msg, headers, newurl)
-        if not new_req:
-            return
-
-        # loop detection
-        # .redirect_dict has a key url if url was previously visited.
-        if hasattr(req, 'redirect_dict'):
-            visited = new_req.redirect_dict = req.redirect_dict
-
-            if (visited.get(newurl, 0) >= self.max_repeats or
-                len(visited) >= self.max_redirections):
-                
-                raise urllib2.HTTPError(req.get_full_url(), code,
-                                        self.inf_msg + msg, headers, fp)
-        else:
-            visited = new_req.redirect_dict = req.redirect_dict = {}
-        visited[newurl] = visited.get(newurl, 0) + 1
-
-        # Don't close the fp until we are sure that we won't use it
-        # with HTTPError.
-        fp.read()
-        fp.close()
-
-        return self.parent.open(new_req)
-
-    http_error_301 = http_error_303 = http_error_307 = http_error_302
-
-    inf_msg = "The HTTP server returned a redirect error that would " \
-              "lead to an infinite loop.\n" \
-              "The last 30x error message was:\n"
-
 class HarvestManNetworkConnector(object):
     """ This class keeps the internet settings and configures
     the network. """
@@ -561,7 +491,7 @@ class HarvestManNetworkConnector(object):
             # build opener and install it
             if self._initssl:
                 opener = urllib2.build_opener(authhandler,
-                                              MyRedirectHandler,
+                                              urllib2.HTTPRedirectHandler,
                                               proxy_support,
                                               urllib2.HTTPHandler,
                                               urllib2.HTTPDefaultErrorHandler,
@@ -572,7 +502,7 @@ class HarvestManNetworkConnector(object):
                                               cookiehandler)
             else:
                 opener = urllib2.build_opener(authhandler,
-                                              MyRedirectHandler,
+                                              urllib2.HTTPRedirectHandler,                                              
                                               proxy_support,
                                               urllib2.HTTPHandler,
                                               urllib2.HTTPDefaultErrorHandler,
@@ -585,7 +515,7 @@ class HarvestManNetworkConnector(object):
             # Direct connection to internet
             if self._initssl:
                 opener = urllib2.build_opener(authhandler,
-                                              MyRedirectHandler,
+                                              urllib2.HTTPRedirectHandler,                                              
                                               urllib2.HTTPHandler,
                                               urllib2.CacheFTPHandler,
                                               urllib2.HTTPSHandler,
@@ -595,7 +525,7 @@ class HarvestManNetworkConnector(object):
                                               cookiehandler)
             else:
                 opener = urllib2.build_opener( authhandler,
-                                               MyRedirectHandler,
+                                               urllib2.HTTPRedirectHandler,                                               
                                                urllib2.HTTPHandler,
                                                urllib2.CacheFTPHandler,
                                                urllib2.GopherHandler,
@@ -1137,8 +1067,19 @@ class HarvestManUrlConnector(object):
         else:
             pass
             
-                               
-    def connect2(self, urlobj, showprogress=True):
+    def make_tmp_fname(self, filename, directory='.'):
+        """ Create a temporary filename for download """
+
+        random.seed()
+        
+        while True:
+            fint = int(random.random()*random.random()*10000000)
+            fname = ''.join(('.',filename,'#',str(fint)))
+            fpath = os.path.join(directory, fname)
+            if not os.path.isfile(fpath):
+                return fpath
+        
+    def connect2(self, urlobj, showprogress=True, resuming=False):
         """ Connect to the Internet fetch the data of the passed url.
         This is called by the stand-alone URL grabber """
 
@@ -1149,7 +1090,8 @@ class HarvestManUrlConnector(object):
         # 0 => Downloaded URL and got data without error.
         
         data = '' 
-
+        # print 'Resuming',resuming
+        
         # Reset the http headers
         self._headers.clear()
         retries = 1
@@ -1180,6 +1122,8 @@ class HarvestManUrlConnector(object):
                 byterange = urlobj.range
                 
                 if byterange:
+                    # print 'Range is',byterange[0],byterange[-1]
+                
                     range1 = byterange[0]
                     range2 = byterange[-1]
                     # For a repeat connection, don't redownload already
@@ -1218,7 +1162,7 @@ class HarvestManUrlConnector(object):
                 else:
                     clength_str = '%d bytes' % clength
 
-                if not urlobj.range:
+                if resuming or (not urlobj.range):
                     if clength:
                         logconsole('Length: %d (%s) Type: %s' % (clength, clength_str, ctype))
                         nolengthmode = False
@@ -1252,7 +1196,8 @@ class HarvestManUrlConnector(object):
                         logconsole('Forcing download into %d parts' % self._cfg.numparts)
                         
                     if not trynormal:
-                        if not mirrors.is_multipart_download_supported(urlobj):
+                        if (not self._headers.get('accept-ranges', '').lower() == 'bytes') and \
+                               not mirrors.is_multipart_download_supported(urlobj):
                             logconsole('Checking whether server supports multipart downloads...')
                             # See if the server supports 'Range' header
                             # by requesting half the length
@@ -1309,7 +1254,7 @@ class HarvestManUrlConnector(object):
                 try:
                     # Don't set progress object if multipart download - it
                     # would have been done before.
-                    if not urlobj.range and showprogress:
+                    if showprogress and (resuming or (not urlobj.range)):
                         self.set_progress_object(filename,1,[filename],nolengthmode)
                     
                     prog = self._cfg.progressobj
@@ -1321,9 +1266,14 @@ class HarvestManUrlConnector(object):
 
                     # Only set tmpfname if this is a fresh download.
                     if self._tmpfname=='':
-                        self._tmpfname = ''.join(('.',filename,'#',str(abs(hash(self)))))
                         if not self._cfg.hgetnotemp:
-                            self._tmpfname = os.path.join(GetMyTempDir(), self._tmpfname)
+                            tmpd = os.path.join(GetMyTempDir(), str(abs(hash(urlobj.get_full_url()))))
+                        else:
+                            tmpd = '.'
+                            
+                        self._tmpfname = self.make_tmp_fname(filename, tmpd)
+                        # print 'My temp fname=>',self._tmpfname
+
                         debug(self._tmpfname, ct)
                     else:
                         debug('File already present=>',self._tmpfname)
@@ -1358,18 +1308,28 @@ class HarvestManUrlConnector(object):
                     t1 = time.time()
 
                     while True:
-                        if self._cfg.multipart: self._reader.readNext()
+                        if self._cfg.multipart:
+                            self._reader.readNext()
+
+                        # Get number of active worker threads...
+                        nthreads = dmgr.get_url_threadpool().get_busy_count()
+                        # If no active worker threads, then there is at least
+                        # the main thread which is active
+                        if nthreads==0: nthreads = 1
+
+                        # Check if there was any exception in the reader thread
+                        # If there is an exception when the reader is running as
+                        # a thread, the flag will be set
+                        if self._reader._flag:
+                            readerror = self._reader.get_lasterror()
+                            if readerror:
+                                raise DataReaderException, str(readerror)
                             
                         if clength:
                             per1,per2,l,bw,eta = self._reader.get_info()
                             
                             if per2 and showprogress:
                                 prog.setScreenWidth(prog.getScreenWidth())
-                                # Get number of active worker threads...
-                                nthreads = dmgr.get_url_threadpool().get_busy_count()
-                                # If no active worker threads, then there is at least
-                                # the main thread which is active
-                                if nthreads==0: nthreads = 1
                                 
                                 infostring = 'TC: %d' % nthreads + \
                                              ' BW: %4.2fK/s' % float(bw/1024.0) + \
@@ -1396,7 +1356,11 @@ class HarvestManUrlConnector(object):
                     self._elapsed = time.time() - t1
 
                     if self._reader._mode==1:
-                        self._data = self._reader.get_data()
+                        if not resuming:
+                            self._data = self._reader.get_data()
+                        else:
+                            self._data += self._reader.get_data()
+                            # print 'Data len=>',len(self._data)
                     else:
                         self._datalen = self._reader.get_datalen()
 
@@ -1505,8 +1469,14 @@ class HarvestManUrlConnector(object):
                 self._error['msg'] = str(e)
                 errmsg = self._error['msg']
 
-                moreinfo('Socket Error: ',errmsg,'=> ',urltofetch)
+                extrainfo('Socket Error: ',errmsg,'=> ',urltofetch)
 
+            except DataReaderException, e:
+                self._error['msg'] = str(e)
+                errmsg = self._error['msg']
+
+                extrainfo('DataReaderException: ',errmsg,'=> ',urltofetch)
+                
             # attempt reconnect after some time
             time.sleep(self._sleeptime)
 
@@ -1652,6 +1622,7 @@ class HarvestManUrlConnector(object):
         try:
             extrainfo('Writing file ', filename)
             f=open(filename, 'wb')
+            # print 'Data len=>',len(self._data)
             f.write(self._data)
             f.close()
         except IOError,e:
@@ -1812,24 +1783,142 @@ class HarvestManUrlConnector(object):
             return float(len(self._data))/(self._elapsed)
         else:
             return 0
-        
+
+    def write_data_from_tempfiles(self, tmpflist, filename):
+        """ Function to write data from a list of temporary
+        files to a filename. The temporary files should contain
+        the data in the required order, since this function
+        does not have any logic to automatically order pieces
+        of data """
+
+        try:
+            cf = open(filename, 'wb')
+            # Combine data into one
+            for f in tmpflist:
+                # print 'Appending data from',f,'...'
+                data = open(f, 'rb').read()
+                cf.write(data)
+                cf.flush()
+
+            cf.close()
+
+            for f in tmpflist:
+                try:
+                    os.remove(f)
+                except OSError, e:
+                    pass
+
+            return 0
+        except (IOError, OSError), e:
+            return -1
+            print e        
+    
     def url_to_file(self, urlobj):
         """ Save the contents of this url <url> to the file <filename>.
         This is used by the -N option of HarvestMan """
+
+        if self._cfg.hgetoutfile:
+            n, filename = 1, self._cfg.hgetoutfile
+        else:
+            n, filename = 1, urlobj.get_filename()
+
+        origfilename = filename
+        # filename.#n like wget.
+        while os.path.isfile(filename):
+            filename = ''.join((origfilename,'.',str(n)))
+            n += 1
+
+        currtmpfiles = []
+        resuming = False
+        fullurl = urlobj.get_full_url()
+
+        # Create temp folders for download
+        if not self._cfg.hgetnotemp:
+            tmpd = os.path.join(GetMyTempDir(), str(abs(hash(fullurl))))
+            if not os.path.isdir(tmpd):
+                # print 'Directory does not exist=>',tmpd
+                try:
+                    os.makedirs(tmpd)
+                except OSError, e:
+                    print e
+                    print 'Error in creating temp directory %s!' % tmpd
+                    return 0
+        else:
+            tmpd =  '.'
+            
+        # Check if a previous unfinished download exists
+        # if so, only read from where we left off from
+        # previous download.
+        flist = glob.glob(os.path.join(tmpd, ''.join(('.', origfilename, '#*'))))
+        # print 'Flist=>',flist
+        # Check if there is an info file containing the headers
+        infof = os.path.join(tmpd, ''.join((".info#",
+                                            str(abs(hash(urlobj.get_full_url()))))))
+
+        if flist:
+            # Sort the files according to creation times
+            cflist = [(fname, os.path.getctime(fname)) for fname in flist]
+            cflist.sort(reverse=True)
+            cflist = [item[0] for item in cflist]
+            # print cflist
+
+            if os.path.isfile(infof):
+                print 'Temporary files from previous download found, trying to resume download...'
+                # We can proceed only if this file is there, since it contains
+                # all the header information of the previous attempt.
+                try:
+                    hdict = eval(open(infof).read())
+                    # print 'Header dict=>',hdict
+                    # Get content length
+                    clength = hdict.get('content-length','')
+                    if clength: clength = int(clength)
+                    if clength:
+                        if len(cflist)>=3:
+                            print 'Warning: 3 or more temporary files found. Final file may have errors!'
+                        totsz = sum([os.path.getsize(fname) for fname in cflist])
+                        # Get difference in sizes
+                        sztoget = clength - totsz
+                        # If nothing to get, just save the temp file to
+                        # original
+                        if sztoget==0:
+                            ret = self.write_data_from_tempfiles(cflist, filename)
+                            if ret==0:
+                                print '\nSaved to %s.' % filename
+                                print 'No data was downloaded, data already present in temporary file for this URL'
+                                return 1
+                        else:
+                            # Append filename to list of current temp files
+                            # and set resuming to True
+                            if self._mode==0:
+                                currtmpfiles = cflist
+                            elif self._mode==1:
+                                for tmpf in cflist:
+                                    try:
+                                        self._data += open(tmpf, 'rb').read()
+                                    except IOError, e:
+                                        print e
+
+                                self._datalen = len(self._data)
+                                # print 'Datalen=>',self._datalen
+                                
+                            resuming = True
+                            # print 'Fize=>',totsz,clength
+                            urlobj.range = xrange(totsz, clength+1)
+                            # self._cfg.multipart = True                                    
+                            print 'Resuming download...'
+                except SyntaxError, e:
+                    print 'Error reading URL info file, cannot resume previous download...'
+                    pass
 
         url = urlobj.get_full_url()
         logconsole('Connecting to %s...' % urlobj.get_full_domain())
 
         start = time.time()
-        ret = self.connect2(urlobj)
+        ret = self.connect2(urlobj,resuming=resuming)
         end = time.time()
         
         status = 0
-        if self._cfg.hgetoutfile:
-            n, filename = 1, self._cfg.hgetoutfile
-        else:
-            n, filename = 1, urlobj.get_filename()
-            
+
         if self._cfg.hgetoutdir != '.':
             outdir = self._cfg.hgetoutdir
             if not os.path.isdir(outdir):
@@ -1865,25 +1954,9 @@ class HarvestManUrlConnector(object):
                 # print tmpflist
                 # Temp file name
                 self._tmpfname = filename + '.tmp'
-                
-                try:
-                    cf = open(self._tmpfname, 'wb')
-                    # Combine data into one
-                    for f in tmpflist:
-                        data = open(f, 'rb').read()
-                        cf.write(data)
-                        cf.flush()
-                        
-                    cf.close()
 
+                if self.write_data_from_tempfiles(tmpflist, self._tmpfname)==0:
                     status = 1
-
-                    for f in tmpflist:
-                        # print f
-                        os.remove(f)
-                        
-                except (IOError, OSError), e:
-                    print e
         else:
             if self._data or self._datalen:
                 status = 1
@@ -1894,39 +1967,73 @@ class HarvestManUrlConnector(object):
             print 'Download of URL',url ,'not completed.\n'
             return 0
         
-        origfilename = filename
-        # Check if file exists, if so save to
-        # filename.#n like wget.
-        while os.path.isfile(filename):
-            filename = ''.join((origfilename,'.',str(n)))
-            n += 1
-
         tgap = end - start
         timestr = str(datetime.timedelta(seconds=int(tgap)))
+
+        res = 0
+
         if self._mode==1:
             res=self._write_url_filename(filename)
             if res:
-                sz = os.path.getsize(filename)
+                sz = DataReader.NETDATALEN                
                 bw = float(sz)/float(1024*tgap)
                 print '\nSaved to %s.' % filename
                 print '%d bytes downloaded in %s hours at an average of %.2f kb/s.' % (sz, timestr, bw)
-                return res
+
         elif self._mode==0:
             if os.path.isfile(self._tmpfname):
-                shutil.copy2(self._tmpfname, filename)
-                os.remove(self._tmpfname)
+                if resuming:
+                    currtmpfiles.append(self._tmpfname)
+                    tmpflist = currtmpfiles
+                else:
+                    tmpflist = [self._tmpfname]
                     
+                ret = self.write_data_from_tempfiles(tmpflist, filename)
+
                 if os.path.isfile(filename):
                     print '\nSaved to %s.' % filename
-                    sz = os.path.getsize(filename)
+                    sz = DataReader.NETDATALEN
                     bw = float(sz)/float(1024*tgap)
                     print '%d bytes downloaded in %s hours at an average of %.2f kb/s.' % (sz, timestr, bw)
-                    return 1
+
+                    res = 1
                 else:
                     print 'Error saving to file %s' % filename
             else:
                 print 'Error saving to file %s' % filename
 
+        # Perform cleanups for successful downloads
+        if res:
+            if os.path.isfile(infof):                
+                try:
+                    os.remove(infof)
+                except OSError, e:
+                    print e
+
+            # Clean up files if resuming
+            if resuming:
+                # If this was resumed using temp files then
+                # these files will be already cleaned up, but
+                # will remain if resumed using in-mem flag.
+                for f in currtmpfiles:
+                    if os.path.isfile(f):
+                        try:
+                            os.remove(f)
+                        except OSError, e:
+                            print e
+                pass
+                        
+            # Clean up temp directory if any
+            if not self._cfg.hgetnotemp:
+                if os.path.isdir(tmpd):
+                    print 'Cleaning up temp dir...',tmpd
+                    try:
+                        shutil.rmtree(tmpd, True)
+                    except OSError, e:
+                        print e
+                            
+            return res
+        
         return 0
 
     def get_urlobject(self):

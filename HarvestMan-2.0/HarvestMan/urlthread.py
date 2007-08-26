@@ -692,6 +692,7 @@ class HarvestManUrlThreadPool(Queue):
             for t in self._threads:
                 try:
                     t.terminate()
+                    t.join()
                     del t
                 except HarvestManUrlThreadInterrupt, e:
                     extrainfo(str(e))

@@ -39,6 +39,7 @@ Copyright(C) 2007, Anand B Pillai
 
 import sys, os
 import re
+import shutil
 import connector
 import urlparser
 import config
@@ -73,11 +74,11 @@ class Hget(HarvestMan):
             dmgr = GetObject('datamanager')
             dmgr.initialize()
             
-            pool = dmgr.get_url_threadpool()
+            self._pool = dmgr.get_url_threadpool()
             # print self._cfg.requests, self._cfg.connections
             conn = connector.HarvestManUrlConnector()
             # Set mode to flush/inmem
-            conn.set_data_mode(pool.get_data_mode())
+            conn.set_data_mode(self._pool.get_data_mode())
             
             try: 
                 urlobj = urlparser.HarvestManUrlParser(url)
@@ -85,38 +86,85 @@ class Hget(HarvestMan):
             except urlparser.HarvestManUrlParserError, e:
                 print str(e)
                 print 'Error: Invalid URL "%s"' % url
-                
-        except KeyboardInterrupt:
-            reader = conn.get_reader()
-            if reader: reader.stop()
-            print '\n\nDownload aborted by user interrupt.'
-            # If flushdata mode, delete temporary files
-            if self._cfg.flushdata:
-                print 'Cleaning up temporary files...'
-                fname1 = conn.get_tmpfname()
-                if fname1: os.remove(fname1)
 
-                lthreads = pool.get_threads()
-                lfiles = []
-                for t in lthreads:
-                    fname = t.get_tmpfname()
-                    if fname: lfiles.append(fname)
-                    t.close_file()
-                    
-                pool.end_all_threads()
-
-                for f in lfiles:
-                    try:
-                        os.remove(f)
-                    except (IOError, OSError), e:
-                        print 'Error: ',e
-                        pass
-                    
-                print 'Done'
-                
-            print ''
-
+        except Exception, e:
+            print 'Caught fatal error (%s): %s' % (e.__class__.__name__, str(e))
+            self.clean_up(conn, urlobj, e)
+        except KeyboardInterrupt, e:
+            self.clean_up(conn, urlobj)
+            
         # monitor.stop()
+
+    def clean_up(self, conn, urlobj, exception=None):
+
+        reader = conn.get_reader()
+        if reader: reader.stop()
+        if exception==None:
+            print '\n\nDownload aborted by user interrupt.'
+
+        # If flushdata mode, delete temporary files
+        if self._cfg.flushdata:
+            print 'Cleaning up temporary files...'
+            fname1 = conn.get_tmpfname()
+            fullurl = urlobj.get_full_url()
+            range_request = conn._headers.get('accept-ranges','').lower()
+            # If server supports range requests, then do not
+            # clean up temp file, since we can start from where
+            # we left off, if this file is requested again.
+            if not range_request=='bytes':
+                if fname1: os.remove(fname1)
+            elif fname1:
+                # Dump an info file consisting of the header
+                # information to a file, so that we can use it
+                # to resume downloading from where we left off
+                infof = os.path.join(os.path.dirname(fname1), ''.join((".info#",
+                                                                       str(abs(hash(fullurl))))))
+                if not os.path.isfile(infof):
+                    try:
+                        open(infof, 'wb').write(str(conn._headers))
+                    except (OSError, IOError), e:
+                        print e
+
+            lthreads = self._pool.get_threads()
+            lfiles = []
+            for t in lthreads:
+                fname = t.get_tmpfname()
+                if fname: lfiles.append(fname)
+                t.close_file()
+
+            print 'Waiting for threads to finish...'
+            self._pool.end_all_threads()
+
+            # For currently running multipart download, clean
+            # up all pieces since there is no guarantee that
+            # the next request will be for the same number of
+            # pieces of files, though the server supports
+            # multipart downloads.
+            if lfiles:
+                tmpdir = os.path.dirname(lfiles[0])
+            else:
+                tmpdir = ''
+                
+            for f in lfiles:
+                try:
+                    os.remove(f)
+                except (IOError, OSError), e:
+                    print 'Error: ',e
+                    pass
+
+            # Commented out because this is giving a strange
+            # exception on Windows.
+            
+            # If doing multipart, cleanup temp dir also
+            # if self._cfg.multipart:
+            #    if not self._cfg.hgetnotemp and tmpdir:
+            #        try:
+            #            shutil.rmtree(tmpdir)
+            #        except OSError, e:
+            #            print e
+            print 'Done'
+
+        print ''
         
     def create_initial_directories(self):
         """ Create the initial directories for Hget """
@@ -149,7 +197,8 @@ class Hget(HarvestMan):
         self._cfg.version = VERSION
         self._cfg.maturity = MATURITY
         self._cfg.nocrawl = True
-
+        self._pool = None
+        
         # Get program options
         self._cfg.parse_arguments()
 
