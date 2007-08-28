@@ -103,8 +103,8 @@ class HarvestManStateObject(dict):
         self.puser=''
         self.ppasswd=''
         self.proxyenc=True
-        self.siteusername=''   
-        self.sitepasswd=''     
+        self.username=''   
+        self.passwd=''     
         self.proxyport=0
         self.errorfile='errors.log'
         self.localise=2
@@ -277,6 +277,9 @@ class HarvestManStateObject(dict):
                          'proxypasswd' : ('ppasswd','str'),
                          'proxyport_value' : ('proxyport','int'),
 
+                         'username': ('username','str'),
+                         'passwd' : ('passwd','str'),
+                         
                          # 'urlserver_status' : ('urlserver','int'),
                          'urlhost' : ('urlhost','str'),
                          'urlport_value' : ('urlport','int'),
@@ -702,6 +705,11 @@ class HarvestManStateObject(dict):
                     if self.check_value(option,value): self.set_option_xml('proxyuser', self.process_value(value))
                 elif option=='proxypasswd':
                     if self.check_value(option,value): self.set_option_xml('proxypasswd', self.process_value(value))
+                elif option=='passwd':
+                    if self.check_value(option,value): self.set_option_xml('passwd', self.process_value(value))
+                elif option=='username':
+                    if self.check_value(option,value): self.set_option_xml('username', self.process_value(value))
+                    
                     
         # print self.subdomain
         if self.nocrawl:

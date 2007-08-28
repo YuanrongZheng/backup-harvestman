@@ -75,6 +75,7 @@ import os
 import shutil
 import glob
 import random
+import base64
 import mirrors
 
 from common.common import *
@@ -731,7 +732,7 @@ class HarvestManUrlConnector(object):
                 self._numtries += 1
 
                 # create a request object
-                request = urllib2.Request(urltofetch)
+                request = self.create_request(urltofetch)
                     
                 if lastmodified != -1:
                     ts = time.strftime("%a, %d %b %Y %H:%M:%S GMT",
@@ -1078,6 +1079,23 @@ class HarvestManUrlConnector(object):
             fpath = os.path.join(directory, fname)
             if not os.path.isfile(fpath):
                 return fpath
+
+    def create_request(self, urltofetch):
+        """ Create request object for the URL urltofetch and return it """
+
+        # This function takes care of adding any additional headers
+        # etc in addition to creating the request object.
+        
+        # create a request object
+        request = urllib2.Request(urltofetch)
+        # Check if any HTTP username/password are required
+        username, password = self._cfg.username, self._cfg.passwd
+        if username and password:
+            # Add basic HTTP auth headers
+            authstring = base64.encodestring('%s:%s' % (username, password))
+            request.add_header('Authorization','Basic %s' % authstring)
+
+        return request
         
     def connect2(self, urlobj, showprogress=True, resuming=False):
         """ Connect to the Internet fetch the data of the passed url.
@@ -1117,8 +1135,7 @@ class HarvestManUrlConnector(object):
 
                 self._numtries += 1
 
-                # create a request object
-                request = urllib2.Request(urltofetch)
+                request = self.create_request(urltofetch)
                 byterange = urlobj.range
                 
                 if byterange:
@@ -1126,14 +1143,10 @@ class HarvestManUrlConnector(object):
                 
                     range1 = byterange[0]
                     range2 = byterange[-1]
-                    # For a repeat connection, don't redownload already
-                    # downloaded data.
+                    # For a repeat connection, don't redownload already downloaded data.
                     if self._reader:
                         datasofar = self._reader.get_datalen()
                         if datasofar: range1 += datasofar
-                        # print 'Datasofar, new-range => ',datasofar,range1
-                    #else:
-                    #    print 'Reader is Null!',self
                         
                     request.add_header('Range','bytes=%d-%d' % (range1,range2))
                 
@@ -1221,7 +1234,7 @@ class HarvestManUrlConnector(object):
                                 else:
                                     # Create a fresh request object
                                     self._freq.close()
-                                    request = urllib2.Request(urltofetch)
+                                    request = self.create_request(urltofetch)
                                     self._freq = urllib2.urlopen(request)
                                     
                                     logconsole('Downloading URL %s...' % urltofetch)
@@ -1857,11 +1870,11 @@ class HarvestManUrlConnector(object):
 
         if flist:
             # Sort the files according to creation times
-            cflist = [(fname, os.path.getctime(fname)) for fname in flist]
-            cflist.sort(reverse=True)
-            cflist = [item[0] for item in cflist]
-            # print cflist
-
+            tmpcflist = [(os.path.getctime(fname), fname) for fname in flist]
+            tmpcflist.sort()
+            # print 'Sorted list=>',tmpcflist
+            cflist = [item[1] for item in tmpcflist]
+            
             if os.path.isfile(infof):
                 print 'Temporary files from previous download found, trying to resume download...'
                 # We can proceed only if this file is there, since it contains
@@ -2026,7 +2039,7 @@ class HarvestManUrlConnector(object):
             # Clean up temp directory if any
             if not self._cfg.hgetnotemp:
                 if os.path.isdir(tmpd):
-                    print 'Cleaning up temp dir...',tmpd
+                    # print 'Cleaning up temporary directory...'
                     try:
                         shutil.rmtree(tmpd, True)
                     except OSError, e:
