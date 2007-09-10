@@ -83,6 +83,7 @@ from common.methodwrapper import MethodWrapperMetaClass
 
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 from httplib import BadStatusLine
+from common.keepalive import HTTPHandler, HTTPSHandler
 
 # Defining pluggable functions
 __plugins__ = { 'save_url_plugin': 'HarvestManUrlConnector:save_url' }
@@ -91,6 +92,8 @@ __plugins__ = { 'save_url_plugin': 'HarvestManUrlConnector:save_url' }
 __callbacks__ = { 'connect_callback' : 'HarvestManUrlConnector:connect' }
 
 __protocols__=["http", "ftp"]
+
+# Keep-alive connection manager
 
 class DataReaderException(Exception):
     pass
@@ -397,7 +400,10 @@ class HarvestManNetworkConnector(object):
 
     def configure(self):
         """ Wrapping up wrappers """
-        
+
+        import common.keepalive
+        common.keepalive.DEBUG = GetObject('logger')
+        common.keepalive.DEBUG.error = common.keepalive.DEBUG.extrainfo        
         self.configure_network()
         self.configure_protocols()
         
@@ -1011,11 +1017,11 @@ class HarvestManUrlConnector(object):
                     if sockerrs>=4:
                         self._cfg.connections -= 1
                         self.network_conn.decrement_socket_errors(4)
-            except Exception, e:
-                self._error['msg'] = str(e)
-                errmsg = self._error['msg']
-            
-                extrainfo('General Error: ', errmsg,'=> ',urltofetch)
+            #except Exception, e:
+            #    self._error['msg'] = str(e)
+            #    errmsg = self._error['msg']
+            #
+            #    extrainfo('General Error: ', errmsg,'=> ',urltofetch)
                 
             # attempt reconnect after some time
             time.sleep(self._sleeptime)
@@ -1099,7 +1105,7 @@ class HarvestManUrlConnector(object):
         
     def connect2(self, urlobj, showprogress=True, resuming=False):
         """ Connect to the Internet fetch the data of the passed url.
-        This is called by the stand-alone URL grabber """
+        This is used by hget """
 
         # This routine has two return values
         #

@@ -27,12 +27,12 @@
     <download>
       <types>
         <html value="1"/>
-        <images value="1"/>
+        <images value="0"/>
         <javascript value="1"/>
         <javaapplet value="1"/>
         <querylinks value="1"/>
       </types> 
-      <cache status="1">
+      <cache status="0">
         <datacache value="0"/>
       </cache>
       <protocol>
@@ -93,14 +93,13 @@
     </system>
     
     <files>
-      <urllistfile>urls-list.txt</urllistfile>
-      <urltreefile>urls.html</urltreefile>
+      <urltreefile>urls.txt</urltreefile>
       <archive status="0" format="bzip"/>
       <urlheaders status="1" />
     </files>
     
     <indexer>
-      <localise value="2"/>
+      <localise value="0"/>
     </indexer>
     
     <display>

@@ -255,6 +255,23 @@ class HarvestManCacheReaderWriter(object):
 
     def __init__(self, directory):
         self._cachedir = directory
+        try:
+            os.makedirs(self._cachedir)
+            extrainfo('Created directory => ', self._cachedir)
+            # Copy a readme.txt file to the cache directory
+            readmefile = os.path.join(self._cachedir, "Readme.txt")
+            if not os.path.isfile(readmefile):
+                try:
+                    fs=open(readmefile, 'w')
+                    fs.write(HARVESTMAN_CACHE_README)
+                    fs.close()
+                except Exception, e:
+                    debug(str(e))
+
+        except OSError, e:
+            debug('OS Exception ', e)
+
+        # Create cache directory if it does not exist
         self._cachefilename = os.path.join(self._cachedir, 'cache.hmc')
         
     def read_project_cache(self):
@@ -279,23 +296,6 @@ class HarvestManCacheReaderWriter(object):
                 logconsole(e)
 
         # Create a new shelf with the same values
-        try:
-            if not os.path.isdir(self._cachedir):
-                os.makedirs(self._cachedir)
-                extrainfo('Created cache directory => ', self._cachedir)
-                # Copy a readme.txt file to the cache directory
-                readmefile = os.path.join(self._cachedir, "Readme.txt")
-                if not os.path.isfile(readmefile):
-                    try:
-                        fs=open(readmefile, 'w')
-                        fs.write(HARVESTMAN_CACHE_README)
-                        fs.close()
-                    except Exception, e:
-                        debug(str(e))
-
-        except OSError, e:
-            debug('OS Exception ', e)
-
         # cache_obj2 = MyShelf(cachefilename, 'n', pickle.HIGHEST_PROTOCOL)
         cache_obj2 = {}
         # shelve.open(cachefilename, 'n')

@@ -494,18 +494,17 @@ class HarvestManDataManager(object):
                 # FIXME: Since a copy of urlobject is made, we need to
                 # modify the logic in update_file_stats function for failedurls.
                 failedurls = self._downloaddict['_failedurls']
-                # print id(failedurls), id(self._downloaddict['_failedurls'])
+
                 for urlobj in failedurls:
+                    # If this is the base URL, skip it
+                    if urlobj.index==0: continue
                     if not urlobj.fatal:
                         # Get calling thread
                         t = tg.currentThread()
                         self.download_url(t, urlobj )
 
         # bugfix: Moved the time calculation code here.
-        if sys.platform == 'win32' or os.name=='nt':
-            t2=time.clock()
-        else:
-            t2=time.time()
+        t2=time.time()
 
         self._cfg.endtime = t2
 
@@ -1456,10 +1455,7 @@ class HarvestManController(tg.Thread):
         if self._cfg.timelimit == -1:
             return -1
         
-        if sys.platform == 'win32' or os.name=='nt':
-            t2=time.clock()
-        else:
-            t2=time.time()
+        t2=time.time()
 
         timediff = float((math.modf((t2-self._cfg.starttime)*100.0)[1])/100.0)
         timemax = self._cfg.timelimit

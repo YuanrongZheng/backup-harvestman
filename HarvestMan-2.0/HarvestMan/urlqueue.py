@@ -305,10 +305,7 @@ class HarvestManCrawlerQueue(object):
         # Reset flag
         self._flag = 0
 
-        if os.name=='nt':
-            t1=time.clock()
-        else:
-            t1=time.time()
+        t1=time.time()
 
         # Set start time on config object
         self._configobj.starttime = t1

@@ -599,9 +599,11 @@ class HarvestManUrlParser(object):
         # Now check if the base domain had a port specification (other than 80)
         # Then we need to use that port for all its children, otherwise
         # we can use default value.
-        if self.baseurl and \
-               self.baseurl.port != self.port and \
+        if self.isrel and \
+               self.baseurl and \
+               self.baseurl.port != self.port and\
                self.baseurl.protocol != 'file://':
+            
             self.port = self.baseurl.port
 
     def make_valid_filename(self, s):

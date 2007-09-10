@@ -218,10 +218,7 @@ class HarvestManUrlThread(threading.Thread):
 
         while not self._endflag:
             try:
-                if os.name=='nt' or sys.platform == 'win32':
-                  self._starttime=time.clock()
-                else:
-                    self._starttime=time.time()
+                self._starttime=time.time()
 
                 url_obj = self._pool.get_next_urltask()
 
@@ -317,13 +314,7 @@ class HarvestManUrlThread(threading.Thread):
     def get_elapsed_time(self):
         """ Get the time taken for this thread """
 
-        now=0.0
-
-        if os.name=='nt' or sys.platform=='win32':
-            now=time.clock()
-        else:
-            now=time.time()
-
+        now=time.time()
         fetchtime=float(math.ceil((now-self._starttime)*100)/100)
         return fetchtime
 

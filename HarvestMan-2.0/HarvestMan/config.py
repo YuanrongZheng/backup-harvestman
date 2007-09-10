@@ -172,7 +172,7 @@ class HarvestManStateObject(dict):
         # When set to True, subdomains act like different
         # domains, so they are filtered out for fetchlevel<=1
         self.subdomain = True
-        self.getquerylinks = True
+        self.getquerylinks = False 
         self.requests = 5
         self.bytes = 20.00 # Not used!
         self.projtimeout = 1800.00
@@ -191,7 +191,6 @@ class HarvestManStateObject(dict):
         self.junkfilterdomains = True
         self.junkfilterpatterns = True
         self.urltreefile = ''
-        self.urllistfile = ''
         self.urlfile = ''
         self.maxfilesize=5242880
         self.minfilesize=0
@@ -293,7 +292,6 @@ class HarvestManStateObject(dict):
                          'cache_status' : ('pagecache','int'),
                          'datacache_value' : ('datacache','int'),
 
-                         'urllistfile' : ('urllistfile', 'str'),
                          'urllist': ('urlfile', 'str'),
                          'urltreefile' : ('urltreefile', 'str'),
                          'archive_status' : ('archive', 'int'),

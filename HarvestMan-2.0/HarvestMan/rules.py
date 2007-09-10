@@ -56,7 +56,9 @@ class HarvestManRulesChecker(object):
 
     # For supporting callbacks
     __metaclass__ = MethodWrapperMetaClass
-    
+    # Regular expression for matching www. infront of domains
+    wwwre = re.compile(r'^www\.')
+
     def __init__(self):
 
         self._links = LRU(1000)
@@ -229,6 +231,11 @@ class HarvestManRulesChecker(object):
 
         # first check if both domains are same
         if domain1.lower() == domain2.lower(): return True
+        # Check whether we are comparing something like www.foo.com
+        # and foo.com, they are assumed to be same. 
+        if self.wwwre.sub('',domain1.lower())==self.wwwre.sub('',domain2.lower()):
+            return True
+        
         # extrainfo('Comparing domains %s and %s...' % (domain1, domain2))
         if not self._configobj.subdomain:
             # Checks whether the domain names belong to
@@ -246,7 +253,7 @@ class HarvestManRulesChecker(object):
             # check this is to see if the returned value is an
             # valid IP address.
             if baseserver1.lower() == baseserver2.lower():
-                print 'BASESERVER=>',baseserver1.lower()
+                # print 'BASESERVER=>',baseserver1.lower()
                 try:
                     if baseserver1.lower() in self._invalidservers:
                         return False
@@ -261,10 +268,8 @@ class HarvestManRulesChecker(object):
             else:
                 return False
         else:
-            # if the subdomain variable is set
-            # will return False for two servers like
-            # server1.foo.com and server2.foo.com i.e
-            # with same base domain but different
+            # if the subdomain variable is set will return False for two servers like
+            # server1.foo.com and server2.foo.com i.e with same base domain but different
             # subdomains.
             return False
 
@@ -570,6 +575,7 @@ class HarvestManRulesChecker(object):
         # changed. We need to check with the original
         # URL in such cases.
         # Sample site: http://www.vegvesen.no
+
         if baseUrlObj.reresolved:
             bdir = baseUrlObj.get_original_url_directory()
         else:
@@ -577,10 +583,10 @@ class HarvestManRulesChecker(object):
             
         # print 'BASEDIR=>',bdir
         # print 'DIRECTORY=>',directory
-        
+
         # Look for bdir inside dir
         index = directory.find(bdir)
-
+        
         if index == 0:
             return True
 

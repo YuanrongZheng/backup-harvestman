@@ -198,7 +198,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
 
         try:
             self.action()
-        except Exception, e:
+        except SGMLParseError, e:
             self._status = 0
             # raise
             # Don't try to regenerate threads if this is a local
@@ -206,6 +206,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
             if e.__class__ == HarvestManUrlCrawlerException:
                 raise
             else:
+                
                 # Now I am dead - so I need to tell the queue
                 # object to migrate my data and produce a new
                 # thread.
@@ -676,6 +677,18 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             
             extrainfo("Parsing web page", self._url)
 
+            links = []
+
+            # Perform any Javascript based redirection etc
+            try:
+                parser = pageparser.HarvestManJSParser()
+                parser.feed(data)
+                if parser.redirectedurl:
+                    extrainfo("Javascript redirection to",parser.redirectedurl)
+                    links.append((urlparser.TYPE_WEBPAGE, parser.redirectedurl))
+            except Exception, e:
+                extrainfo("Error while parsing Javascript", e)
+                
             try:
                 self.wp.reset()
                 self.wp.feed(data)
@@ -712,8 +725,9 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 if not self.wp.can_follow:
                     extrainfo('URL %s defines META Robots NOFOLLOW flag, not following its children...' % self._url)
                     return data
-                
-            links = self.wp.links
+
+            links.extend(self.wp.links)
+            
             # Some times image links are provided in webpages as regular <a href=".."> links.
             # So in order to filer images fully, we need to check the wp.links list also.
             # Sample site: http://www.sheppeyseacadets.co.uk/gallery_2.htm

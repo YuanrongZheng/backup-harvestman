@@ -19,7 +19,15 @@
    Apr 19 2007    Anand              Created class HarvestManCSSParser to take
                                      care of parsing stylesheet content to extract
                                      URLs.
-
+   Aug 28 2007    Anand              Added a parser baed on Effbot's sgmlop
+                                     to parse pages with errors - as a part of
+                                     fixes for #491.
+   Sep 05 2007    Anand              Added a basic javascript parser to parse
+                                     Javascript statements - currently this can
+                                     perform Javascript based site redirection.
+   Sep 10 2007    Anand              Added logic to filter junk links produced
+                                     by web-directory pages. 
+   
   Copyright (C) 2004 Anand B Pillai.                                     
                                      
 """
@@ -29,6 +37,7 @@ __author__ = 'Anand B Pillai'
 
 from sgmllib import SGMLParser
 from urltypes import *
+from common.jsparser import JSParser
 from common.common import *
 
 import re
@@ -37,8 +46,12 @@ class HarvestManSimpleParser(SGMLParser):
     """ An HTML/XHTML parser derived from SGMLParser """
 
     query_re = re.compile(r'[-.:_a-zA-Z0-9]*\?[-.:_a-zA-Z0-9]*=[-.a:_-zA-Z0-9]*')
-    skip_re = re.compile(r'(javascript:)|(mailto:)|(news:)|(\?m=a)|(\?n=d)|(\?s=a)|(\?d=a)')
-
+    skip_re = re.compile(r'(javascript:)|(mailto:)|(news:)')
+    # Junk URLs obtained by parsing HTML of web-directory pages
+    # i.e pages with title "Index of...". The filtering is done after
+    # looking at the title of the page.
+    index_page_re = re.compile(r'(\?[a-zA-Z0-9]=[a-zA-Z0-9])')
+    
     handled = { 'a' : (('href', TYPE_ANY), ('href', TYPE_ANCHOR)),
                 'base': (('href', TYPE_BASE),),
                 'frame': (('src', TYPE_FRAME),),
@@ -70,6 +83,10 @@ class HarvestManSimpleParser(SGMLParser):
         # For META robots tag
         self.can_index = True
         self.can_follow = True
+        # Current tag
+        self._tag = ''
+        # Page title
+        self._pagetitle = ''
         SGMLParser.__init__(self)
         
     def save_anchors(self, value):
@@ -93,14 +110,19 @@ class HarvestManSimpleParser(SGMLParser):
 
         # Skip javascript, mailto, news and directory special tags.
         if self.skip_re.match(llink):
-            print 'Filtering link',link
             return 1
 
+        # If this is a web-directory Index page, then check for
+        # match with junk URLs of such index pages
+        if self._pagetitle.lower().startswith('index of'):
+            if self.index_page_re.match(llink):
+                # print 'Filtering link',llink
+                return 1
+            
         cfg = GetObject('config')
 
         # Check if we're accepting query style URLs
         if not cfg.getquerylinks and self.query_re.search(llink):
-            print 'Filtering link',link            
             return 1
 
         return 0
@@ -142,6 +164,10 @@ class HarvestManSimpleParser(SGMLParser):
         page along with its attributes as a list of
         tuples """
 
+        # Set as current tag
+        self._tag = tag
+        # print self._tag, attrs
+        
         if not attrs: return
         isBaseTag = not self.base and tag == 'base'
         
@@ -242,6 +268,11 @@ class HarvestManSimpleParser(SGMLParser):
                     # append to private list of links
                     self.check_add_link(typ, link)
 
+    def handle_data(self, data):
+        # Set title only once
+        if self._tag.lower()=='title' and self._pagetitle=='':
+            self._pagetitle = data.strip()
+
     def check_add_link(self, typ, link):
         """ To avoid adding duplicate links """
 
@@ -329,14 +360,19 @@ class HarvestManSimpleParser(SGMLParser):
 class HarvestManSGMLOpParser(HarvestManSimpleParser):
     """ A parser based on effbot's sgmlop """
 
+    def __init__(self):
+        # This module should be built already!
+        import sgmlop
+        self.parser = sgmlop.SGMLParser()
+        self.parser.register(self)
+        HarvestManSimpleParser.__init__(self)
+        
     def finish_starttag(self, tag, attrs):
         self.unknown_starttag(tag, attrs)
-        
-    #def finish_endtag(self, tag):
-    #    print "END", tag
-    #def handle_data(self, data):
-    #    print "DATA", repr(data)    
 
+    def feed(self, data):
+        self.parser.feed(data)
+        
 class HarvestManCSSParser(object):
     """ Class to parse stylesheets and extract URLs """
 
@@ -385,6 +421,114 @@ class HarvestManCSSParser(object):
             url = item[1].replace("'",'').replace('"','')
             self.links.append(url)
 
+class HarvestManJSParser(JSParser):
+    """ Javascript parser class for HarvestMan """
+
+    # This class can perform simple javascript processing.
+    # Currently it can do only JS based site redirection by using
+    # regular expressions. It takes a URL object as argument and
+    # modifies its attributes accordingly.
+
+    # JS redirect regular expressions
+    # Form => window.location.replace("<url>") or window.location.assign("<url>")
+    # or location.replace("<url>") or location.assign("<url>")
+    jsredirect1 = re.compile(r'([window\.]?location\.(replace|assign))(\(.*\))', re.IGNORECASE)
+    # Form => window.location.href="<url>" or location.href="<url>"
+    jsredirect2 = re.compile(r'([window\.]?location\.href\s*\=\s*)(.*)', re.IGNORECASE)
+    quotechars = re.compile(r'[\'\"]*')
+    
+    def __init__(self):
+        self.links = []
+        self.redirectedurl = ''
+        super(HarvestManJSParser, self).__init__()
+
+    def reset(self):
+        super(HarvestManJSParser, self).reset()
+        self.links = []
+        self.redirectedurl = ''        
+        
+    def feed(self, data):
+        """ Parse the HTML/XHTML content and perform JS processing """
+
+        super(HarvestManJSParser, self).feed(data)
+        # Get the statements
+        for s in self.statements:
+            # Split the statements to lines
+            jslines = s.split('\n')
+            for line in jslines:
+                self.process_expression(line)
+
+    def process_expression(self, statement):
+        """ Process the javascript expression 'statement' """
+
+        # print 'Expression=>',statement
+        m1 = self.jsredirect1.search(statement)
+        if m1:
+            # print 'Matched=>',m1
+            tokens = self.jsredirect1.findall(statement)
+            if tokens:
+                # print tokens
+                urltoken = tokens[0][-1]
+                # Strip of trailing and leading parents
+                url = urltoken.replace('(','').replace(')','').strip()
+                self.perform_js_redirect(url)
+        else:
+            m2 = self.jsredirect2.search(statement)
+            if m2:
+                tokens = self.jsredirect2.findall(statement)
+                urltoken = tokens[0][-1]
+                # Strip of trailing and leading parents
+                url = urltoken.replace('(','').replace(')','').strip()
+                if tokens: self.perform_js_redirect(url)
+
+    # Internal - validate URL strings for Javascript
+    def validate_url(self, urlstring):
+        """ Perform validation of URL strings """
+
+        # Validate the URL - This follows Firefox behaviour
+        # In firefox, the URL might be or might not be enclosed
+        # in quotes. However if it is enclosed in quotes the quote
+        # character at start and begin should match. For example
+        # 'http://www.struer.dk/webtop/site.asp?site=5',
+        # "http://www.struer.dk/webtop/site.asp?site=5" and
+        # http://www.struer.dk/webtop/site.asp?site=5 are valid, but
+        # "http://www.struer.dk/webtop/site.asp?site=5' and
+        # 'http://www.struer.dk/webtop/site.asp?site=5" are not.
+        if urlstring.startswith("'") or urlstring.startswith('"'):
+            if urlstring[0] != urlstring[-1]:
+                # Invalid URL
+                return False
+            
+        return True
+
+    def make_valid_url(self, urlstring):
+        """ Create a valid URL string from the passed urlstring """
+
+        # Strip off any leading/trailing quote chars
+        urlstring = self.quotechars.sub('',urlstring)
+        # print 'URLSTRING=>',urlstring
+        return urlstring.strip()
+        
+    def perform_js_redirect(self, url):
+        """ Perform a JS based redirect """
+
+        # print 'Performing',url
+
+        # Note that we do not perform an actual redirect. Instead
+        # the new URL is considered as a child of the URL which
+        # provided the data.
+        
+        # First validate the javascript
+        # print 'URL=>',url
+        if self.validate_url(url):
+            url = self.make_valid_url(url)
+            self.links.append(url)
+            self.redirectedurl = url
+            # print 'New URL=>',self._urlobj.get_full_url()
+            # print 'URL OK'
+        else:
+            print 'Invalid URL',url
+
 if __name__=="__main__":
     import os
     import config
@@ -400,18 +544,21 @@ if __name__=="__main__":
     cfg.getquerylinks = True
     
     p = HarvestManSimpleParser()
+    # p = HarvestManSGMLOpParser()
+    
     urls = ['http://projecteuler.net/index.php?section=problems']
     urls = ['http://www.evvs.dk/index.php?cPath=30&osCsid=3b110c689f01d722dbbe53c5cee0bf2d']
     urls = ['http://nltk.sourceforge.net/lite/doc/api/nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html']
     urls = ['http://wiki.java.net/bin/view/Javawsxml/Rome05Tutorials']
     
     for url in urls:
-        if os.system('wget %s -O index.html' % url ) == 0:
-            p.feed(open('index.html').read())
-            for link in p.links:
-                print link
-            p.reset()
-##            pass
+       if os.system('wget %s -O index.html' % url ) == 0:
+           p.feed(open('index.html').read())
+           print p.links
+           for link in p.links:
+               print link
+           p.reset()
+
                                    
 
 
