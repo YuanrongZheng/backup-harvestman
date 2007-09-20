@@ -31,6 +31,7 @@ import time
 import threading
 import copy
 import random
+import sha
 
 from collections import deque
 from Queue import Queue, Full, Empty
@@ -189,6 +190,12 @@ class HarvestManUrlThread(threading.Thread):
             elif mode == 1:
                 self._data = self._conn.get_data()
 
+        # Add page hash to URL object
+        data = self._conn.get_data()
+        # Update pagehash on the URL object
+        if data: 
+            url_obj.pagehash = sha.new(data).hexdigest()
+            
         # Remove the connector from the factory
         conn_factory.remove_connector(self._conn)
         
@@ -684,9 +691,26 @@ class HarvestManUrlThreadPool(Queue):
                 try:
                     t.terminate()
                     t.join()
-                    del t
                 except HarvestManUrlThreadInterrupt, e:
                     extrainfo(str(e))
+                    pass
+
+            self._threads = []
+        finally:
+            self._cond.release()
+
+    def stop_all_threads(self):
+        """ Stop all running threads """
+
+        # Same as end_all_threads but only that
+        # we don't print the killed message.
+        try:
+            self._cond.acquire()
+            for t in self._threads:
+                try:
+                    t.terminate()
+                    t.join()
+                except HarvestManUrlThreadInterrupt, e:
                     pass
 
             self._threads = []

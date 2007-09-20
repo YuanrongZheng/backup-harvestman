@@ -630,6 +630,34 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             self.process_url()
             self.crawl_url()
 
+    def offset_links(self, links):
+        """ Calculate a new list by applying any offset params
+        on the list of links """
+
+        n = len(links)
+        # Check for any links offset params - if so trim
+        # the list of links to the supplied offset values
+        offset_start = self._configobj.linksoffsetstart
+        offset_end = self._configobj.linksoffsetend
+        # Check for negative values for end offset
+        # This is considered as follows.
+        # -1 => Till and including end of list
+        # -2 => Till and including (n-1) element
+        # -3 => Till and including (n-2) element
+        # like that... upto -(n-1)...
+        if offset_end < 0:
+            offset_end = n - (offset_end + 1)
+        # If we still get negative value for offset end
+        # discard it and use list till end
+        if offset_end < 0:
+            offset_end = n
+
+        # Start offset should not have negative values
+        if offset_start >= 0:
+            return links[offset_start:offset_end]
+        else:
+            return links[:offset_end]
+        
     def process_url(self):
         """ This function downloads the data for a url and writes its files.
         It also posts the data for web pages to a data queue """
@@ -639,7 +667,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
 
         data = ''
         if not mgr.is_downloaded(self._url):
-            moreinfo('Downloading file for url from URL', self._urlobject.get_full_url())
+            moreinfo('Downloading file for url', self._urlobject.get_full_url())
             # About to fetch
             self._fetchstatus = 1
             self._fetchtime = time.time()
@@ -732,14 +760,17 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             # So in order to filer images fully, we need to check the wp.links list also.
             # Sample site: http://www.sheppeyseacadets.co.uk/gallery_2.htm
             
-            # Put images first!
             if self._configobj.images:
                 links += self.wp.images
             else:
                 # Filter any links with image extensions out from links
                 links = [(type, link) for type, link in links if link[link.rfind('.'):].lower() not in \
                          urlparser.HarvestManUrlParser.image_extns] 
-                
+
+            # print 'Links=>',links
+            links = self.offset_links(links)
+            # print 'Links=>',links
+            
             # Create collection object
             coll = HarvestManAutoUrlCollection(url_obj)
             
@@ -786,7 +817,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
             sp = pageparser.HarvestManCSSParser()
             sp.feed(data)
 
-            contained_urls = sp.links
+            contained_urls = self.offset_links(sp.links)
             
             # Create collection object
             coll = HarvestManAutoUrlCollection(self._urlobject)

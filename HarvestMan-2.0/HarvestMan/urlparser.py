@@ -121,6 +121,9 @@ class HarvestManUrlParser(object):
     # Replacement chars
     junk_chars_repl = ('',)*len(junk_chars)
 
+    # %xx char replacement regexp
+    percent_repl = re.compile(r'\%[a-f0-9][a-f0-9]', re.IGNORECASE)
+
     # Special strings
     special_strings = ('%20','%7E','%2B','%22','%3C','%3E','%23','%25',
                        '%7B','%7D','%7C','%5C','%5E','%5B','%5D','%60')
@@ -610,9 +613,13 @@ class HarvestManUrlParser(object):
         """ Replace junk characters to create a valid
         filename """
 
-        for x,y in zip(self.special_strings, self.special_strings_repl):
-            s = s.replace(x, y).replace(x.lower(), y)
-
+        #for x,y in zip(self.special_strings, self.special_strings_repl):
+        #    s = s.replace(x, y).replace(x.lower(), y)
+        # Replace any %xx strings
+        percent_chars = self.percent_repl.findall(s)
+        for pchar in percent_chars:
+            s = s.replace(pchar, chr(int(pchar.replace('%','0x'), 16)))
+            
         for x,y in zip(self.junk_chars, self.junk_chars_repl):
             s = s.replace(x, y)
 

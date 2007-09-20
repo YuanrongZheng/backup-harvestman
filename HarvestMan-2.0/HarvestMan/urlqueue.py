@@ -454,25 +454,31 @@ class HarvestManCrawlerQueue(object):
 
         debug("Maximum time diff is", mtdiff)
         # If this guy is blocking for a long time
-        # (currently set to 2 minutes), kill him
+        # (currently set to 4 minutes), kill him
         # and migrate its data.
-        if mtdiff>120.0 and (tracker != None):
+        
+        if mtdiff>self._configobj.fetchertimeout and (tracker != None):
             if self._gencount < self._numfetchers:
-                debug('Migrating data for thread',tracker)
+                extrainfo('Regenerating thread %s because it is blocking' % tracker)
                 ret = self.dead_thread_callback(tracker)
                 debug('Length of trackers=>',len(self._trackers))
+                
                 if ret == 0:
+                    extrainfo('Regenerated thread' % tracker)
+                    
                     try:
                         self._gencount += 1
+                        extrainfo('Terminating old tracker thread %s...' % tracker)
                         tracker.terminate()
                     except crawler.HarvestManUrlCrawlerException, e:
-                        print e
+                        extrainfo('Tracker thread %s killed' % tracker)
                         pass
                     
                 return False
             else:
                 # We have regenerated threads, still they are hanging
                 # so bring the program down.
+                extrainfo('Max regeneration count exceeded...')
                 return True
         
     def is_exit_condition(self):
@@ -501,10 +507,10 @@ class HarvestManCrawlerQueue(object):
         # to finish, kill the sub-threads.
         if is_blocked and has_running_threads:
             # Find out time difference between when trackers
-            # got blocked and curr time. If greater than 1 minute
-            # Kill hanging threads
+            # got blocked and curr time. If greater than fetcher
+            # timeout, Kill hanging threads
             timediff2 = currtime - self._lastblockedtime
-            if timediff2 > 240.0:
+            if timediff2 > self._configobj.fetchertimeout:
                 moreinfo("Killing download threads ...")
                 dmgr.kill_download_threads()
                 has_running_threads = False
@@ -700,6 +706,10 @@ class HarvestManCrawlerQueue(object):
             except Exception, e:
                 pass
 
+        # Stop worker threads
+        pool = GetObject('datamanager').get_url_threadpool()
+        if pool: pool.stop_all_threads()
+        
         # Stop controller
         self._controller.stop()
 

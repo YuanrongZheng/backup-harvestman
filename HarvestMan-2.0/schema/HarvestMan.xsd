@@ -230,6 +230,12 @@
           <xsd:attribute name="value" type="xsd:boolean" default="1" use="optional"/>
         </xsd:complexType>
       </xsd:element>
+      <xsd:element name="offset" minOccurs="0">
+        <xsd:complexType>
+          <xsd:attribute name="start" type="xsd:integer" default="0" use="optional"/>
+          <xsd:attribute name="end" type="xsd:integer" default="-1" use="optional"/>
+        </xsd:complexType>
+      </xsd:element>
     </xsd:sequence>       
   </xsd:complexType>
   
@@ -356,12 +362,13 @@
         <xsd:complexType>
           <xsd:attribute name="status" type="xsd:boolean" default="1" use="optional"/>
           <xsd:attribute name="size" type="xsd:positiveInteger" default="10" use="optional"/>
-          <xsd:attribute name="timeout" type="xsd:double" default="200.0" use="optional"/>
+          <xsd:attribute name="timeout" type="xsd:double" default="1200.0" use="optional"/>
         </xsd:complexType>
       </xsd:element>
       <xsd:element name="trackers" minOccurs="0">
         <xsd:complexType>
           <xsd:attribute name="value" type="xsd:positiveInteger" default="4" use="optional"/>
+          <xsd:attribute name="timeout" type="xsd:double" default="240.0" use="optional"/>
         </xsd:complexType>
       </xsd:element>
       <xsd:element name="locale" type="validString" default="american" minOccurs="0"/>
@@ -387,7 +394,6 @@
   <!--- Defining the 'files' element -->
   <xsd:complexType name="ConfigFilesType">
     <xsd:sequence>
-      <xsd:element name="urllistfile" type="xsd:string" minOccurs="0"/>
       <xsd:element name="urltreefile" type="xsd:string" minOccurs="0"/>
       <xsd:element name="archive" minOccurs="0">
         <xsd:complexType>

@@ -152,7 +152,23 @@ class HarvestManDataManager(object):
         """ Return the URL database file """
 
         return os.path.join(self._cfg.projdir,'urls.db')
-    
+
+    def get_original_url(self, urlobj):
+
+        # Return the original URL object for
+        # duplicate URLs. This is useful for
+        # processing URL objects obtained from
+        # the collection object, because many
+        # of them might be duplicate and would
+        # not have any post-download information
+        # such a headers etc.
+        if urlobj.refindex != -1:
+            return self.get_url(urlobj.refindex)
+        else:
+            # Return the same URL object to avoid
+            # an <if None> check on the caller
+            return urlobj
+        
     def get_proj_cache_filename(self):
         """ Return the cache filename for the current project """
 
@@ -246,9 +262,7 @@ class HarvestManDataManager(object):
         # Created this method - Anand Jan 10 06
         digest1 = ''
         if urldata:
-            sh = sha.new()
-            sh.update(urldata)
-            digest1 = sh.hexdigest()
+            sh = sha.new(urldata).hexdigest()
             
         return self.update_cache_for_url(urlobj, filename, contentlen, urldata, digest1)
 
@@ -371,9 +385,7 @@ class HarvestManDataManager(object):
         # get digest! (This line somehow has got deleted)
         digest1 = ''
         if urldata:
-            sh = sha.new()
-            sh.update(urldata)
-            digest1 = sh.hexdigest()
+            sh = sha.new(urldata).hexdigest()
         
         # Assume that cache is not uptodate apriori
         uptodate=False
@@ -829,6 +841,9 @@ class HarvestManDataManager(object):
                 self.update_file_stats( urlobj, res )
 
                 data = conn.get_data()
+                # Update pagehash on the URL object
+                if data: urlobj.pagehash = sha.new(data).hexdigest()
+                
             else:
                 fetchurl = urlobj.get_full_url()
                 extrainfo( "Failed to download url", fetchurl)

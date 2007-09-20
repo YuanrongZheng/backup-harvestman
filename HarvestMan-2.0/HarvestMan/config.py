@@ -138,13 +138,15 @@ class HarvestManStateObject(dict):
         self.serverprioritydict = {}
         self.verbosity=2
         self.verbosity_default=2
-        # timeout for threads is a rather
+        # timeout for worker threads is a rather
         # large 20 minutes.
         self.timeout=1200.00
         # timeout for sockets is a modest
         # two minutes
         self.socktimeout = 120.00
-        self.fetchertimeout=self.timeout
+        # Time out for fetchers is a rather
+        # small 4 minutes
+        self.fetchertimeout = 240.0
         self.getimagelinks=1
         self.getstylesheets=1
         self.threadpoolsize=10
@@ -225,6 +227,14 @@ class HarvestManStateObject(dict):
         # Flag to indicate that a multipart
         # download is in progress
         self.multipart = False
+        # Links offset start - this will
+        # skip the list of child links of a URL
+        # to the given value
+        self.linksoffsetstart = 0
+        # Links offset value - this will skip
+        # the list of child links of a URL
+        # after the given value
+        self.linksoffsetend = -1
         # Current progress object
         self.progressobj = TextProgress()
         # Flag for forcing multipart downloads
@@ -300,6 +310,8 @@ class HarvestManStateObject(dict):
                          'retries_value': ('retryfailed','int'),
                          'imagelinks_value' : ('getimagelinks','int'),
                          'stylesheetlinks_value' : ('getstylesheets','int'),
+                         'offset_start' : ('linksoffsetstart','int'),
+                         'offset_end' : ('linksoffsetend','int'),
                          'fetchlevel_value' : ('fetchlevel','int'),
                          'extserverlinks_value' : ('eserverlinks','int'),
                          'extpagelinks_value' : ('epagelinks','int'),
@@ -324,6 +336,7 @@ class HarvestManStateObject(dict):
                          'workers_size' : ('threadpoolsize','int'),
                          'workers_timeout' : ('timeout','float'),
                          'trackers_value' : ('maxtrackers','int'),
+                         'trackers_timeout' : ('fetchertimeout','float'),                         
                          'locale' : ('locale','str'),
                          'fastmode_value': ('fastmode','int'),
                          'savesessions_value': ('savesessions','int'),
