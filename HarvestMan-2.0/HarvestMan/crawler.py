@@ -260,6 +260,7 @@ class HarvestManBaseUrlCrawler( threading.Thread ):
 
         # Fix: Check length of local buffer also
         # before returning.
+        # extrainfo('Status=>',self._status,self)
         if self._status != 0 or len(self.buffer):
             debug('My status is=>',self._status,self)
             return True
@@ -754,6 +755,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                     extrainfo('URL %s defines META Robots NOFOLLOW flag, not following its children...' % self._url)
                     return data
 
+            # print 'LINKS=>',self.wp.links
             links.extend(self.wp.links)
             
             # Some times image links are provided in webpages as regular <a href=".."> links.
@@ -804,7 +806,7 @@ class HarvestManUrlFetcher(HarvestManBaseUrlCrawler):
                 
             if not self._crawlerqueue.push((url_obj.priority, coll), 'fetcher'):
                 if self._pushflag: self.buffer.append((url_obj.priority, coll))
-                
+
             # Update links called here
             mgr.update_links(coll)
 

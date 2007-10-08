@@ -45,6 +45,9 @@ class PriorityQueue(Queue):
     def _put(self, item):
         bisect.insort(self.queue, item)
 
+    def __len__(self):
+        return len(self.queue)
+    
     def _qsize(self):
         return len(self.queue)
 
@@ -498,7 +501,7 @@ class HarvestManCrawlerQueue(object):
             
         timediff = currtime - self._lasttimestamp
 
-        is_blocked = self.is_blocked()
+        is_blocked = self.is_blocked() and len(self.url_q)==0 and len(self.data_q)==0
             
         has_running_threads = dmgr.has_download_threads()
         timed_out = False

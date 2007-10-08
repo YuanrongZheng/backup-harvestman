@@ -114,13 +114,12 @@ EXTRA ATTRIBUTES AND METHODS
 
 """
 
-# $Id: keepalive.py,v 1.1 2007/09/10 21:03:36 pythonhacker Exp $
+# $Id: keepalive.py,v 1.2 2007/10/08 20:52:00 pythonhacker Exp $
 
 import urllib2
 import httplib
 import socket
 import thread
-from urllib import addinfourl
 
 class FakeLogger:
     def debug(self, msg, *args): print msg % args
@@ -236,7 +235,6 @@ class KeepAliveHandler:
 
         try:
             h = self._cm.get_ready_conn(host)
-            print 'H=>',h
             while h:
                 r = self._reuse_connection(h, req, host)
 
@@ -257,15 +255,11 @@ class KeepAliveHandler:
                 self._cm.add(host, h, 0)
                 self._start_transaction(h, req)
                 r = h.getresponse()
-                print 'Response=>',r,r.__class__.__name__
         except (socket.error, httplib.HTTPException), err:
             raise urllib2.URLError(err)
             
         # if not a persistent connection, don't try to reuse it
         if r.will_close: self._cm.remove(h)
-        
-        r.recv = r.read
-        fp = socket._fileobject(r)
 
         if DEBUG: DEBUG.info("STATUS: %s, %s", r.status, r.reason)
         r._handler = self
@@ -274,19 +268,13 @@ class KeepAliveHandler:
         r._connection = h
         r.code = r.status
         r.headers = r.msg
-
-        resp = addinfourl(fp, r.msg, req.get_full_url())
-        resp.code = r.status
-        resp.msg = r.reason
-
         r.msg = r.reason
-        print 'STATUS=>',r.status
-        return resp
-        #if r.status == 200 or not HANDLE_ERRORS:
-        #    return r
-        #else:
-        #    return self.parent.error('http', req, r,
-        #                             r.status, r.msg, r.headers)
+        
+        if r.status == 200 or not HANDLE_ERRORS:
+            return r
+        else:
+            return self.parent.error('http', req, r,
+                                     r.status, r.msg, r.headers)
 
     def _reuse_connection(self, h, req, host):
         """start the transaction with a re-used connection
@@ -415,7 +403,7 @@ class HTTPResponse(httplib.HTTPResponse):
         self._url = None     # (same)
         self._connection = None # (same)
 
-    # _raw_read = httplib.HTTPResponse.read
+    _raw_read = httplib.HTTPResponse.read
 
     def close(self):
         if self.fp:
@@ -434,6 +422,49 @@ class HTTPResponse(httplib.HTTPResponse):
 
     def geturl(self):
         return self._url
+
+    def read(self, amt=None):
+        # the _rbuf test is only in this first if for speed.  It's not
+        # logically necessary
+        if self._rbuf and not amt is None:
+            L = len(self._rbuf)
+            if amt > L:
+                amt -= L
+            else:
+                s = self._rbuf[:amt]
+                self._rbuf = self._rbuf[amt:]
+                return s
+
+        s = self._rbuf + self._raw_read(amt)
+        self._rbuf = ''
+        return s
+
+    def readline(self, limit=-1):
+        data = ""
+        i = self._rbuf.find('\n')
+        while i < 0 and not (0 < limit <= len(self._rbuf)):
+            new = self._raw_read(self._rbufsize)
+            if not new: break
+            i = new.find('\n')
+            if i >= 0: i = i + len(self._rbuf)
+            self._rbuf = self._rbuf + new
+        if i < 0: i = len(self._rbuf)
+        else: i = i+1
+        if 0 <= limit < len(self._rbuf): i = limit
+        data, self._rbuf = self._rbuf[:i], self._rbuf[i:]
+        return data
+
+    def readlines(self, sizehint = 0):
+        total = 0
+        list = []
+        while 1:
+            line = self.readline()
+            if not line: break
+            list.append(line)
+            total += len(line)
+            if sizehint and total >= sizehint:
+                break
+        return list
 
 
 class HTTPConnection(httplib.HTTPConnection):

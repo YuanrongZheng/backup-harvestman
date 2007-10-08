@@ -333,6 +333,8 @@ class TextProgress(Progress):
         self._lastsubkeystart = 0
         self._fetchermode = False
         self._nolengthmode = False
+        # Cursor direction for no length mode
+        self._direction = 0
         self._current = 0.0
         self._seentopics = {}
         self._addline = False
@@ -421,12 +423,28 @@ class TextProgress(Progress):
             hashes = int(hashwidth*current/100)
             suffix = "(%3s) \r" % '...'
             out.write("[")
-            out.write(" "*(hashes-1))
+            if self._direction==0:
+                leftwidth = hashes
+                rightwidth = hashwidth - hashes -3
+            elif self._direction==1:
+                leftwidth = hashwidth - hashes - 3
+                rightwidth = hashes
+
+            # print leftwidth, rightwidth, hashwidth
+            if rightwidth==0:
+                # Switch direction
+                self._direction = 1
+            elif leftwidth==0:
+                self._direction = 0
+                
+            if leftwidth >=0: out.write(" "*leftwidth)
             out.write("<=>")
-            out.write(" "*(hashwidth-hashes-3))
+            if rightwidth >=0: out.write(" "*(rightwidth))
             out.write("]")
             out.write(suffix)
             out.flush()
+            # Sleep for some time
+            time.sleep(0.1)
         else:
             hashwidth = self._hashwidth -len(suffix)
             hashes = int(hashwidth*current/100)

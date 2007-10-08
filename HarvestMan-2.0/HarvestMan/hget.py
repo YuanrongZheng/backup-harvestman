@@ -57,30 +57,20 @@ class Hget(HarvestMan):
     a wget like interface for downloading files on the
     command line with HTTP/1.0 Multipart support """
 
-    def grab_url(self):
+    def grab_url(self, url):
         """ Download URL """
-
-        # print self._cfg.maxfilesize
-        try:
-            url = self._cfg.urls[0]
-        except IndexError, e:
-            print 'Error: No URL given. Run with -h or no arguments to see usage.\n'
-            return -1
 
         # monitor = datamgr.HarvestManUrlThreadPoolMonitor()
         # monitor.start()
         
         try:
-            dmgr = GetObject('datamanager')
-            dmgr.initialize()
-            
-            self._pool = dmgr.get_url_threadpool()
             # print self._cfg.requests, self._cfg.connections
             conn = connector.HarvestManUrlConnector()
             # Set mode to flush/inmem
             conn.set_data_mode(self._pool.get_data_mode())
             
-            try: 
+            try:
+                print 'Downloading URL',url,'...'
                 urlobj = urlparser.HarvestManUrlParser(url)
                 ret = conn.url_to_file(urlobj)
             except urlparser.HarvestManUrlParserError, e:
@@ -112,7 +102,11 @@ class Hget(HarvestMan):
             # clean up temp file, since we can start from where
             # we left off, if this file is requested again.
             if not range_request=='bytes':
-                if fname1: os.remove(fname1)
+                if fname1:
+                    try:
+                        os.remove(fname1)
+                    except OSError, e:
+                        print e
             elif fname1:
                 # Dump an info file consisting of the header
                 # information to a file, so that we can use it
@@ -146,22 +140,22 @@ class Hget(HarvestMan):
                 tmpdir = ''
                 
             for f in lfiles:
-                try:
-                    os.remove(f)
-                except (IOError, OSError), e:
-                    print 'Error: ',e
-                    pass
+                if os.path.isfile(f):
+                    try:
+                        os.remove(f)
+                    except (IOError, OSError), e:
+                        print 'Error: ',e
 
             # Commented out because this is giving a strange
             # exception on Windows.
             
             # If doing multipart, cleanup temp dir also
-            # if self._cfg.multipart:
-            #    if not self._cfg.hgetnotemp and tmpdir:
-            #        try:
-            #            shutil.rmtree(tmpdir)
-            #        except OSError, e:
-            #            print e
+            if self._cfg.multipart:
+                if not self._cfg.hgetnotemp and tmpdir:
+                    try:
+                        shutil.rmtree(tmpdir)
+                    except OSError, e:
+                        print e
             print 'Done'
 
         print ''
@@ -220,14 +214,39 @@ class Hget(HarvestMan):
 
         self.register_common_objects()
         self.create_initial_directories()
-        
-        # Calculate bandwidth and set max file size
-        # bw = self.calculate_bandwidth()
-        # Max file size is calculated on basis of
-        # maximum 15 minutes of continous download.
-        # if bw: self._cfg.maxfilesize = bw*900
-        self._cfg.maxfilesize = 10485760
 
+    def hget(self):
+        """ Download all URLs """
+
+        dmgr = GetObject('datamanager')
+        dmgr.initialize()
+        self._pool = dmgr.get_url_threadpool()
+
+        try:
+            arg = self._cfg.urls[0]
+        except IndexError, e:
+            print 'Error: No input URL/file given. Run with -h or no arguments to see usage.\n'
+            return -1
+
+        # Check if the argument is a file, if so
+        # download URLs specified in the file.
+        if os.path.isfile(arg):
+            # Open it, read URL per line and schedule download
+            print 'Input file %s found, scheduling download of URLs...' % arg
+            try:
+                for line in file(arg):
+                    url = line.strip()
+                    print ''
+                    self.grab_url(url)
+                    # Reset progress object
+                    self._cfg.reset_progress()
+            except IOError, e:
+                print 'Error:',e
+            except Exception, e:
+                raise
+        else:
+            self.grab_url(arg)
+        
     def main(self):
         """ Main routine """
 
@@ -236,7 +255,7 @@ class Hget(HarvestMan):
             sys.argv.append('-h')
             
         self._prepare()
-        self.grab_url()
+        self.hget()
         return 0
 
 if __name__ == "__main__":

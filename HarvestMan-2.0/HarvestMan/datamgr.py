@@ -511,9 +511,8 @@ class HarvestManDataManager(object):
                     # If this is the base URL, skip it
                     if urlobj.index==0: continue
                     if not urlobj.fatal:
-                        # Get calling thread
-                        t = tg.currentThread()
-                        self.download_url(t, urlobj )
+                        print 'Re-downloading',urlobj.get_full_url()
+                        self.thread_download(urlobj)
 
         # bugfix: Moved the time calculation code here.
         t2=time.time()

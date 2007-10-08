@@ -44,15 +44,19 @@ USAGE1 = """\
 %(appname)s %(version)s %(maturity)s: An extensible, multithreaded web crawler.
 Author: Anand B Pillai
 
-Mail bug reports and suggestions to <anand@harvestmanontheweb.com>."""
+Mail bug reports and suggestions to <abpillai at gmail dot com>."""
 
 USAGE2 = """\
- %(program)s [options] URL
+ %(program)s [options] URL | file
  
 %(appname)s %(version)s %(maturity)s: A multithreaded web downloader based on HarvestMan.
 Author: Anand B Pillai
 
-Mail bug reports and suggestions to <anand@harvestmanontheweb.com>."""
+The program accepts a URL or an input file containing a number of URLs,
+one per line. If a file is passed as input, any other program option
+passed is applied for every URL downloaded using the file.
+
+Mail bug reports and suggestions to <abpillai at gmail dot com>."""
 
 import os, sys
 import re
@@ -109,7 +113,7 @@ class HarvestManStateObject(dict):
         self.errorfile='errors.log'
         self.localise=2
         self.jitlocalise=0
-        self.images=0
+        self.images=1
         self.depth=10
         self.html=1
         self.robots=1
@@ -224,6 +228,8 @@ class HarvestManStateObject(dict):
         # Number of parts to split a file
         # to, for multipart http downloads
         self.numparts = 4
+        # Flag to force multipart downloads off
+        self.nomultipart = False
         # Flag to indicate that a multipart
         # download is in progress
         self.multipart = False
@@ -720,6 +726,10 @@ class HarvestManStateObject(dict):
                     if self.check_value(option,value): self.set_option_xml('passwd', self.process_value(value))
                 elif option=='username':
                     if self.check_value(option,value): self.set_option_xml('username', self.process_value(value))
+                elif option == 'single':
+                    if value:
+                        print "Single thread option set, disabling multipart downloads..."
+                        self.nomultipart = True
                     
                     
         # print self.subdomain
@@ -972,9 +982,11 @@ class HarvestManStateObject(dict):
         self._fix()
 
     def reset_list_params(self):
-
         pass
-        
+
+    def reset_progress(self):
+        self.progressobj = None
+        self.progressobj = TextProgress()
         
     def __getattr__(self, name):
         try:

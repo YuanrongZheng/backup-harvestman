@@ -83,7 +83,7 @@ from common.methodwrapper import MethodWrapperMetaClass
 
 from urlparser import HarvestManUrlParser, HarvestManUrlParserError
 from httplib import BadStatusLine
-from common.keepalive import HTTPHandler, HTTPSHandler
+from common import keepalive
 
 # Defining pluggable functions
 __plugins__ = { 'save_url_plugin': 'HarvestManUrlConnector:save_url' }
@@ -224,7 +224,7 @@ class DataReader(tg.Thread):
             
             l = self._contentlen
             self.__class__.NETDATALEN = self._contentlen
-
+            
             per = pertotal
             
             if curr>self._start:
@@ -468,7 +468,14 @@ class HarvestManNetworkConnector(object):
                 import cookielib
                 cj = cookielib.MozillaCookieJar()
                 cookiehandler = urllib2.HTTPCookieProcessor(cj)
-                pass
+
+        # HTTP/HTTPS handlers
+        if self._cfg.appname == 'Hget':
+            httphandler = urllib2.HTTPHandler
+            httpshandler = urllib2.HTTPSHandler
+        else:
+            httphandler = keepalive.HTTPHandler
+            httpshandler = keepalive.HTTPSHandler
             
         # If we are behing proxies/firewalls
         if self._useproxy:
@@ -509,18 +516,18 @@ class HarvestManNetworkConnector(object):
                 opener = urllib2.build_opener(authhandler,
                                               urllib2.HTTPRedirectHandler,
                                               proxy_support,
-                                              urllib2.HTTPHandler,
+                                              httphandler,
                                               urllib2.HTTPDefaultErrorHandler,
                                               urllib2.CacheFTPHandler,
                                               urllib2.GopherHandler,
-                                              urllib2.HTTPSHandler,
+                                              httpshandler,
                                               urllib2.FileHandler,
                                               cookiehandler)
             else:
                 opener = urllib2.build_opener(authhandler,
-                                              urllib2.HTTPRedirectHandler,                                              
+                                              urllib2.HTTPRedirectHandler,
                                               proxy_support,
-                                              urllib2.HTTPHandler,
+                                              httphandler,
                                               urllib2.HTTPDefaultErrorHandler,
                                               urllib2.CacheFTPHandler,
                                               urllib2.GopherHandler,
@@ -531,18 +538,18 @@ class HarvestManNetworkConnector(object):
             # Direct connection to internet
             if self._initssl:
                 opener = urllib2.build_opener(authhandler,
-                                              urllib2.HTTPRedirectHandler,                                              
-                                              urllib2.HTTPHandler,
+                                              urllib2.HTTPRedirectHandler,
+                                              httphandler,
                                               urllib2.CacheFTPHandler,
-                                              urllib2.HTTPSHandler,
+                                              httpshandler,
                                               urllib2.GopherHandler,
                                               urllib2.FileHandler,
                                               urllib2.HTTPDefaultErrorHandler,
                                               cookiehandler)
             else:
                 opener = urllib2.build_opener( authhandler,
-                                               urllib2.HTTPRedirectHandler,                                               
-                                               urllib2.HTTPHandler,
+                                               urllib2.HTTPRedirectHandler,
+                                               httphandler,
                                                urllib2.CacheFTPHandler,
                                                urllib2.GopherHandler,
                                                urllib2.FileHandler,
@@ -1219,59 +1226,50 @@ class HarvestManUrlConnector(object):
                     trynormal = False
 
                 # Check constraint on file size
-                if (not byterange and self._cfg.forcesplit) or \
-                       (not byterange and not self.check_content_length()):
-                    maxsz = self._cfg.maxfilesize
-                    if not self._cfg.forcesplit:
-                        logconsole('Maximum file size for single downloads is %.0f bytes.' % maxsz)
-                        logconsole("Url does not match size constraints")
-                    elif not trynormal:
+                if (not byterange) and (not trynormal) and (not self._cfg.nomultipart) and \
+                       (mirrors.is_multipart_download_supported(urlobj) or self._cfg.forcesplit):
+                    if self._cfg.forcesplit:
                         logconsole('Forcing download into %d parts' % self._cfg.numparts)
                         
-                    if not trynormal:
-                        if (not self._headers.get('accept-ranges', '').lower() == 'bytes') and \
-                               not mirrors.is_multipart_download_supported(urlobj):
-                            logconsole('Checking whether server supports multipart downloads...')
-                            # See if the server supports 'Range' header
-                            # by requesting half the length
-                            self._headers.clear()
-                            request.add_header('Range','bytes=%d-%d' % (0,clength/2))
-                            self._freq.close()                        
-                            self._freq = urllib2.urlopen(request)
-                            
-                            # Set http headers
-                            self.set_http_headers()
-                            range_result = self._headers.get('accept-ranges', '')
-                            if range_result.lower()=='bytes':
-                                logconsole('Server supports multipart downloads')
-                                self._freq.close()
-                            else:
-                                logconsole('Server does not support multipart downloads')
-                                resp = raw_input('Do you still want to download this URL [y/n] ?')
-                                if resp.lower() !='y':
-                                    logconsole('Aborting download.')
-                                    return 3
-                                else:
-                                    # Create a fresh request object
-                                    self._freq.close()
-                                    request = self.create_request(urltofetch)
-                                    self._freq = urllib2.urlopen(request)
-                                    
-                                    logconsole('Downloading URL %s...' % urltofetch)
-                                    trynormal = True
-                        else:
+                    if (not self._headers.get('accept-ranges', '').lower() == 'bytes') and \
+                           not mirrors.is_multipart_download_supported(urlobj):
+                        logconsole('Checking whether server supports multipart downloads...')
+                        # See if the server supports 'Range' header
+                        # by requesting half the length
+                        self._headers.clear()
+                        request.add_header('Range','bytes=%d-%d' % (0,clength/2))
+                        self._freq.close()                        
+                        self._freq = urllib2.urlopen(request)
+
+                        # Set http headers
+                        self.set_http_headers()
+                        range_result = self._headers.get('accept-ranges', '')
+                        if range_result.lower()=='bytes':
                             logconsole('Server supports multipart downloads')
+                            self._freq.close()
+                        else:
+                            logconsole('Server does not support multipart downloads')
+                            resp = raw_input('Do you still want to download this URL [y/n] ?')
+                            if resp.lower() !='y':
+                                logconsole('Aborting download.')
+                                return 3
+                            else:
+                                # Create a fresh request object
+                                self._freq.close()
+                                request = self.create_request(urltofetch)
+                                self._freq = urllib2.urlopen(request)
+
+                                logconsole('Downloading URL %s...' % urltofetch)
+                                trynormal = True
+                    else:
+                        logconsole('Server supports multipart downloads')
 
                     if not trynormal:
                         logconsole('Trying multipart download...')
                         urlobj.trymultipart = True
                         
                         ret = dmgr.download_multipart_url(urlobj, clength)
-                        # print 'RET=>',ret
-                        if ret==1:
-                            logconsole('Cannot do multipart download, piece size greater than maxfile size!')
-                            return 3
-                        elif ret==0:
+                        if ret==0:
                             # Set flag which indicates a multipart
                             # download is in progress
                             self._cfg.multipart = True
@@ -1376,6 +1374,7 @@ class HarvestManUrlConnector(object):
                             if per1==100.0: break
                         else:
                             if mypercent and showprogress:
+                                self._reader.get_info()
                                 prog.setScreenWidth(prog.getScreenWidth())
                                 infostring = 'TC: %d  ' % nthreads +  filename
                                 prog.setSubTopic(1, infostring)
